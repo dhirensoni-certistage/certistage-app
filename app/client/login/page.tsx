@@ -21,7 +21,7 @@ export default function ClientLoginPage() {
   const handleGoogleSignIn = async () => {
     try {
       await signIn("google", {
-        callbackUrl: "/client/events",
+        callbackUrl: "/auth/callback",
         redirect: true
       })
     } catch (error) {
