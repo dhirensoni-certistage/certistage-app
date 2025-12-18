@@ -1,15 +1,23 @@
 import nodemailer from 'nodemailer'
 
-// Create SMTP transporter for Hostinger
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-  port: parseInt(process.env.SMTP_PORT || '465'),
-  secure: true, // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  }
-})
+// Create SMTP transporter with better settings for serverless
+function createTransporter() {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: true,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    },
+    // Better settings for serverless
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
+    pool: false, // Don't use connection pooling in serverless
+    maxConnections: 1
+  })
+}
 
 export interface EmailTemplate {
   to: string
@@ -17,14 +25,16 @@ export interface EmailTemplate {
   html: string
 }
 
-export async function sendEmail({ to, subject, html }: EmailTemplate) {
-  try {
-    // Check if SMTP is configured
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.warn('SMTP not configured, skipping email')
-      return { success: false, error: 'SMTP not configured' }
-    }
+export async function sendEmail({ to, subject, html }: EmailTemplate): Promise<{ success: boolean; error?: any; data?: any }> {
+  // Check if SMTP is configured
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.warn('SMTP not configured, skipping email')
+    return { success: false, error: 'SMTP not configured' }
+  }
 
+  try {
+    const transporter = createTransporter()
+    
     const info = await transporter.sendMail({
       from: process.env.FROM_EMAIL || `CertiStage <${process.env.SMTP_USER}>`,
       to,
@@ -33,10 +43,14 @@ export async function sendEmail({ to, subject, html }: EmailTemplate) {
     })
     
     console.log('Email sent successfully:', info.messageId)
+    
+    // Close connection
+    transporter.close()
+    
     return { success: true, data: info }
-  } catch (error) {
-    console.error('Email sending failed:', error)
-    return { success: false, error }
+  } catch (error: any) {
+    console.error('Email sending failed:', error.message || error)
+    return { success: false, error: error.message || 'Email sending failed' }
   }
 }
 
@@ -55,11 +69,9 @@ export const emailTemplates = {
           <div style="text-align: center; margin-bottom: 30px;">
             <h1 style="color: #10b981; margin: 0;">Welcome to CertiStage!</h1>
           </div>
-          
           <div style="background: #f8fafc; padding: 30px; border-radius: 10px; margin-bottom: 30px;">
             <h2 style="color: #1f2937; margin-top: 0;">Hi ${name}! 👋</h2>
             <p>Thank you for joining CertiStage! We're excited to help you create and manage professional certificates with ease.</p>
-            
             <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h3 style="color: #10b981; margin-top: 0;">🚀 Get Started:</h3>
               <ul style="padding-left: 20px;">
@@ -69,15 +81,10 @@ export const emailTemplates = {
                 <li>Share and download certificates</li>
               </ul>
             </div>
-            
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/client/events" 
-                 style="background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-                Start Creating Certificates
-              </a>
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/client/events" style="background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Start Creating Certificates</a>
             </div>
           </div>
-          
           <div style="text-align: center; color: #6b7280; font-size: 14px;">
             <p>Need help? Reply to this email or visit our <a href="${process.env.NEXT_PUBLIC_APP_URL}/contact" style="color: #10b981;">support page</a>.</p>
             <p>© 2025 CertiStage. All rights reserved.</p>
@@ -92,32 +99,20 @@ export const emailTemplates = {
     html: `
       <!DOCTYPE html>
       <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #10b981; margin: 0;">CertiStage</h1>
-          </div>
-          
+          <div style="text-align: center; margin-bottom: 30px;"><h1 style="color: #10b981; margin: 0;">CertiStage</h1></div>
           <div style="background: #f8fafc; padding: 30px; border-radius: 10px; margin-bottom: 30px;">
             <h2 style="color: #1f2937; margin-top: 0;">Password Reset Request</h2>
             <p>Hi ${name},</p>
             <p>We received a request to reset your password for your CertiStage account.</p>
-            
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetUrl}" 
-                 style="background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-                Reset Password
-              </a>
+              <a href="${resetUrl}" style="background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Reset Password</a>
             </div>
-            
             <div style="background: #fef3c7; padding: 15px; border-radius: 6px; border-left: 4px solid #f59e0b;">
               <p style="margin: 0; font-size: 14px;"><strong>Security Note:</strong> This link will expire in 1 hour. If you didn't request this reset, please ignore this email.</p>
             </div>
           </div>
-          
           <div style="text-align: center; color: #6b7280; font-size: 14px;">
             <p>If the button doesn't work, copy and paste this link: <br><a href="${resetUrl}" style="color: #10b981; word-break: break-all;">${resetUrl}</a></p>
             <p>© 2025 CertiStage. All rights reserved.</p>
@@ -132,45 +127,24 @@ export const emailTemplates = {
     html: `
       <!DOCTYPE html>
       <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #10b981; margin: 0;">Payment Successful! 🎉</h1>
-          </div>
-          
+          <div style="text-align: center; margin-bottom: 30px;"><h1 style="color: #10b981; margin: 0;">Payment Successful! 🎉</h1></div>
           <div style="background: #f8fafc; padding: 30px; border-radius: 10px; margin-bottom: 30px;">
             <h2 style="color: #1f2937; margin-top: 0;">Thank you, ${name}!</h2>
             <p>Your payment has been processed successfully. Welcome to the ${plan} plan!</p>
-            
             <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h3 style="color: #10b981; margin-top: 0;">📋 Payment Details:</h3>
               <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Plan:</strong></td>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">${plan}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Amount:</strong></td>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">₹${amount / 100}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0;"><strong>Status:</strong></td>
-                  <td style="padding: 8px 0; text-align: right; color: #10b981;"><strong>Paid</strong></td>
-                </tr>
+                <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Plan:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">${plan}</td></tr>
+                <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Amount:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">₹${amount / 100}</td></tr>
+                <tr><td style="padding: 8px 0;"><strong>Status:</strong></td><td style="padding: 8px 0; text-align: right; color: #10b981;"><strong>Paid</strong></td></tr>
               </table>
             </div>
-            
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/client/dashboard" 
-                 style="background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-                Access Dashboard
-              </a>
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/client/dashboard" style="background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Access Dashboard</a>
             </div>
           </div>
-          
           <div style="text-align: center; color: #6b7280; font-size: 14px;">
             <p>Questions? Contact us at <a href="mailto:support@certistage.com" style="color: #10b981;">support@certistage.com</a></p>
             <p>© 2025 CertiStage. All rights reserved.</p>
@@ -185,32 +159,20 @@ export const emailTemplates = {
     html: `
       <!DOCTYPE html>
       <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #10b981; margin: 0;">Welcome to CertiStage! 🎉</h1>
-          </div>
-          
+          <div style="text-align: center; margin-bottom: 30px;"><h1 style="color: #10b981; margin: 0;">Welcome to CertiStage! 🎉</h1></div>
           <div style="background: #f8fafc; padding: 30px; border-radius: 10px; margin-bottom: 30px;">
             <h2 style="color: #1f2937; margin-top: 0;">Hi ${name}! 👋</h2>
             <p>Thank you for signing up with CertiStage! We're excited to have you on board.</p>
             <p>To complete your registration and set up your password, please verify your email address by clicking the button below:</p>
-            
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${verificationUrl}" 
-                 style="background: #10b981; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 16px;">
-                Verify Email & Set Password
-              </a>
+              <a href="${verificationUrl}" style="background: #10b981; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 16px;">Verify Email & Set Password</a>
             </div>
-            
             <div style="background: #fef3c7; padding: 15px; border-radius: 6px; border-left: 4px solid #f59e0b;">
               <p style="margin: 0; font-size: 14px;"><strong>Important:</strong> This link will expire in 24 hours. If you didn't create this account, please ignore this email.</p>
             </div>
           </div>
-          
           <div style="text-align: center; color: #6b7280; font-size: 14px;">
             <p>If the button doesn't work, copy and paste this link: <br><a href="${verificationUrl}" style="color: #10b981; word-break: break-all;">${verificationUrl}</a></p>
             <p>Need help? Reply to this email or visit our <a href="${process.env.NEXT_PUBLIC_APP_URL}/contact" style="color: #10b981;">support page</a>.</p>

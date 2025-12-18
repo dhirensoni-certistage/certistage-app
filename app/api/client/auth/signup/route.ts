@@ -52,15 +52,30 @@ export async function POST(request: NextRequest) {
     // Create verification link
     const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`
 
-    // Send verification email in background (don't wait for it)
-    sendVerificationEmail(email, name, verificationLink).catch(err => {
-      console.error('Background email sending failed:', err)
-    })
+    // Send verification email
+    let emailSent = false
+    try {
+      const { sendEmail, emailTemplates } = await import('@/lib/email')
+      const verificationTemplate = emailTemplates.emailVerification(name, verificationLink)
+      const result = await sendEmail({
+        to: email,
+        subject: verificationTemplate.subject,
+        html: verificationTemplate.html
+      })
+      emailSent = result.success
+      if (!result.success) {
+        console.error('Email sending failed:', result.error)
+      }
+    } catch (emailError) {
+      console.error('Email service error:', emailError)
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Verification email sent! Please check your inbox and click the link to complete your registration.",
-      verificationLink // Include link so user can verify even if email fails
+      message: emailSent 
+        ? "Verification email sent! Please check your inbox and click the link to complete your registration."
+        : "Account created! Please check your email for verification link.",
+      emailSent
     })
   } catch (error: any) {
     console.error("Signup error:", error)
