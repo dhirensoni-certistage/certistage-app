@@ -192,7 +192,39 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Recipient ID required" }, { status: 400 })
     }
     
-    const recipient = await Recipient.findByIdAndUpdate(
+    // Get recipient and check event owner's plan
+    const recipient = await Recipient.findById(recipientId)
+    if (!recipient) {
+      return NextResponse.json({ error: "Recipient not found" }, { status: 404 })
+    }
+    
+    // Get event to find owner
+    const event = await Event.findById(recipient.eventId)
+    if (!event) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+    }
+    
+    // Import User model and plan limits
+    const User = (await import("@/models/User")).default
+    const { getPlanLimits } = await import("@/lib/plan-limits")
+    
+    const owner = await User.findById(event.ownerId)
+    if (!owner) {
+      return NextResponse.json({ error: "Event owner not found" }, { status: 404 })
+    }
+    
+    const limits = getPlanLimits(owner.plan)
+    
+    // Check if free plan and already downloaded once
+    if (owner.plan === "free" && recipient.downloadCount >= 1) {
+      return NextResponse.json({ 
+        error: "Free plan allows only 1 download per certificate. Please ask the event organizer to upgrade.",
+        limitReached: true
+      }, { status: 403 })
+    }
+    
+    // Update download count
+    const updatedRecipient = await Recipient.findByIdAndUpdate(
       recipientId,
       { 
         $inc: { downloadCount: 1 },
@@ -201,13 +233,9 @@ export async function PUT(request: NextRequest) {
       { new: true }
     )
     
-    if (!recipient) {
-      return NextResponse.json({ error: "Recipient not found" }, { status: 404 })
-    }
-    
     return NextResponse.json({
       success: true,
-      downloadCount: recipient.downloadCount
+      downloadCount: updatedRecipient?.downloadCount || 1
     })
   } catch (error) {
     console.error("Download PUT error:", error)
