@@ -1,6 +1,15 @@
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Create SMTP transporter for Hostinger
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+  port: parseInt(process.env.SMTP_PORT || '465'),
+  secure: true, // true for 465, false for other ports
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
+})
 
 export interface EmailTemplate {
   to: string
@@ -10,15 +19,21 @@ export interface EmailTemplate {
 
 export async function sendEmail({ to, subject, html }: EmailTemplate) {
   try {
-    const data = await resend.emails.send({
-      from: process.env.FROM_EMAIL || 'CertiStage <noreply@certistage.com>',
-      to: [to],
+    // Check if SMTP is configured
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.warn('SMTP not configured, skipping email')
+      return { success: false, error: 'SMTP not configured' }
+    }
+
+    const info = await transporter.sendMail({
+      from: process.env.FROM_EMAIL || `CertiStage <${process.env.SMTP_USER}>`,
+      to,
       subject,
-      html,
+      html
     })
     
-    console.log('Email sent successfully:', data)
-    return { success: true, data }
+    console.log('Email sent successfully:', info.messageId)
+    return { success: true, data: info }
   } catch (error) {
     console.error('Email sending failed:', error)
     return { success: false, error }
@@ -35,7 +50,6 @@ export const emailTemplates = {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Welcome to CertiStage</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
@@ -81,7 +95,6 @@ export const emailTemplates = {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Reset Your Password</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
@@ -122,7 +135,6 @@ export const emailTemplates = {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Payment Successful</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
@@ -142,7 +154,7 @@ export const emailTemplates = {
                 </tr>
                 <tr>
                   <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Amount:</strong></td>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">₹${amount}</td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">₹${amount / 100}</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0;"><strong>Status:</strong></td>
@@ -176,7 +188,6 @@ export const emailTemplates = {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Verify Your Email</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
@@ -226,7 +237,7 @@ export const emailTemplates = {
             ` : `
               <p><strong>User:</strong> ${data.userName} (${data.userEmail})</p>
               <p><strong>Plan:</strong> ${data.plan}</p>
-              <p><strong>Amount:</strong> ₹${data.amount}</p>
+              <p><strong>Amount:</strong> ₹${data.amount / 100}</p>
               <p><strong>Payment ID:</strong> ${data.paymentId}</p>
             `}
             <p><strong>Time:</strong> ${new Date().toLocaleString('en-IN')}</p>

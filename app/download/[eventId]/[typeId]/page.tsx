@@ -9,8 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { getEvent, getCertificateType, markAsDownloaded, type EventRecipient, type CertificateType, type CertificateEvent } from "@/lib/events"
-import { getEventDownloadLimit } from "@/lib/auth"
+import { type EventRecipient, type CertificateType, type CertificateEvent } from "@/lib/events"
 import { jsPDF } from "jspdf"
 import { cn } from "@/lib/utils"
 
@@ -60,35 +59,68 @@ export default function CertTypeDownloadPage() {
       return
     }
 
-    const event = getEvent(eventId)
-    if (!event) {
-      setError("Event not found.")
-      setLoading(false)
-      return
+    // Fetch from API instead of localStorage
+    const fetchData = async () => {
+      try {
+        const res = await fetch(`/api/download?eventId=${eventId}&typeId=${typeId}`)
+        const data = await res.json()
+        
+        if (!res.ok) {
+          setError(data.error || "Failed to load certificate data.")
+          setLoading(false)
+          return
+        }
+
+        if (!data.event) {
+          setError("Event not found.")
+          setLoading(false)
+          return
+        }
+
+        if (!data.certificateType) {
+          setError("Certificate type not found.")
+          setLoading(false)
+          return
+        }
+
+        if (!data.certificateType.templateImage) {
+          setError("Certificate template not available yet.")
+          setLoading(false)
+          return
+        }
+
+        setEventName(data.event.name)
+        setEventData(data.event)
+        
+        // Map API response to expected format
+        const certTypeData: CertificateType = {
+          id: data.certificateType.id,
+          name: data.certificateType.name,
+          template: data.certificateType.templateImage,
+          textPosition: data.certificateType.textPosition || { x: 50, y: 60 },
+          fontSize: data.certificateType.fontSize || 24,
+          fontFamily: data.certificateType.fontFamily || "Arial",
+          fontBold: data.certificateType.fontBold || false,
+          fontItalic: data.certificateType.fontItalic || false,
+          showNameField: data.certificateType.showNameField !== false,
+          customFields: data.certificateType.customFields || [],
+          signatures: data.certificateType.signatures || [],
+          recipients: data.recipients || [],
+          stats: data.certificateType.stats || { total: 0, downloaded: 0, pending: 0 },
+          createdAt: data.certificateType.createdAt || new Date().toISOString()
+        }
+        
+        setCertType(certTypeData)
+        setDownloadLimit(data.downloadLimit ?? -1)
+        setLoading(false)
+      } catch (error) {
+        console.error("Failed to fetch certificate data:", error)
+        setError("Failed to load certificate data. Please try again.")
+        setLoading(false)
+      }
     }
 
-    const type = getCertificateType(eventId, typeId)
-    if (!type) {
-      setError("Certificate type not found.")
-      setLoading(false)
-      return
-    }
-
-    if (!type.template) {
-      setError("Certificate template not available yet.")
-      setLoading(false)
-      return
-    }
-
-    setEventName(event.name)
-    setEventData(event)
-    setCertType(type)
-    
-    // Get download limit based on event owner's plan
-    const limit = getEventDownloadLimit(event.ownerId)
-    setDownloadLimit(limit)
-    
-    setLoading(false)
+    fetchData()
   }, [eventId, typeId])
 
   const handleVerify = () => {
@@ -147,10 +179,8 @@ export default function CertTypeDownloadPage() {
   const handleDownload = async () => {
     if (!certType?.template || !selectedRecipient) return
 
-    // Get fresh recipient data to check current download count
-    const freshCertType = getCertificateType(eventId, typeId)
-    const freshRecipient = freshCertType?.recipients.find(r => r.id === selectedRecipient.id)
-    const currentDownloadCount = freshRecipient?.downloadCount || 0
+    // Check download limit using current recipient data
+    const currentDownloadCount = selectedRecipient.downloadCount || 0
 
     // Check download limit
     if (downloadLimit !== -1 && currentDownloadCount >= downloadLimit) {
@@ -255,7 +285,17 @@ export default function CertTypeDownloadPage() {
       pdf.addImage(canvas.toDataURL("image/jpeg", 1.0), "JPEG", 0, 0, pdfWidth, pdfHeight)
       pdf.save(`${certType.name}-${selectedRecipient.certificateId}.pdf`)
 
-      markAsDownloaded(eventId, selectedRecipient.certificateId)
+      // Track download via API
+      try {
+        await fetch("/api/download", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recipientId: selectedRecipient.id })
+        })
+      } catch (e) {
+        console.error("Failed to track download:", e)
+      }
+      
       setDownloaded(true)
       toast.success("Certificate downloaded!")
     } catch (error) {

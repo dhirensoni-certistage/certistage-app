@@ -3,10 +3,18 @@
 // Get config from localStorage (client-side) or env (server-side)
 export function getRazorpayConfig() {
   if (typeof window !== "undefined") {
-    const saved = localStorage.getItem("razorpay_config")
+    const saved = localStorage.getItem("payment_config")
     if (saved) {
       try {
         const config = JSON.parse(saved)
+        // Return razorpay config from payment_config structure
+        if (config.razorpay) {
+          return {
+            keyId: config.razorpay.keyId || "",
+            keySecret: config.razorpay.keySecret || "",
+            isLive: config.razorpay.isLive || false
+          }
+        }
         return {
           keyId: config.keyId || "",
           keySecret: config.keySecret || "",

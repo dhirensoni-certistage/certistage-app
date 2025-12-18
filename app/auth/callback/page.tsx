@@ -10,6 +10,41 @@ export default function AuthCallback() {
   const { data: session, status } = useSession()
   const router = useRouter()
 
+  // Sync NextAuth session to localStorage clientSession
+  const syncClientSession = async (plan?: string) => {
+    if (!session?.user) return
+    
+    // Fetch user profile from API to get accurate plan info
+    try {
+      const res = await fetch("/api/client/profile")
+      if (res.ok) {
+        const data = await res.json()
+        const clientSession = {
+          userId: data.user.id || (session.user as any).id,
+          userName: data.user.name || session.user.name,
+          userEmail: data.user.email || session.user.email,
+          userPlan: plan || data.user.plan || "free",
+          planExpiresAt: data.user.planExpiresAt,
+          loginType: "user",
+          loggedInAt: new Date().toISOString()
+        }
+        localStorage.setItem("clientSession", JSON.stringify(clientSession))
+      }
+    } catch (error) {
+      console.error("Failed to sync session:", error)
+      // Fallback: create basic session
+      const clientSession = {
+        userId: (session.user as any).id,
+        userName: session.user.name,
+        userEmail: session.user.email,
+        userPlan: plan || "free",
+        loginType: "user",
+        loggedInAt: new Date().toISOString()
+      }
+      localStorage.setItem("clientSession", JSON.stringify(clientSession))
+    }
+  }
+
   useEffect(() => {
     if (status === "loading") return
 
@@ -23,8 +58,9 @@ export default function AuthCallback() {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ plan: selectedPlan })
-        }).then(() => {
+        }).then(async () => {
           localStorage.removeItem("selectedPlan")
+          await syncClientSession(selectedPlan)
           toast.success(`Welcome! You've been enrolled in the ${selectedPlan} plan.`)
           router.push("/client/events")
         }).catch(() => {
@@ -32,8 +68,11 @@ export default function AuthCallback() {
           router.push("/client/events")
         })
       } else {
-        toast.success(`Welcome back, ${session.user.name}!`)
-        router.push("/client/events")
+        // Sync session and redirect
+        syncClientSession().then(() => {
+          toast.success(`Welcome back, ${session.user?.name}!`)
+          router.push("/client/events")
+        })
       }
     } else if (status === "unauthenticated") {
       toast.error("Authentication failed. Please try again.")

@@ -13,7 +13,6 @@ import {
   FolderOpen,
   Search,
   Calendar,
-  Copy,
   Loader2
 } from "lucide-react"
 import { toast } from "sonner"
@@ -232,18 +231,6 @@ export default function EventsPage() {
                       onClick={(e) => { e.stopPropagation(); setEditEvent(event) }}
                     >
                       <Pencil className="h-3.5 w-3.5 text-white" />
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="h-7 w-7 bg-white/20 hover:bg-white/30 backdrop-blur-sm border-0"
-                      onClick={(e) => { 
-                        e.stopPropagation()
-                        navigator.clipboard.writeText(event._id)
-                        toast.success("Event ID copied!")
-                      }}
-                    >
-                      <Copy className="h-3.5 w-3.5 text-white" />
                     </Button>
                   </div>
                 </div>

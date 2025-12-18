@@ -64,17 +64,47 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Certificate type not found" }, { status: 404 })
       }
       
+      // Get recipients for this certificate type
+      const recipients = await Recipient.find({ 
+        eventId, 
+        certificateTypeId: typeId 
+      }).lean()
+      
       return NextResponse.json({
         event: {
           id: event._id,
-          name: event.name
+          name: event.name,
+          ownerId: event.ownerId
         },
         certificateType: {
           id: certType._id,
           name: certType.name,
           templateImage: certType.templateImage,
-          textFields: certType.textFields
-        }
+          textPosition: certType.textPosition || { x: 50, y: 60 },
+          fontSize: certType.fontSize || 24,
+          fontFamily: certType.fontFamily || "Arial",
+          fontBold: certType.fontBold || false,
+          fontItalic: certType.fontItalic || false,
+          showNameField: certType.showNameField !== false,
+          customFields: certType.customFields || [],
+          signatures: certType.signatures || [],
+          stats: {
+            total: recipients.length,
+            downloaded: recipients.filter(r => r.downloadCount > 0).length,
+            pending: recipients.filter(r => r.downloadCount === 0).length
+          },
+          createdAt: certType.createdAt
+        },
+        recipients: recipients.map(r => ({
+          id: r._id.toString(),
+          name: r.name,
+          email: r.email || "",
+          mobile: r.mobile || "",
+          certificateId: r.regNo || r._id.toString(),
+          status: r.downloadCount > 0 ? "downloaded" : "pending",
+          downloadCount: r.downloadCount || 0
+        })),
+        downloadLimit: -1 // TODO: Get from user plan
       })
     }
     
@@ -164,7 +194,10 @@ export async function PUT(request: NextRequest) {
     
     const recipient = await Recipient.findByIdAndUpdate(
       recipientId,
-      { $inc: { downloadCount: 1 } },
+      { 
+        $inc: { downloadCount: 1 },
+        $set: { lastDownloadAt: new Date() }
+      },
       { new: true }
     )
     

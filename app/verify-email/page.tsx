@@ -121,7 +121,7 @@ export default function VerifyEmailPage() {
           {verificationStatus === 'success' ? (
             <>
               <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-              <CardTitle className="text-2xl">Email Verified! 🎉</CardTitle>
+              <CardTitle className="text-2xl">Email Verified!</CardTitle>
               <CardDescription>
                 Now set your password to complete your registration
               </CardDescription>

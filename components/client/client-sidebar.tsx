@@ -44,34 +44,38 @@ export function ClientSidebar() {
 
   useEffect(() => {
     setMounted(true)
-    const session = getClientSession()
-    if (session) {
-      if (session.loginType === "event") {
-        setEventName(session.eventName || "CertiStage")
-        setIsUserLogin(false)
-        setHasEventSelected(true)
-      } else {
-        setUserName(session.userName || "")
-        setUserPlan(session.userPlan || "free")
-        setIsUserLogin(true)
-        
-        if (session.eventId) {
-          setEventName(session.eventName || "Event")
+    const loadSession = () => {
+      const session = getClientSession()
+      if (session) {
+        if (session.loginType === "event") {
+          setEventName(session.eventName || "CertiStage")
+          setIsUserLogin(false)
           setHasEventSelected(true)
         } else {
-          setEventName("CertiStage")
-          setHasEventSelected(false)
-        }
+          setUserName(session.userName || "")
+          setUserPlan(session.userPlan || "free")
+          setIsUserLogin(true)
+          
+          if (session.eventId) {
+            setEventName(session.eventName || "Event")
+            setHasEventSelected(true)
+          } else {
+            setEventName("CertiStage")
+            setHasEventSelected(false)
+          }
 
-        const trialStatus = getTrialStatus(session.userId)
-        if (trialStatus.isOnTrial) {
-          setTrialDays(trialStatus.daysRemaining)
-          setTrialTotalDays(trialStatus.totalDays)
-          setIsOnTrial(true)
+          const trialStatus = getTrialStatus(session.userId)
+          if (trialStatus.isOnTrial) {
+            setTrialDays(trialStatus.daysRemaining)
+            setTrialTotalDays(trialStatus.totalDays)
+            setIsOnTrial(true)
+          }
         }
       }
     }
-  }, [])
+    
+    loadSession()
+  }, [pathname]) // Re-load session when pathname changes
 
   const handleBackToList = () => {
     clearSessionEvent()

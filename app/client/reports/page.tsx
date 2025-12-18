@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/select"
 import { getClientSession, getCurrentPlanFeatures, getTrialStatus } from "@/lib/auth"
 import { LockedFeature } from "@/components/client/upgrade-overlay"
-import { getEvent, type CertificateEvent, type EventRecipient, type CertificateType } from "@/lib/events"
 import { 
   Download, 
   FileSpreadsheet,
@@ -23,13 +22,49 @@ import {
   Clock,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from "lucide-react"
 import * as XLSX from "xlsx"
 import { toast } from "sonner"
 
+// Types for API response
+interface EventRecipient {
+  id: string
+  name: string
+  email: string
+  mobile: string
+  certificateId: string
+  status: "pending" | "downloaded"
+  downloadedAt?: string
+  downloadCount: number
+}
+
+interface CertificateType {
+  id: string
+  name: string
+  recipients: EventRecipient[]
+  stats: {
+    total: number
+    downloaded: number
+    pending: number
+  }
+}
+
+interface ReportEvent {
+  _id: string
+  name: string
+  certificateTypes: CertificateType[]
+  stats: {
+    total: number
+    downloaded: number
+    pending: number
+    certificateTypesCount: number
+  }
+}
+
 export default function ClientReportsPage() {
-  const [event, setEvent] = useState<CertificateEvent | null>(null)
+  const [event, setEvent] = useState<ReportEvent | null>(null)
   const [certFilter, setCertFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [search, setSearch] = useState("")
@@ -40,12 +75,27 @@ export default function ClientReportsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
 
+  // Fetch event data from API
+  const fetchEventData = async (eventId: string) => {
+    try {
+      const res = await fetch(`/api/client/dashboard?eventId=${eventId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setEvent(data.event)
+      }
+    } catch (error) {
+      console.error("Failed to fetch event data:", error)
+    }
+    setIsLoading(false)
+  }
+
   useEffect(() => {
     const session = getClientSession()
     if (session) {
-      // Both user and event login now have eventId
       if (session.eventId) {
-        setEvent(getEvent(session.eventId))
+        fetchEventData(session.eventId)
+      } else {
+        setIsLoading(false)
       }
       
       if (session.loginType === "user") {
@@ -58,16 +108,9 @@ export default function ClientReportsPage() {
       } else {
         setIsUserLogin(false)
       }
+    } else {
+      setIsLoading(false)
     }
-    setIsLoading(false)
-    
-    const interval = setInterval(() => {
-      const session = getClientSession()
-      if (session?.eventId) {
-        setEvent(getEvent(session.eventId))
-      }
-    }, 2000)
-    return () => clearInterval(interval)
   }, [])
 
   // Reset to first page when filters or page size change
@@ -123,7 +166,7 @@ export default function ClientReportsPage() {
       "Name": item.r.name,
       "Email": item.r.email || "-",
       "Mobile": item.r.mobile || "-",
-      "Certificate ID": item.r.certificateId,
+      "Registration No": item.r.certificateId,
       "Status": item.r.status === "downloaded" ? "Downloaded" : "Pending",
       "Downloads": item.r.downloadCount,
       "Downloaded At": item.r.downloadedAt ? new Date(item.r.downloadedAt).toLocaleString() : "-"

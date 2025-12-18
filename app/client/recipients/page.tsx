@@ -22,13 +22,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { getClientSession, getTrialStatus, getCurrentPlanFeatures } from "@/lib/auth"
-import { LockedFeature } from "@/components/client/upgrade-overlay"
 import { 
-  getEvent, addRecipientsToCertType, deleteRecipient,
-  type CertificateEvent, type EventRecipient
-} from "@/lib/events"
-import { 
-  Users, FileSpreadsheet, Plus, Search, Trash2, Download, 
+  Users, FileSpreadsheet, Search, Trash2, Download, Plus, Lock,
   UserPlus, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -41,9 +36,45 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 
+// Types for API response
+interface EventRecipient {
+  id: string
+  name: string
+  email: string
+  mobile: string
+  certificateId: string
+  status: "pending" | "downloaded"
+  downloadedAt?: string
+  downloadCount: number
+}
+
+interface CertificateType {
+  id: string
+  name: string
+  recipients: EventRecipient[]
+  stats: {
+    total: number
+    downloaded: number
+    pending: number
+  }
+}
+
+interface ApiEvent {
+  _id: string
+  name: string
+  certificateTypes: CertificateType[]
+  stats: {
+    total: number
+    downloaded: number
+    pending: number
+    certificateTypesCount: number
+  }
+}
+
 export default function RecipientsPage() {
-  const [event, setEvent] = useState<CertificateEvent | null>(null)
+  const [event, setEvent] = useState<ApiEvent | null>(null)
   const [eventId, setEventId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [selectedTypeId, setSelectedTypeId] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -67,14 +98,32 @@ export default function RecipientsPage() {
   const [formMobile, setFormMobile] = useState("")
   const [formCertId, setFormCertId] = useState("")
 
+  // Fetch event data from API
+  const fetchEventData = async (evtId: string) => {
+    try {
+      const res = await fetch(`/api/client/dashboard?eventId=${evtId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setEvent(data.event)
+      }
+    } catch (error) {
+      console.error("Failed to fetch event data:", error)
+    }
+    setIsLoading(false)
+  }
+
   const refreshData = (isInitial = false) => {
     const session = getClientSession()
     if (session) {
-      // Both user and event login now have eventId
       if (session.eventId) {
-        const eventData = getEvent(session.eventId)
-        setEvent(eventData)
         setEventId(session.eventId)
+        fetchEventData(session.eventId)
+      } else {
+        setIsLoading(false)
+      }
+      
+      if (session.userId) {
+        setUserId(session.userId)
       }
       
       if (session.loginType === "user") {
@@ -86,28 +135,33 @@ export default function RecipientsPage() {
         setMaxCertificates(planFeatures.maxCertificates)
       } else {
         setIsUserLogin(false)
-        setCanImportData(true) // Event login has full access
-        setMaxCertificates(-1) // Unlimited for event login
+        setCanImportData(true)
+        setMaxCertificates(-1)
       }
       
-      // Only set loading false on initial load
       if (isInitial) {
         setIsLoading(false)
       }
+    } else {
+      setIsLoading(false)
     }
   }
 
-  // Initial load - show skeleton
+  // Initial load
   useEffect(() => { 
     setIsLoading(true)
-    setTimeout(() => refreshData(true), 300)
+    refreshData(true)
   }, [])
   
-  // Background refresh - no skeleton
+  // Background refresh
   useEffect(() => {
-    const interval = setInterval(() => refreshData(false), 2000)
+    const interval = setInterval(() => {
+      if (eventId) {
+        fetchEventData(eventId)
+      }
+    }, 10000) // Refresh every 10 seconds
     return () => clearInterval(interval)
-  }, [])
+  }, [eventId])
 
   // Get all recipients across all certificate types
   const getAllRecipients = (): (EventRecipient & { certTypeName: string; certTypeId: string })[] => {
@@ -203,24 +257,40 @@ export default function RecipientsPage() {
     setDeleteDialogOpen(true)
   }
 
-  const handleDelete = () => {
-    if (!eventId || !deleteTarget) return
+  const handleDelete = async () => {
+    if (!eventId || !deleteTarget || !userId) return
 
-    if (deleteTarget.type === 'single' && deleteTarget.recipient) {
-      deleteRecipient(eventId, deleteTarget.recipient.certTypeId, deleteTarget.recipient.id)
-      toast.success(`${deleteTarget.recipient.name} deleted`)
-    } else if (deleteTarget.type === 'bulk') {
-      const selectedRecipients = paginatedRecipients.filter(r => selectedIds.has(r.id))
-      selectedRecipients.forEach(r => {
-        deleteRecipient(eventId, r.certTypeId, r.id)
-      })
-      toast.success(`${selectedIds.size} recipients deleted`)
-      setSelectedIds(new Set())
+    try {
+      if (deleteTarget.type === 'single' && deleteTarget.recipient) {
+        const res = await fetch(`/api/client/recipients?recipientId=${deleteTarget.recipient.id}&userId=${userId}`, {
+          method: 'DELETE'
+        })
+        if (res.ok) {
+          toast.success(`${deleteTarget.recipient.name} deleted`)
+        } else {
+          toast.error("Failed to delete recipient")
+        }
+      } else if (deleteTarget.type === 'bulk') {
+        const selectedRecipients = paginatedRecipients.filter(r => selectedIds.has(r.id))
+        for (const r of selectedRecipients) {
+          await fetch(`/api/client/recipients?recipientId=${r.id}&userId=${userId}`, {
+            method: 'DELETE'
+          })
+        }
+        toast.success(`${selectedIds.size} recipients deleted`)
+        setSelectedIds(new Set())
+      }
+      
+      // Refresh data
+      if (eventId) {
+        fetchEventData(eventId)
+      }
+    } catch (error) {
+      toast.error("Failed to delete")
     }
 
     setDeleteDialogOpen(false)
     setDeleteTarget(null)
-    refreshData()
   }
 
 
@@ -255,7 +325,7 @@ export default function RecipientsPage() {
     return event.certificateTypes.reduce((sum, ct) => sum + ct.recipients.length, 0)
   }
 
-  const handleAddRecipient = () => {
+  const handleAddRecipient = async () => {
     if (!formName.trim()) {
       toast.error("Name is required")
       return
@@ -284,16 +354,35 @@ export default function RecipientsPage() {
       return
     }
 
-    addRecipientsToCertType(eventId, addToTypeId, [{
-      name: formName.trim(),
-      email: formEmail.trim(),
-      mobile: formMobile.trim(),
-      certificateId: formCertId.trim() || generateRegNo()
-    }])
-    refreshData()
-    setIsAddDialogOpen(false)
-    resetForm()
-    toast.success(`${formName} added successfully!`)
+    try {
+      const res = await fetch('/api/client/recipients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          eventId,
+          certificateTypeId: addToTypeId,
+          recipients: [{
+            name: formName.trim(),
+            email: formEmail.trim(),
+            mobile: formMobile.trim(),
+            certificateId: formCertId.trim() || generateRegNo()
+          }]
+        })
+      })
+      
+      if (res.ok) {
+        if (eventId) fetchEventData(eventId)
+        setIsAddDialogOpen(false)
+        resetForm()
+        toast.success(`${formName} added successfully!`)
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Failed to add recipient")
+      }
+    } catch (error) {
+      toast.error("Failed to add recipient")
+    }
   }
 
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -348,8 +437,19 @@ export default function RecipientsPage() {
             if (recipients.length > availableSlots) {
               // Import only what fits
               const limitedRecipients = recipients.slice(0, availableSlots)
-              addRecipientsToCertType(eventId, selectedTypeId, limitedRecipients)
-              refreshData()
+              fetch('/api/client/recipients', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId,
+                  eventId,
+                  certificateTypeId: selectedTypeId,
+                  recipients: limitedRecipients,
+                  isBulkImport: true
+                })
+              }).then(res => {
+                if (res.ok && eventId) fetchEventData(eventId)
+              })
               const planFeatures = getCurrentPlanFeatures()
               toast.warning(`Only ${limitedRecipients.length} of ${recipients.length} imported`, {
                 description: `${planFeatures.displayName} plan limit: ${maxCertificates} certificates. Upgrade to add more.`
@@ -358,9 +458,25 @@ export default function RecipientsPage() {
             }
           }
 
-          addRecipientsToCertType(eventId, selectedTypeId, recipients)
-          refreshData()
-          toast.success(`${recipients.length} recipients imported!`)
+          // API call to add recipients
+          fetch('/api/client/recipients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId,
+              eventId,
+              certificateTypeId: selectedTypeId,
+              recipients,
+              isBulkImport: true
+            })
+          }).then(res => {
+            if (res.ok) {
+              if (eventId) fetchEventData(eventId)
+              toast.success(`${recipients.length} recipients imported!`)
+            } else {
+              res.json().then(data => toast.error(data.error || "Failed to import"))
+            }
+          })
         } catch {
           toast.error("Failed to parse Excel file")
         }
@@ -494,7 +610,7 @@ export default function RecipientsPage() {
                       className={!canImportData ? "opacity-50" : ""}
                     >
                       <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Import Excel {!canImportData && "🔒"}
+                      Import Excel {!canImportData && <Lock className="h-3 w-3 ml-1 inline" />}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getClientSession, PLAN_FEATURES } from "@/lib/auth"
-import { getEvent, type CertificateEvent } from "@/lib/events"
 import { 
   Users, 
   Download, 
@@ -13,7 +12,8 @@ import {
   TrendingUp,
   Award,
   Crown,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -36,28 +36,74 @@ const COLORS = {
   pending: "#f59e0b"
 }
 
+// Dashboard event type (from API)
+interface DashboardEvent {
+  _id: string
+  name: string
+  description?: string
+  certificateTypes: {
+    id: string
+    name: string
+    recipients: {
+      id: string
+      name: string
+      downloadCount: number
+      status: string
+    }[]
+    stats: {
+      total: number
+      downloaded: number
+      pending: number
+    }
+  }[]
+  stats: {
+    total: number
+    downloaded: number
+    pending: number
+    certificateTypesCount: number
+  }
+}
+
 export default function ClientDashboard() {
-  const [event, setEvent] = useState<CertificateEvent | null>(null)
+  const [event, setEvent] = useState<DashboardEvent | null>(null)
   const [registrationView, setRegistrationView] = useState<"registered" | "downloaded">("registered")
+  const [isLoading, setIsLoading] = useState(true)
 
   const [session, setSession] = useState<ReturnType<typeof getClientSession>>(null)
   const [showUpgradeBanner, setShowUpgradeBanner] = useState(false)
+
+  // Fetch event data from API
+  const fetchEventData = async (eventId: string) => {
+    try {
+      const res = await fetch(`/api/client/dashboard?eventId=${eventId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setEvent(data.event)
+      }
+    } catch (error) {
+      console.error("Failed to fetch event data:", error)
+    }
+    setIsLoading(false)
+  }
 
   useEffect(() => {
     const currentSession = getClientSession()
     setSession(currentSession)
     
-    // Both user and event login now have eventId
+    // Fetch event data from API
     if (currentSession?.eventId) {
-      setEvent(getEvent(currentSession.eventId))
+      fetchEventData(currentSession.eventId)
+    } else {
+      setIsLoading(false)
     }
     
+    // Refresh data periodically
     const interval = setInterval(() => {
       const currentSession = getClientSession()
       if (currentSession?.eventId) {
-        setEvent(getEvent(currentSession.eventId))
+        fetchEventData(currentSession.eventId)
       }
-    }, 2000)
+    }, 10000) // Refresh every 10 seconds
     return () => clearInterval(interval)
   }, [])
 
@@ -81,9 +127,31 @@ export default function ClientDashboard() {
     setShowUpgradeBanner(false)
   }
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   // Show event dashboard for both user and event login
   if (!event) {
-    return <div className="p-8"><p className="text-muted-foreground">Loading...</p></div>
+    return (
+      <div className="p-8 space-y-4">
+        <h1 className="text-2xl font-bold">Welcome to CertiStage!</h1>
+        <p className="text-muted-foreground">Create your first event to get started.</p>
+        <div className="flex gap-4">
+          <Link href="/client/events">
+            <Button>Create Event</Button>
+          </Link>
+          <Link href="/client/events">
+            <Button variant="outline">View Events</Button>
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   const planId = session?.loginType === "user" ? (session.userPlan || "free") : "enterprise"

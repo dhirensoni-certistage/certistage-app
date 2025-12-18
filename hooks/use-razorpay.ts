@@ -24,10 +24,19 @@ interface UserDetails {
 function getRazorpayConfig() {
   if (typeof window === "undefined") return { keyId: "", keySecret: "", isLive: false }
   
-  const saved = localStorage.getItem("razorpay_config")
+  const saved = localStorage.getItem("payment_config")
   if (saved) {
     try {
-      return JSON.parse(saved)
+      const config = JSON.parse(saved)
+      // Return razorpay config from payment_config structure
+      if (config.razorpay) {
+        return {
+          keyId: config.razorpay.keyId || "",
+          keySecret: config.razorpay.keySecret || "",
+          isLive: config.razorpay.isLive || false
+        }
+      }
+      return config
     } catch (e) {
       return { keyId: "", keySecret: "", isLive: false }
     }

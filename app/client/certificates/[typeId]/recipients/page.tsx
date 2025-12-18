@@ -274,7 +274,7 @@ export default function CertTypeRecipientsPage() {
           <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={!canAddMore || !canImportData}>
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Import Excel
-            {!canImportData && " 🔒"}
+            {!canImportData && <Lock className="h-3 w-3 ml-1 inline" />}
           </Button>
           <Button variant="outline" onClick={downloadSampleExcel}>
             <Download className="h-4 w-4 mr-2" />
@@ -306,7 +306,7 @@ export default function CertTypeRecipientsPage() {
               <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={!canAddMore || !canImportData}>
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
                 Import Excel
-                {!canImportData && " 🔒"}
+                {!canImportData && <Lock className="h-3 w-3 ml-1 inline" />}
               </Button>
             </div>
             {!canAddMore && (

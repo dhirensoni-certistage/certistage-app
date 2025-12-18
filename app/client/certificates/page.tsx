@@ -30,7 +30,6 @@ import {
 import { getClientSession, getCurrentPlanFeatures, getTrialStatus, PLAN_FEATURES } from "@/lib/auth"
 import { LockedFeature } from "@/components/client/upgrade-overlay"
 import { 
-  getEvent, addCertificateType, deleteCertificateType, updateCertificateType,
   getCertTypePublicLink,
   type CertificateEvent, type CertificateType, type TextField, type SignatureField 
 } from "@/lib/events"
@@ -65,7 +64,7 @@ const AVAILABLE_VARIABLES = [
 ]
 import { 
   Plus, FileText, Trash2, Image, Upload, Move, Eye, Check, ArrowLeft,
-  Bold, Italic, Link as LinkIcon, Copy, Users, Download, Settings, PenTool, X, Crown, Award
+  Bold, Italic, Link as LinkIcon, Copy, Users, Download, Settings, PenTool, X, Crown, Award, Lock
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -96,14 +95,173 @@ export default function CertificatesPage() {
   const [showPreview, setShowPreview] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // Debounce timer ref for API calls
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const pendingUpdatesRef = useRef<Record<string, unknown>>({})
+
+  // Update local certificate type state immediately (for smooth UI)
+  const updateLocalCertType = useCallback((updates: Partial<CertificateType>) => {
+    if (!event || !selectedTypeId) return
+    
+    setEvent(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        certificateTypes: prev.certificateTypes.map(ct =>
+          ct.id === selectedTypeId ? { ...ct, ...updates } : ct
+        )
+      }
+    })
+  }, [event, selectedTypeId])
+
+  // Track current typeId for flush
+  const currentTypeIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    currentTypeIdRef.current = selectedTypeId
+  }, [selectedTypeId])
+
+  // Flush pending updates immediately (used on unmount/navigation)
+  const flushPendingUpdates = useCallback(async () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = null
+    }
+    
+    const updates = pendingUpdatesRef.current
+    const typeId = currentTypeIdRef.current
+    if (Object.keys(updates).length === 0 || !typeId) return
+    
+    pendingUpdatesRef.current = {}
+    
+    const session = getClientSession()
+    if (!session?.userId) return
+    
+    try {
+      await fetch('/api/client/certificate-types', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: session.userId,
+          typeId,
+          ...updates
+        })
+      })
+    } catch (error) {
+      console.error('Failed to flush updates:', error)
+    }
+  }, [])
+
+  // Flush pending updates on unmount (navigation away)
+  useEffect(() => {
+    return () => {
+      flushPendingUpdates()
+    }
+  }, [flushPendingUpdates])
+
+  // Sync to API in background (debounced)
+  const syncToAPI = useCallback((typeId: string, updates: Record<string, unknown>) => {
+    // Merge with pending updates
+    pendingUpdatesRef.current = { ...pendingUpdatesRef.current, ...updates }
+    
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    
+    // Set new timer - sync after 500ms of no changes (reduced from 800ms)
+    debounceTimerRef.current = setTimeout(async () => {
+      const session = getClientSession()
+      if (!session?.userId) return
+      
+      const updatesToSend = { ...pendingUpdatesRef.current }
+      pendingUpdatesRef.current = {} // Clear pending
+      
+      try {
+        await fetch('/api/client/certificate-types', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: session.userId,
+            typeId,
+            ...updatesToSend
+          })
+        })
+      } catch (error) {
+        console.error('Failed to sync:', error)
+      }
+    }, 500)
+  }, [])
+
+  // API helper to update certificate type (immediate - for non-frequent updates)
+  const updateCertTypeAPI = async (typeId: string, updates: Record<string, unknown>) => {
+    const session = getClientSession()
+    if (!session?.userId) return false
+    
+    try {
+      const res = await fetch('/api/client/certificate-types', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: session.userId,
+          typeId,
+          ...updates
+        })
+      })
+      return res.ok
+    } catch {
+      return false
+    }
+  }
+
+  // Fetch event data from API
+  const fetchEventData = async (evtId: string) => {
+    try {
+      const res = await fetch(`/api/client/dashboard?eventId=${evtId}`)
+      if (res.ok) {
+        const data = await res.json()
+        // Convert API response to match expected format
+        if (data.event) {
+          const apiEvent = data.event
+          const convertedEvent: CertificateEvent = {
+            id: apiEvent._id,
+            name: apiEvent.name,
+            description: apiEvent.description,
+            createdAt: apiEvent.createdAt || new Date().toISOString(),
+            certificateTypes: apiEvent.certificateTypes.map((ct: any) => ({
+              id: ct.id,
+              name: ct.name,
+              template: ct.templateImage || ct.template || "",
+              textPosition: ct.textPosition || { x: 50, y: 60 },
+              fontSize: ct.fontSize || 24,
+              fontFamily: ct.fontFamily || "Arial",
+              fontBold: ct.fontBold || false,
+              fontItalic: ct.fontItalic || false,
+              showNameField: ct.showNameField !== false,
+              customFields: ct.customFields || [],
+              signatures: ct.signatures || [],
+              recipients: ct.recipients || [],
+              stats: ct.stats,
+              createdAt: ct.createdAt || new Date().toISOString()
+            })),
+            stats: apiEvent.stats
+          }
+          setEvent(convertedEvent)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch event data:", error)
+    }
+    setIsLoading(false)
+  }
+
   const refreshEvent = useCallback(() => {
     const session = getClientSession()
     if (session) {
-      // Both user and event login now have eventId
       if (session.eventId) {
-        const eventData = getEvent(session.eventId)
-        setEvent(eventData)
         setEventId(session.eventId)
+        fetchEventData(session.eventId)
+      } else {
+        setIsLoading(false)
       }
       
       if (session.loginType === "user") {
@@ -114,8 +272,9 @@ export default function CertificatesPage() {
         setMaxCertificateTypes(planFeatures.maxCertificateTypes)
       } else {
         setIsUserLogin(false)
-        setMaxCertificateTypes(-1) // Event login = unlimited
+        setMaxCertificateTypes(-1)
       }
+    } else {
       setIsLoading(false)
     }
   }, [])
@@ -129,10 +288,21 @@ export default function CertificatesPage() {
     }
   }, [refreshEvent, searchParams])
 
+  // Only poll when NOT actively editing (dragging/resizing)
   useEffect(() => {
-    const interval = setInterval(refreshEvent, 2000)
+    // Don't poll while user is interacting with the editor
+    if (isDraggingText || draggingFieldId || draggingSignatureId || resizingSignatureId) {
+      return
+    }
+    
+    // Also don't poll when in template editor tab with a selected type
+    if (selectedTypeId && activeTab === "template") {
+      return
+    }
+    
+    const interval = setInterval(refreshEvent, 5000) // Increased to 5 seconds
     return () => clearInterval(interval)
-  }, [refreshEvent])
+  }, [refreshEvent, isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, selectedTypeId, activeTab])
 
   // Load Google Font when selected type changes
   useEffect(() => {
@@ -147,7 +317,7 @@ export default function CertificatesPage() {
 
   const selectedType = event?.certificateTypes.find(t => t.id === selectedTypeId) || null
 
-  const handleAddCertificateType = () => {
+  const handleAddCertificateType = async () => {
     if (!newTypeName.trim() || !eventId) {
       toast.error("Please enter certificate type name")
       return
@@ -167,28 +337,73 @@ export default function CertificatesPage() {
       return
     }
     
-    const newType = addCertificateType(eventId, newTypeName.trim())
-    if (newType) {
-      refreshEvent()
-      setSelectedTypeId(newType.id)
-      setShowAddDialog(false)
-      setNewTypeName("")
-      toast.success(`"${newType.name}" created!`)
+    // Get userId from session
+    const session = getClientSession()
+    if (!session?.userId) {
+      toast.error("Session expired. Please login again.")
+      return
+    }
+    
+    try {
+      const res = await fetch('/api/client/certificate-types', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: session.userId,
+          eventId,
+          name: newTypeName.trim()
+        })
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok && data.certificateType) {
+        fetchEventData(eventId)
+        setSelectedTypeId(data.certificateType.id)
+        setShowAddDialog(false)
+        setNewTypeName("")
+        toast.success(`"${newTypeName}" created!`)
+      } else {
+        toast.error(data.error || "Failed to create certificate type")
+      }
+    } catch (error) {
+      toast.error("Failed to create certificate type")
     }
   }
 
-  const handleDeleteType = () => {
+  const handleDeleteType = async () => {
     if (!eventId || !deleteType) return
-    deleteCertificateType(eventId, deleteType.id)
-    setDeleteType(null)
-    if (selectedTypeId === deleteType.id) {
-      setSelectedTypeId(null)
+    
+    const session = getClientSession()
+    if (!session?.userId) {
+      toast.error("Session expired")
+      return
     }
-    refreshEvent()
-    toast.success("Certificate type deleted")
+    
+    try {
+      const res = await fetch(`/api/client/certificate-types?typeId=${deleteType.id}&userId=${session.userId}&permanent=true`, {
+        method: 'DELETE'
+      })
+      
+      if (res.ok) {
+        setDeleteType(null)
+        if (selectedTypeId === deleteType.id) {
+          setSelectedTypeId(null)
+        }
+        fetchEventData(eventId)
+        toast.success("Certificate type deleted")
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Failed to delete")
+      }
+    } catch (error) {
+      toast.error("Failed to delete certificate type")
+    }
   }
 
-  const handleBackToList = () => {
+  const handleBackToList = async () => {
+    // Flush any pending updates before navigating
+    await flushPendingUpdates()
     setSelectedTypeId(null)
     router.push('/client/certificates')
   }
@@ -223,8 +438,16 @@ export default function CertificatesPage() {
     }
     if (!eventId || !selectedTypeId) return
 
+    const session = getClientSession()
+    if (!session?.userId) {
+      toast.error("Session expired")
+      return
+    }
+
+    toast.loading("Uploading template...", { id: "template-upload" })
+
     const img = document.createElement("img")
-    img.onload = () => {
+    img.onload = async () => {
       const canvas = document.createElement("canvas")
       const maxWidth = 1200
       const maxHeight = 900
@@ -238,21 +461,64 @@ export default function CertificatesPage() {
       canvas.height = height
       const ctx = canvas.getContext("2d")
       ctx?.drawImage(img, 0, 0, width, height)
-      const compressedData = canvas.toDataURL("image/jpeg", 0.7)
-      updateCertificateType(eventId, selectedTypeId, { template: compressedData })
-      refreshEvent()
-      toast.success("Template uploaded!")
+      const compressedData = canvas.toDataURL("image/jpeg", 0.8)
+      
+      // Upload to Cloudinary via API
+      try {
+        const res = await fetch('/api/client/upload-template', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: session.userId,
+            typeId: selectedTypeId,
+            imageData: compressedData
+          })
+        })
+        
+        if (res.ok) {
+          fetchEventData(eventId)
+          toast.success("Template uploaded!", { id: "template-upload" })
+        } else {
+          const data = await res.json()
+          toast.error(data.error || "Failed to upload template", { id: "template-upload" })
+        }
+      } catch (error) {
+        toast.error("Failed to upload template", { id: "template-upload" })
+      }
     }
     const reader = new FileReader()
     reader.onload = (e) => { img.src = e.target?.result as string }
     reader.readAsDataURL(file)
   }
 
-  const removeTemplate = () => {
-    if (eventId && selectedTypeId) {
-      updateCertificateType(eventId, selectedTypeId, { template: undefined })
-      refreshEvent()
-      toast.info("Template removed")
+  const removeTemplate = async () => {
+    if (!eventId || !selectedTypeId) return
+    
+    const session = getClientSession()
+    if (!session?.userId) {
+      toast.error("Session expired")
+      return
+    }
+    
+    try {
+      const res = await fetch('/api/client/certificate-types', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: session.userId,
+          typeId: selectedTypeId,
+          templateImage: ""
+        })
+      })
+      
+      if (res.ok) {
+        fetchEventData(eventId)
+        toast.info("Template removed")
+      } else {
+        toast.error("Failed to remove template")
+      }
+    } catch (error) {
+      toast.error("Failed to remove template")
     }
   }
 
@@ -306,6 +572,9 @@ export default function CertificatesPage() {
     setResizeStartWidth(currentWidth)
   }
 
+  // Track signature width locally during resize
+  const [localSignatureWidths, setLocalSignatureWidths] = useState<Record<string, number>>({})
+
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!containerRef.current || !eventId || !selectedTypeId) return
     const rect = containerRef.current.getBoundingClientRect()
@@ -313,58 +582,30 @@ export default function CertificatesPage() {
     const y = Math.max(5, Math.min(95, ((e.clientY - rect.top) / rect.height) * 100))
     
     if (isDraggingText) {
+      // Only update local state during drag - API call on mouseUp
       setLocalPosition({ x, y })
-      const now = Date.now()
-      if (now - lastSaveRef.current > 100) {
-        lastSaveRef.current = now
-        updateCertificateType(eventId, selectedTypeId, { textPosition: { x, y } })
-      }
-    } else if (draggingFieldId && selectedType) {
-      // Update local state immediately for smooth dragging
+    } else if (draggingFieldId) {
+      // Only update local state during drag - API call on mouseUp
       setLocalFieldPositions(prev => ({ ...prev, [draggingFieldId]: { x, y } }))
-      const now = Date.now()
-      if (now - lastSaveRef.current > 100) {
-        lastSaveRef.current = now
-        const fields = selectedType.customFields || []
-        const updatedFields = fields.map(f => 
-          f.id === draggingFieldId ? { ...f, position: { x, y } } : f
-        )
-        updateCertificateType(eventId, selectedTypeId, { customFields: updatedFields })
-      }
-    } else if (draggingSignatureId && selectedType) {
-      // Update local state immediately for smooth dragging
+    } else if (draggingSignatureId) {
+      // Only update local state during drag - API call on mouseUp
       setLocalSignaturePositions(prev => ({ ...prev, [draggingSignatureId]: { x, y } }))
-      const now = Date.now()
-      if (now - lastSaveRef.current > 100) {
-        lastSaveRef.current = now
-        const sigs = selectedType.signatures || []
-        const updatedSigs = sigs.map(s => 
-          s.id === draggingSignatureId ? { ...s, position: { x, y } } : s
-        )
-        updateCertificateType(eventId, selectedTypeId, { signatures: updatedSigs })
-      }
-    } else if (resizingSignatureId && selectedType) {
+    } else if (resizingSignatureId) {
       // Calculate new width based on horizontal drag distance
       const deltaX = e.clientX - resizeStartX
-      const deltaPercent = (deltaX / rect.width) * 100 * 2 // Multiply by 2 for faster resize
-      const newWidth = Math.max(3, Math.min(80, resizeStartWidth + deltaPercent)) // Min 3%, Max 80%
-      
-      const now = Date.now()
-      if (now - lastSaveRef.current > 50) {
-        lastSaveRef.current = now
-        const sigs = selectedType.signatures || []
-        const updatedSigs = sigs.map(s => 
-          s.id === resizingSignatureId ? { ...s, width: newWidth } : s
-        )
-        updateCertificateType(eventId, selectedTypeId, { signatures: updatedSigs })
-      }
+      const deltaPercent = (deltaX / rect.width) * 100 * 2
+      const newWidth = Math.max(3, Math.min(80, resizeStartWidth + deltaPercent))
+      // Only update local state during resize - API call on mouseUp
+      setLocalSignatureWidths(prev => ({ ...prev, [resizingSignatureId]: newWidth }))
     }
-  }, [isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, resizeStartX, resizeStartWidth, eventId, selectedTypeId, selectedType])
+  }, [isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, resizeStartX, resizeStartWidth, eventId, selectedTypeId])
 
   const handleMouseUp = useCallback(() => {
+    // Save text position on drag end
     if (isDraggingText && eventId && selectedTypeId) {
-      updateCertificateType(eventId, selectedTypeId, { textPosition: localPosition })
+      updateCertTypeAPI(selectedTypeId, { textPosition: localPosition })
     }
+    // Save custom field position on drag end
     if (draggingFieldId && eventId && selectedTypeId && selectedType) {
       const pos = localFieldPositions[draggingFieldId]
       if (pos) {
@@ -372,9 +613,10 @@ export default function CertificatesPage() {
         const updatedFields = fields.map(f => 
           f.id === draggingFieldId ? { ...f, position: pos } : f
         )
-        updateCertificateType(eventId, selectedTypeId, { customFields: updatedFields })
+        updateCertTypeAPI(selectedTypeId, { customFields: updatedFields })
       }
     }
+    // Save signature position on drag end
     if (draggingSignatureId && eventId && selectedTypeId && selectedType) {
       const pos = localSignaturePositions[draggingSignatureId]
       if (pos) {
@@ -382,15 +624,27 @@ export default function CertificatesPage() {
         const updatedSigs = sigs.map(s => 
           s.id === draggingSignatureId ? { ...s, position: pos } : s
         )
-        updateCertificateType(eventId, selectedTypeId, { signatures: updatedSigs })
+        updateCertTypeAPI(selectedTypeId, { signatures: updatedSigs })
+      }
+    }
+    // Save signature width on resize end
+    if (resizingSignatureId && eventId && selectedTypeId && selectedType) {
+      const newWidth = localSignatureWidths[resizingSignatureId]
+      if (newWidth !== undefined) {
+        const sigs = selectedType.signatures || []
+        const updatedSigs = sigs.map(s => 
+          s.id === resizingSignatureId ? { ...s, width: newWidth } : s
+        )
+        updateCertTypeAPI(selectedTypeId, { signatures: updatedSigs })
       }
     }
     setIsDraggingText(false)
     setDraggingFieldId(null)
     setDraggingSignatureId(null)
     setResizingSignatureId(null)
-    refreshEvent()
-  }, [eventId, selectedTypeId, localPosition, localFieldPositions, localSignaturePositions, refreshEvent, isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, selectedType])
+    // Delay refresh to avoid immediate re-render during interaction
+    setTimeout(() => refreshEvent(), 500)
+  }, [eventId, selectedTypeId, localPosition, localFieldPositions, localSignaturePositions, localSignatureWidths, refreshEvent, isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, selectedType])
 
   useEffect(() => {
     if (isDraggingText || draggingFieldId || draggingSignatureId || resizingSignatureId) {
@@ -445,6 +699,7 @@ export default function CertificatesPage() {
               localPosition={localPosition}
               localFieldPositions={localFieldPositions}
               localSignaturePositions={localSignaturePositions}
+              localSignatureWidths={localSignatureWidths}
               isDragging={isDragging}
               isDraggingText={isDraggingText}
               draggingFieldId={draggingFieldId}
@@ -463,21 +718,20 @@ export default function CertificatesPage() {
               onRemoveTemplate={removeTemplate}
               onTogglePreview={() => setShowPreview(!showPreview)}
               onPositionChange={(axis, value) => {
-                setLocalPosition(prev => ({ ...prev, [axis]: value }))
-                if (eventId && selectedTypeId) {
-                  updateCertificateType(eventId, selectedTypeId, {
-                    textPosition: { ...localPosition, [axis]: value }
-                  })
-                  refreshEvent()
-                }
+                const newPosition = { ...localPosition, [axis]: value }
+                setLocalPosition(newPosition)
+                // Update local state immediately
+                updateLocalCertType({ textPosition: newPosition })
+                // Sync to API in background
+                if (selectedTypeId) syncToAPI(selectedTypeId, { textPosition: newPosition })
               }}
               onFontChange={(updates) => {
-                if (eventId && selectedTypeId) {
-                  updateCertificateType(eventId, selectedTypeId, updates)
-                  refreshEvent()
-                }
+                // Update local state immediately for instant feedback
+                updateLocalCertType(updates as Partial<CertificateType>)
+                // Sync to API in background
+                if (selectedTypeId) syncToAPI(selectedTypeId, updates)
               }}
-              onAddCustomField={(variable) => {
+              onAddCustomField={async (variable) => {
                 if (eventId && selectedTypeId) {
                   const newField: TextField = {
                     id: `field_${Date.now()}`,
@@ -493,11 +747,19 @@ export default function CertificatesPage() {
                     toast.error(`{{${variable}}} already added`)
                     return
                   }
-                  updateCertificateType(eventId, selectedTypeId, {
-                    customFields: [...currentFields, newField]
-                  })
-                  refreshEvent()
-                  toast.success(`{{${variable}}} added! Drag it to position.`)
+                  const updatedFields = [...currentFields, newField]
+                  // Optimistic UI update - instant feedback
+                  updateLocalCertType({ customFields: updatedFields })
+                  setLocalFieldPositions(prev => ({ ...prev, [newField.id]: newField.position }))
+                  // Immediate API call for add/remove operations
+                  const success = await updateCertTypeAPI(selectedTypeId, { customFields: updatedFields })
+                  if (success) {
+                    toast.success(`{{${variable}}} added! Drag it to position.`)
+                  } else {
+                    // Revert on failure
+                    toast.error("Failed to add field")
+                    refreshEvent()
+                  }
                 }
               }}
               onAddSignature={(file) => {
@@ -515,7 +777,7 @@ export default function CertificatesPage() {
                 const reader = new FileReader()
                 reader.onload = (e) => {
                   const img = document.createElement("img")
-                  img.onload = () => {
+                  img.onload = async () => {
                     // Compress signature image
                     const canvas = document.createElement("canvas")
                     const maxWidth = 300
@@ -538,56 +800,82 @@ export default function CertificatesPage() {
                       width: 15,
                     }
                     const currentSigs = selectedType.signatures || []
-                    updateCertificateType(eventId, selectedTypeId, {
-                      signatures: [...currentSigs, newSig]
-                    })
-                    refreshEvent()
-                    toast.success("Signature added! Drag it to position.")
+                    const updatedSigs = [...currentSigs, newSig]
+                    // Optimistic UI update - instant feedback
+                    updateLocalCertType({ signatures: updatedSigs })
+                    setLocalSignaturePositions(prev => ({ ...prev, [newSig.id]: newSig.position }))
+                    // Immediate API call for add/remove operations
+                    const success = await updateCertTypeAPI(selectedTypeId, { signatures: updatedSigs })
+                    if (success) {
+                      toast.success("Signature added! Drag it to position.")
+                    } else {
+                      toast.error("Failed to add signature")
+                      refreshEvent()
+                    }
                   }
                   img.src = e.target?.result as string
                 }
                 reader.readAsDataURL(file)
               }}
-              onRemoveCustomField={(fieldId) => {
+              onRemoveCustomField={async (fieldId) => {
                 if (eventId && selectedTypeId) {
                   const currentFields = selectedType.customFields || []
-                  updateCertificateType(eventId, selectedTypeId, {
-                    customFields: currentFields.filter(f => f.id !== fieldId)
-                  })
-                  refreshEvent()
-                  toast.success("Field removed")
+                  const updatedFields = currentFields.filter(f => f.id !== fieldId)
+                  // Optimistic UI update - instant feedback
+                  updateLocalCertType({ customFields: updatedFields })
+                  // Immediate API call for add/remove operations
+                  const success = await updateCertTypeAPI(selectedTypeId, { customFields: updatedFields })
+                  if (success) {
+                    toast.success("Field removed")
+                  } else {
+                    // Revert on failure
+                    toast.error("Failed to remove field")
+                    refreshEvent()
+                  }
                 }
               }}
-              onRemoveSignature={(id) => {
+              onRemoveSignature={async (id) => {
                 if (eventId && selectedTypeId) {
                   const currentSigs = selectedType.signatures || []
-                  updateCertificateType(eventId, selectedTypeId, {
-                    signatures: currentSigs.filter(s => s.id !== id)
-                  })
-                  refreshEvent()
-                  toast.success("Signature removed")
+                  const updatedSigs = currentSigs.filter(s => s.id !== id)
+                  // Optimistic UI update - instant feedback
+                  updateLocalCertType({ signatures: updatedSigs })
+                  // Immediate API call for add/remove operations
+                  const success = await updateCertTypeAPI(selectedTypeId, { signatures: updatedSigs })
+                  if (success) {
+                    toast.success("Signature removed")
+                  } else {
+                    toast.error("Failed to remove signature")
+                    refreshEvent()
+                  }
                 }
               }}
               onSignatureWidthChange={(id, width) => {
                 if (eventId && selectedTypeId) {
                   const currentSigs = selectedType.signatures || []
-                  updateCertificateType(eventId, selectedTypeId, {
-                    signatures: currentSigs.map(s => s.id === id ? { ...s, width } : s)
-                  })
-                  refreshEvent()
+                  const updatedSigs = currentSigs.map(s => s.id === id ? { ...s, width } : s)
+                  // Optimistic UI update
+                  updateLocalCertType({ signatures: updatedSigs })
+                  setLocalSignatureWidths(prev => ({ ...prev, [id]: width }))
+                  // Sync to API in background (debounced)
+                  syncToAPI(selectedTypeId, { signatures: updatedSigs })
                 }
               }}
               onRemoveNameField={() => {
                 if (eventId && selectedTypeId) {
-                  updateCertificateType(eventId, selectedTypeId, { showNameField: false })
-                  refreshEvent()
+                  // Optimistic UI update
+                  updateLocalCertType({ showNameField: false })
+                  // Sync to API in background
+                  syncToAPI(selectedTypeId, { showNameField: false })
                   toast.success("NAME field removed")
                 }
               }}
               onRestoreNameField={() => {
                 if (eventId && selectedTypeId) {
-                  updateCertificateType(eventId, selectedTypeId, { showNameField: true })
-                  refreshEvent()
+                  // Optimistic UI update
+                  updateLocalCertType({ showNameField: true })
+                  // Sync to API in background
+                  syncToAPI(selectedTypeId, { showNameField: true })
                   toast.success("NAME field restored")
                 }
               }}
@@ -635,7 +923,7 @@ export default function CertificatesPage() {
         >
           <Plus className="h-4 w-4 mr-2" />
           Create New Certificate
-          {maxCertificateTypes !== -1 && event.certificateTypes.length >= maxCertificateTypes && " 🔒"}
+          {maxCertificateTypes !== -1 && event.certificateTypes.length >= maxCertificateTypes && <Lock className="h-3 w-3 ml-1 inline" />}
         </Button>
       </div>
       
@@ -829,7 +1117,7 @@ export default function CertificatesPage() {
 
 // Template Editor Component
 function TemplateEditor({
-  certType, localPosition, localFieldPositions, localSignaturePositions, isDragging, isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, showPreview, containerRef,
+  certType, localPosition, localFieldPositions, localSignaturePositions, localSignatureWidths, isDragging, isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, showPreview, containerRef,
   onDragOver, onDragLeave, onDrop, onFileInput, onMouseDown, onFieldMouseDown, onSignatureMouseDown, onSignatureResizeStart,
   onRemoveTemplate, onTogglePreview, onPositionChange, onFontChange, onAddCustomField, onRemoveCustomField,
   onAddSignature, onRemoveSignature, onSignatureWidthChange, onRemoveNameField, onRestoreNameField,
@@ -838,6 +1126,7 @@ function TemplateEditor({
   localPosition: { x: number; y: number }
   localFieldPositions: Record<string, { x: number; y: number }>
   localSignaturePositions: Record<string, { x: number; y: number }>
+  localSignatureWidths: Record<string, number>
   isDragging: boolean
   isDraggingText: boolean
   draggingFieldId: string | null
@@ -1057,14 +1346,14 @@ function TemplateEditor({
                           src={sig.image} 
                           alt="Signature" 
                           className="object-contain opacity-70"
-                          style={{ width: `${sig.width * 2}px`, maxWidth: '200px' }}
+                          style={{ width: `${(localSignatureWidths[sig.id] ?? sig.width) * 2}px`, maxWidth: '200px' }}
                           draggable={false}
                         />
                       </div>
                       {/* Resize handle - right edge */}
                       <div
                         className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-6 bg-purple-500 rounded cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity"
-                        onMouseDown={(e) => onSignatureResizeStart(e, sig.id, sig.width)}
+                        onMouseDown={(e) => onSignatureResizeStart(e, sig.id, localSignatureWidths[sig.id] ?? sig.width)}
                         title="Drag to resize"
                       />
                       <button
@@ -1079,7 +1368,7 @@ function TemplateEditor({
                       src={sig.image} 
                       alt="Signature" 
                       className="h-auto object-contain"
-                      style={{ width: `${sig.width}%`, maxWidth: '150px' }}
+                      style={{ width: `${localSignatureWidths[sig.id] ?? sig.width}%`, maxWidth: '150px' }}
                       draggable={false}
                     />
                   )}
@@ -1256,9 +1545,9 @@ function TemplateEditor({
                       </Button>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Label className="text-xs whitespace-nowrap">Size: {Math.round(sig.width)}%</Label>
+                      <Label className="text-xs whitespace-nowrap">Size: {Math.round(localSignatureWidths[sig.id] ?? sig.width)}%</Label>
                       <Slider 
-                        value={[sig.width]} 
+                        value={[localSignatureWidths[sig.id] ?? sig.width]} 
                         onValueChange={([v]) => onSignatureWidthChange(sig.id, v)} 
                         min={3} 
                         max={80} 

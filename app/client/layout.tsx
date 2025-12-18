@@ -23,6 +23,30 @@ export default function ClientLayout({
   const [userName, setUserName] = useState("")
   const [userPlan, setUserPlan] = useState<string>("free")
 
+  // Sync session with server to get latest plan
+  const syncSessionWithServer = async (session: ReturnType<typeof getClientSession>) => {
+    if (!session || session.loginType !== "user") return
+    
+    try {
+      const res = await fetch("/api/client/profile")
+      if (res.ok) {
+        const data = await res.json()
+        // Update session if plan changed
+        if (data.user?.plan && data.user.plan !== session.userPlan) {
+          const updatedSession = {
+            ...session,
+            userPlan: data.user.plan,
+            planExpiresAt: data.user.planExpiresAt
+          }
+          localStorage.setItem("clientSession", JSON.stringify(updatedSession))
+          setUserPlan(data.user.plan)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to sync session:", error)
+    }
+  }
+
   useEffect(() => {
     const session = getClientSession()
     
@@ -34,7 +58,9 @@ export default function ClientLayout({
     }
 
     if (!session) {
-      router.push("/client/login")
+      // Not logged in - redirect to login
+      router.replace("/client/login")
+      return // Don't set isLoading to false, keep showing loader until redirect
     } else {
       setIsAuthenticated(true)
       setUserName(session.userName || "")
@@ -42,13 +68,11 @@ export default function ClientLayout({
       // Check if user has selected an event
       const eventSelected = !!(session.eventId && session.loginType === "user")
       setHasEventSelected(eventSelected)
+      setIsLoading(false)
       
-      // If user login and no event selected, redirect to events page (except if already there)
-      if (session.loginType === "user" && !session.eventId && !pathname.startsWith("/client/events") && pathname !== "/client/upgrade") {
-        router.push("/client/events")
-      }
+      // Sync with server to get latest plan (in background)
+      syncSessionWithServer(session)
     }
-    setIsLoading(false)
   }, [pathname, router])
 
   const handleLogout = () => {

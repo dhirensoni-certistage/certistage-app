@@ -135,7 +135,8 @@ export async function PUT(request: NextRequest) {
   try {
     await connectDB()
     
-    const { userId, typeId, name, templateImage, textFields } = await request.json()
+    const body = await request.json()
+    const { userId, typeId } = body
     
     if (!userId || !typeId) {
       return NextResponse.json({ error: "User ID and Type ID required" }, { status: 400 })
@@ -152,11 +153,23 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
-    // Update fields
+    // Update fields - accept all possible fields
     const updateData: Record<string, unknown> = {}
-    if (name) updateData.name = name
-    if (templateImage !== undefined) updateData.templateImage = templateImage
-    if (textFields !== undefined) updateData.textFields = textFields
+    
+    // Basic fields
+    if (body.name) updateData.name = body.name
+    if (body.templateImage !== undefined) updateData.templateImage = body.templateImage
+    if (body.textFields !== undefined) updateData.textFields = body.textFields
+    
+    // Font and styling fields (stored in textFields or as separate fields)
+    if (body.fontSize !== undefined) updateData.fontSize = body.fontSize
+    if (body.fontFamily !== undefined) updateData.fontFamily = body.fontFamily
+    if (body.fontBold !== undefined) updateData.fontBold = body.fontBold
+    if (body.fontItalic !== undefined) updateData.fontItalic = body.fontItalic
+    if (body.textPosition !== undefined) updateData.textPosition = body.textPosition
+    if (body.showNameField !== undefined) updateData.showNameField = body.showNameField
+    if (body.customFields !== undefined) updateData.customFields = body.customFields
+    if (body.signatures !== undefined) updateData.signatures = body.signatures
 
     const updated = await CertificateType.findByIdAndUpdate(
       typeId,

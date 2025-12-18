@@ -9,6 +9,7 @@ import { getClientSession, clearClientSession, updateUserPlan, PLAN_FEATURES, ty
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { useRazorpay } from "@/hooks/use-razorpay"
 
 const plans: { id: PlanType; icon: any; popular?: boolean; badge?: string; price: string; description: string }[] = [
   { 
@@ -36,9 +37,9 @@ const plans: { id: PlanType; icon: any; popular?: boolean; badge?: string; price
 
 const features: Record<string, string[]> = {
   professional: [
-    "Event creation",
     "Up to 2,000 certificates/year",
     "Up to 5 certificate types",
+    "Event creation",
     "Excel import",
     "Multiple downloads",
     "Digital signature",
@@ -48,19 +49,22 @@ const features: Record<string, string[]> = {
   enterprise: [
     "Up to 25,000 certificates/year",
     "Up to 100 certificate types",
-    "Custom branding",
     "Bulk import",
     "Priority support",
     "Advanced analytics",
-    "Event-wise export"
+    "Event-wise export",
+    "Email notifications",
+    "All Professional features"
   ],
   premium: [
     "Up to 50,000 certificates/year",
     "Up to 200 certificate types",
-    "Custom branding",
     "Dedicated support",
     "White-label (logo + footer)",
-    "Advanced & summary reports"
+    "Advanced & summary reports",
+    "API access",
+    "Custom domain",
+    "All Enterprise features"
   ]
 }
 
@@ -68,13 +72,37 @@ export default function UpgradePage() {
   const router = useRouter()
   const [currentPlan, setCurrentPlan] = useState<PlanType>("free")
   const [userId, setUserId] = useState<string>("")
-  const [isUpgrading, setIsUpgrading] = useState(false)
+  const [userName, setUserName] = useState<string>("")
+  const [userEmail, setUserEmail] = useState<string>("")
+  const [userPhone, setUserPhone] = useState<string>("")
+
+  const { initiatePayment, isLoading, isProcessing } = useRazorpay({
+    onSuccess: (data) => {
+      // Update local session with new plan
+      const session = getClientSession()
+      if (session) {
+        session.userPlan = data.plan
+        localStorage.setItem("clientSession", JSON.stringify(session))
+      }
+      setCurrentPlan(data.plan)
+      
+      // Refresh page to reflect changes
+      setTimeout(() => {
+        window.location.reload()
+      }, 1500)
+    },
+    onError: (error) => {
+      console.error("Payment error:", error)
+    }
+  })
 
   useEffect(() => {
     const session = getClientSession()
     if (session?.loginType === "user") {
       setCurrentPlan(session.userPlan || "free")
       setUserId(session.userId || "")
+      setUserName(session.userName || "")
+      setUserEmail(session.userEmail || "")
     }
   }, [])
 
@@ -84,34 +112,13 @@ export default function UpgradePage() {
       return
     }
 
-    if (planId === "premium") {
-      toast.info("Please contact our sales team for Premium Plus plan.", {
-        description: "Email: sales@certistage.com"
-      })
-      return
-    }
-
-    setIsUpgrading(true)
-    
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    const success = updateUserPlan(userId, planId)
-    
-    if (success) {
-      toast.success("Plan upgraded successfully! Please login again.", {
-        description: `You are now on ${PLAN_FEATURES[planId].displayName} plan.`
-      })
-      
-      clearClientSession()
-      
-      setTimeout(() => {
-        router.push("/client/login?upgraded=true")
-      }, 1500)
-    } else {
-      toast.error("Failed to upgrade. Please try again.")
-    }
-    
-    setIsUpgrading(false)
+    // Initiate Razorpay payment
+    initiatePayment(planId, {
+      id: userId,
+      name: userName,
+      email: userEmail,
+      phone: userPhone
+    })
   }
 
   return (
@@ -134,7 +141,7 @@ export default function UpgradePage() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Free Plan */}
         <Card className="border-border/50 relative flex flex-col opacity-60">
           <CardHeader className="pb-4">
@@ -155,11 +162,11 @@ export default function UpgradePage() {
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>Certificate design & creation</span>
+                <span>1 certificate template</span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>1 certificate template</span>
+                <span>Certificate design & creation</span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-emerald-500 shrink-0" />
@@ -177,6 +184,10 @@ export default function UpgradePage() {
                 <Check className="h-4 w-4 text-emerald-500 shrink-0" />
                 <span>Email support (limited)</span>
               </li>
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+                <span>7 days trial</span>
+              </li>
             </ul>
             <Button variant="outline" className="w-full mt-4" disabled>
               Current Plan
@@ -188,27 +199,26 @@ export default function UpgradePage() {
           const Icon = plan.icon
 
           return (
-            <Card 
-              key={plan.id} 
-              className={cn(
-                "relative overflow-hidden transition-all flex flex-col h-full",
-                plan.popular && "border-primary shadow-lg border-2",
-                plan.id === "enterprise" && "border-amber-500/50",
-                plan.id === "premium" && "border-violet-500/50 bg-gradient-to-b from-background to-muted/30",
-                isCurrentPlan && "opacity-60"
-              )}
-            >
+            <div key={plan.id} className="relative pt-3">
               {plan.badge && (
                 <div className={cn(
-                  "absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-medium text-white rounded-md",
+                  "absolute top-0 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-medium text-white rounded-md z-10",
                   plan.popular && "bg-primary",
                   plan.id === "enterprise" && "bg-amber-500"
                 )}>
                   {plan.badge}
                 </div>
               )}
-              
-              <CardHeader className="pb-4 pt-8">
+              <Card 
+                className={cn(
+                  "relative transition-all flex flex-col h-full",
+                  plan.popular && "border-primary shadow-lg border-2",
+                  plan.id === "enterprise" && "border-amber-500/50",
+                  plan.id === "premium" && "border-violet-500/50 bg-gradient-to-b from-background to-muted/30",
+                  isCurrentPlan && "opacity-60"
+                )}
+              >
+              <CardHeader className="pb-4 pt-6">
                 <div className="flex items-center gap-2">
                   <Icon className={cn(
                     "h-5 w-5",
@@ -245,20 +255,19 @@ export default function UpgradePage() {
                     plan.popular && "bg-primary hover:bg-primary/90"
                   )}
                   variant={plan.popular ? "default" : "outline"}
-                  disabled={isCurrentPlan || isUpgrading}
+                  disabled={isCurrentPlan || isLoading || isProcessing}
                   onClick={() => handleUpgrade(plan.id)}
                 >
                   {isCurrentPlan 
                     ? "Current Plan" 
-                    : plan.id === "premium" 
-                      ? "Get Started"
-                      : isUpgrading 
-                        ? "Processing..." 
-                        : "Get Started"
+                    : isLoading || isProcessing
+                      ? "Processing..." 
+                      : "Get Started"
                   }
                 </Button>
               </CardContent>
-            </Card>
+              </Card>
+            </div>
           )
         })}
       </div>

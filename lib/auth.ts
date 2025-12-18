@@ -113,6 +113,13 @@ const USERS_KEY = "certistage_users"
 export function getUserPlanFeatures(userId?: string): PlanFeatures {
   if (!userId) return PLAN_FEATURES["free"]
   
+  // First check session for plan (most up-to-date from server)
+  const session = getClientSession()
+  if (session?.userId === userId && session.userPlan) {
+    return PLAN_FEATURES[session.userPlan] || PLAN_FEATURES["free"]
+  }
+  
+  // Fallback to localStorage users
   const users = getUsers()
   const user = users.find(u => u.id === userId)
   
@@ -135,7 +142,22 @@ export function getCurrentPlanFeatures(): PlanFeatures {
     // Event login = full access (admin assigned)
     return PLAN_FEATURES["enterprise"]
   }
+  
+  // Use session's userPlan directly if available
+  if (session.userPlan) {
+    return PLAN_FEATURES[session.userPlan] || PLAN_FEATURES["free"]
+  }
+  
   return getUserPlanFeatures(session.userId)
+}
+
+// Update session plan (call after plan upgrade/change)
+export function updateSessionPlan(newPlan: PlanType): void {
+  const session = getClientSession()
+  if (!session) return
+  
+  session.userPlan = newPlan
+  localStorage.setItem(CLIENT_SESSION_KEY, JSON.stringify(session))
 }
 
 // Update user plan

@@ -60,9 +60,43 @@ export async function POST(request: NextRequest) {
       // Continue without sending email in development
     }
 
-    // Development mode: Send email but also provide direct access info
+    // In development mode, auto-verify the user for easy testing
     if (process.env.NODE_ENV === "development") {
-      console.log('🔗 Development - Verification Link:', verificationLink)
+      try {
+        // Auto-verify in development
+        const { default: User } = await import('@/models/User')
+        const bcrypt = await import('bcryptjs')
+        
+        // Create user directly (skip email verification)
+        const hashedPassword = await bcrypt.hash("password123", 12) // Default password for development
+        
+        const newUser = await User.create({
+          name,
+          email: email.toLowerCase().trim(),
+          phone,
+          organization: organization || "",
+          plan: selectedPlan,
+          password: hashedPassword,
+          isEmailVerified: true, // Auto-verified in development
+          isActive: true
+        })
+
+        // Clean up verification token
+        await EmailVerificationToken.deleteOne({ email: email.toLowerCase().trim() })
+
+        return NextResponse.json({
+          success: true,
+          message: "Account created successfully! You can now login.",
+          developmentMode: true,
+          loginCredentials: {
+            email: email.toLowerCase().trim(),
+            password: "password123"
+          }
+        })
+      } catch (devError) {
+        console.error('Development auto-verify failed:', devError)
+        // Fall back to normal email flow
+      }
     }
 
     return NextResponse.json({
