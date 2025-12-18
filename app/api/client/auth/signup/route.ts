@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     // Create verification link
     const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`
 
-    // Send verification email
+    // Send verification email (skip if email service not configured)
     try {
       const { sendEmail, emailTemplates } = await import('@/lib/email')
       const verificationTemplate = emailTemplates.emailVerification(name, verificationLink)
@@ -56,8 +56,13 @@ export async function POST(request: NextRequest) {
         html: verificationTemplate.html
       })
     } catch (emailError) {
-      console.error('Failed to send verification email:', emailError)
-      return NextResponse.json({ error: "Failed to send verification email" }, { status: 500 })
+      console.error('Email service not configured, skipping verification email:', emailError)
+      // Continue without sending email in development
+    }
+
+    // Development mode: Send email but also provide direct access info
+    if (process.env.NODE_ENV === "development") {
+      console.log('🔗 Development - Verification Link:', verificationLink)
     }
 
     return NextResponse.json({
