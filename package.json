@@ -55,6 +55,7 @@
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^3.0.4",
     "lucide-react": "^0.454.0",
+    "mongodb": "^7.0.0",
     "mongoose": "^9.0.2",
     "next": "16.0.10",
     "next-auth": "^4.24.13",
