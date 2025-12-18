@@ -111,15 +111,15 @@ export default function UsersPage() {
       <AdminHeader title="Users" description="Manage all registered users" />
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <SearchFilter
-            searchPlaceholder="Search by name, email, or organization..."
-            filters={planFilters}
+              searchPlaceholder="Search by name, email, or organization..."
+              filters={planFilters}
               onSearch={setSearch}
               onFilter={setFilters}
               className="flex-1"
             />
-            <Button variant="outline" onClick={handleExport}>
+            <Button variant="outline" onClick={handleExport} className="shrink-0">
               <Download className="h-4 w-4 mr-2" />
               Export CSV
             </Button>

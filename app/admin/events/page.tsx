@@ -103,7 +103,7 @@ export default function EventsPage() {
       <AdminHeader title="Events" description="Manage all events across all users" />
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <SearchFilter
               searchPlaceholder="Search by event name or owner email..."
               filters={statusFilters}
@@ -111,7 +111,7 @@ export default function EventsPage() {
               onFilter={setFilters}
               className="flex-1"
             />
-            <Button variant="outline" onClick={handleExport}>
+            <Button variant="outline" onClick={handleExport} className="shrink-0">
               <Download className="h-4 w-4 mr-2" />
               Export CSV
             </Button>
