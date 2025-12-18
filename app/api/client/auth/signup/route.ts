@@ -7,7 +7,13 @@ import crypto from "crypto"
 // POST - User signup (Email verification step)
 export async function POST(request: NextRequest) {
   try {
-    await connectDB()
+    // Connect to DB with timeout
+    const dbPromise = connectDB()
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Database connection timeout')), 10000)
+    )
+    
+    await Promise.race([dbPromise, timeoutPromise])
     
     const { name, email, phone, organization, plan } = await request.json()
     
@@ -46,67 +52,47 @@ export async function POST(request: NextRequest) {
     // Create verification link
     const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`
 
-    // Send verification email (skip if email service not configured)
-    try {
-      const { sendEmail, emailTemplates } = await import('@/lib/email')
-      const verificationTemplate = emailTemplates.emailVerification(name, verificationLink)
-      await sendEmail({
-        to: email,
-        subject: verificationTemplate.subject,
-        html: verificationTemplate.html
-      })
-    } catch (emailError) {
-      console.error('Email service not configured, skipping verification email:', emailError)
-      // Continue without sending email in development
-    }
-
-    // In development mode, auto-verify the user for easy testing
-    if (process.env.NODE_ENV === "development") {
-      try {
-        // Auto-verify in development
-        const { default: User } = await import('@/models/User')
-        const bcrypt = await import('bcryptjs')
-        
-        // Create user directly (skip email verification)
-        const hashedPassword = await bcrypt.hash("password123", 12) // Default password for development
-        
-        const newUser = await User.create({
-          name,
-          email: email.toLowerCase().trim(),
-          phone,
-          organization: organization || "",
-          plan: selectedPlan,
-          password: hashedPassword,
-          isEmailVerified: true, // Auto-verified in development
-          isActive: true
-        })
-
-        // Clean up verification token
-        await EmailVerificationToken.deleteOne({ email: email.toLowerCase().trim() })
-
-        return NextResponse.json({
-          success: true,
-          message: "Account created successfully! You can now login.",
-          developmentMode: true,
-          loginCredentials: {
-            email: email.toLowerCase().trim(),
-            password: "password123"
-          }
-        })
-      } catch (devError) {
-        console.error('Development auto-verify failed:', devError)
-        // Fall back to normal email flow
-      }
-    }
+    // Send verification email in background (don't wait for it)
+    sendVerificationEmail(email, name, verificationLink).catch(err => {
+      console.error('Background email sending failed:', err)
+    })
 
     return NextResponse.json({
       success: true,
       message: "Verification email sent! Please check your inbox and click the link to complete your registration.",
-      // Only include token in development for testing
-      ...(process.env.NODE_ENV === "development" && { verificationToken, verificationLink })
+      verificationLink // Include link so user can verify even if email fails
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Signup error:", error)
-    return NextResponse.json({ error: "Signup failed" }, { status: 500 })
+    
+    if (error.message === 'Database connection timeout') {
+      return NextResponse.json({ error: "Server is busy, please try again" }, { status: 503 })
+    }
+    
+    return NextResponse.json({ error: "Signup failed. Please try again." }, { status: 500 })
+  }
+}
+
+// Background email sending function
+async function sendVerificationEmail(email: string, name: string, verificationLink: string) {
+  try {
+    const { sendEmail, emailTemplates } = await import('@/lib/email')
+    const verificationTemplate = emailTemplates.emailVerification(name, verificationLink)
+    
+    // Add timeout to email sending
+    const emailPromise = sendEmail({
+      to: email,
+      subject: verificationTemplate.subject,
+      html: verificationTemplate.html
+    })
+    
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Email sending timeout')), 15000)
+    )
+    
+    await Promise.race([emailPromise, timeoutPromise])
+    console.log('Verification email sent to:', email)
+  } catch (error) {
+    console.error('Email sending failed:', error)
   }
 }
