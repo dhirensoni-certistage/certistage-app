@@ -179,18 +179,28 @@ export default function CertTypeDownloadPage() {
   const handleDownload = async () => {
     if (!certType?.template || !selectedRecipient) return
 
-    // Check download limit using current recipient data
-    const currentDownloadCount = selectedRecipient.downloadCount || 0
-
-    // Check download limit
-    if (downloadLimit !== -1 && currentDownloadCount >= downloadLimit) {
-      toast.error(`Download limit reached! You can only download this certificate ${downloadLimit} time(s). Please contact the organizer to upgrade their plan.`)
-      return
-    }
-
     setIsDownloading(true)
 
     try {
+      // First check with API if download is allowed
+      const checkRes = await fetch("/api/download", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientId: selectedRecipient.id })
+      })
+      
+      const checkData = await checkRes.json()
+      
+      if (!checkRes.ok) {
+        if (checkData.limitReached) {
+          toast.error("Download limit reached! Free plan allows only 1 download per certificate. Please contact the organizer to upgrade.")
+          setIsDownloading(false)
+          return
+        }
+        toast.error(checkData.error || "Download failed")
+        setIsDownloading(false)
+        return
+      }
       const canvas = document.createElement("canvas")
       const ctx = canvas.getContext("2d")
       if (!ctx) throw new Error("Canvas error")
@@ -284,17 +294,6 @@ export default function CertTypeDownloadPage() {
 
       pdf.addImage(canvas.toDataURL("image/jpeg", 1.0), "JPEG", 0, 0, pdfWidth, pdfHeight)
       pdf.save(`${certType.name}-${selectedRecipient.certificateId}.pdf`)
-
-      // Track download via API
-      try {
-        await fetch("/api/download", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ recipientId: selectedRecipient.id })
-        })
-      } catch (e) {
-        console.error("Failed to track download:", e)
-      }
       
       setDownloaded(true)
       toast.success("Certificate downloaded!")
