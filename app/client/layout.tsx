@@ -48,14 +48,14 @@ export default function ClientLayout({
   }
 
   useEffect(() => {
-    const session = getClientSession()
-    
-    // Skip auth check for login page
+    // Skip everything for login page
     if (pathname === "/client/login") {
       setIsLoading(false)
       setIsAuthenticated(false)
       return
     }
+    
+    const session = getClientSession()
 
     if (!session) {
       // Not logged in - redirect to login
@@ -70,8 +70,10 @@ export default function ClientLayout({
       setHasEventSelected(eventSelected)
       setIsLoading(false)
       
-      // Sync with server to get latest plan (in background)
-      syncSessionWithServer(session)
+      // Sync with server to get latest plan (in background) - only for logged in users
+      if (session.loginType === "user" && session.userId) {
+        syncSessionWithServer(session)
+      }
     }
   }, [pathname, router])
 

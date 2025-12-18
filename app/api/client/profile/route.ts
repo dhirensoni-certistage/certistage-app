@@ -5,16 +5,59 @@ import User from "@/models/User"
 // GET - Get user profile
 export async function GET(request: NextRequest) {
   try {
-    await connectDB()
-    
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get("userId")
+    const email = searchParams.get("email")
     
-    if (!userId) {
-      return NextResponse.json({ error: "User ID required" }, { status: 400 })
+    // If no userId or email provided, try to get from NextAuth session
+    if (!userId && !email) {
+      try {
+        const { getServerSession } = await import("next-auth")
+        const { authOptions } = await import("@/lib/auth-config")
+        const session = await getServerSession(authOptions)
+        
+        if (!session?.user?.email) {
+          // No session - user not logged in, return 401
+          return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+        }
+        
+        await connectDB()
+        const user = await User.findOne({ email: session.user.email.toLowerCase() }).select("-password").lean()
+        
+        if (!user) {
+          return NextResponse.json({ error: "User not found" }, { status: 404 })
+        }
+        
+        return NextResponse.json({
+          success: true,
+          user: {
+            id: user._id.toString(),
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            organization: user.organization,
+            plan: user.plan,
+            planExpiresAt: user.planExpiresAt,
+            isActive: user.isActive,
+            createdAt: user.createdAt
+          }
+        })
+      } catch (sessionError) {
+        console.error("Session error:", sessionError)
+        return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      }
     }
-
-    const user = await User.findById(userId).select("-password").lean()
+    
+    await connectDB()
+    
+    // Try to get user by userId or email
+    let user = null
+    
+    if (userId) {
+      user = await User.findById(userId).select("-password").lean()
+    } else if (email) {
+      user = await User.findOne({ email: email.toLowerCase() }).select("-password").lean()
+    }
     
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
