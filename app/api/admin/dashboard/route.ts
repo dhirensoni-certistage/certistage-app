@@ -1,0 +1,116 @@
+import { NextResponse } from "next/server"
+import connectDB from "@/lib/mongodb"
+import User from "@/models/User"
+import Event from "@/models/Event"
+import Recipient from "@/models/Recipient"
+import Payment from "@/models/Payment"
+
+export async function GET() {
+  try {
+    await connectDB()
+
+    // Get current date info
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+    // Dashboard Metrics
+    const [totalUsers, activeEvents, certificatesThisMonth, revenueResult] = await Promise.all([
+      User.countDocuments(),
+      Event.countDocuments({ isActive: true }),
+      Recipient.countDocuments({ createdAt: { $gte: startOfMonth } }),
+      Payment.aggregate([
+        { $match: { status: "success", createdAt: { $gte: startOfMonth } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ])
+    ])
+
+    const revenueThisMonth = revenueResult[0]?.total || 0
+
+    // User Growth (last 30 days)
+    const userGrowth = await User.aggregate([
+      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      { 
+        $group: { 
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, 
+          count: { $sum: 1 } 
+        } 
+      },
+      { $sort: { _id: 1 } },
+      { $project: { date: "$_id", count: 1, _id: 0 } }
+    ])
+
+    // Plan Distribution
+    const planDistribution = await User.aggregate([
+      { $group: { _id: "$plan", count: { $sum: 1 } } },
+      { $project: { plan: "$_id", count: 1, _id: 0 } }
+    ])
+
+    // Recent Activity (last 10)
+    const [recentUsers, recentEvents, recentPayments] = await Promise.all([
+      User.find().sort({ createdAt: -1 }).limit(5).select("name email createdAt").lean(),
+      Event.find().sort({ createdAt: -1 }).limit(5).populate("ownerId", "name email").lean(),
+      Payment.find({ status: "success" }).sort({ createdAt: -1 }).limit(5).populate("userId", "name email").lean()
+    ])
+
+    // Combine and sort activities
+    const activities: Array<{
+      type: "signup" | "event_created" | "payment"
+      description: string
+      timestamp: string
+      userId?: string
+    }> = []
+
+    recentUsers.forEach((user: any) => {
+      activities.push({
+        type: "signup",
+        description: `${user.name} signed up`,
+        timestamp: user.createdAt.toISOString(),
+        userId: user._id.toString()
+      })
+    })
+
+    recentEvents.forEach((event: any) => {
+      const ownerName = event.ownerId?.name || "Unknown"
+      activities.push({
+        type: "event_created",
+        description: `${ownerName} created event "${event.name}"`,
+        timestamp: event.createdAt.toISOString(),
+        userId: event.ownerId?._id?.toString()
+      })
+    })
+
+    recentPayments.forEach((payment: any) => {
+      const userName = payment.userId?.name || "Unknown"
+      activities.push({
+        type: "payment",
+        description: `${userName} upgraded to ${payment.plan} (₹${payment.amount})`,
+        timestamp: payment.createdAt.toISOString(),
+        userId: payment.userId?._id?.toString()
+      })
+    })
+
+    // Sort by timestamp and take top 10
+    const recentActivity = activities
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 10)
+
+    return NextResponse.json({
+      metrics: {
+        totalUsers,
+        activeEvents,
+        certificatesThisMonth,
+        revenueThisMonth
+      },
+      userGrowth,
+      planDistribution,
+      recentActivity
+    })
+  } catch (error) {
+    console.error("Dashboard API error:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch dashboard data" },
+      { status: 500 }
+    )
+  }
+}

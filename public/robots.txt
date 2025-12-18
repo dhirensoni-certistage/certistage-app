@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+# Disallow admin and API routes
+Disallow: /admin/
+Disallow: /api/
+Disallow: /client/
+
+# Allow specific public pages
+Allow: /about
+Allow: /contact
+Allow: /privacy
+Allow: /terms
+Allow: /refund
+Allow: /shipping
+
+Sitemap: https://yourdomain.com/sitemap.xml
