@@ -40,6 +40,7 @@ export const authOptions: NextAuthOptions = {
               organization: "",
               plan: plan,
               isActive: true,
+              isEmailVerified: true, // Google users are auto-verified
               // No password needed for OAuth users
               password: "oauth_user"
             })
