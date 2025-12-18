@@ -28,36 +28,28 @@ export const authOptions: NextAuthOptions = {
           const existingUser = await User.findOne({ email: user.email })
           
           if (!existingUser) {
-            // Get selected plan from localStorage (if any) - only for new signups
-            const selectedPlan = typeof window !== 'undefined' ? localStorage.getItem("selectedPlan") : null
-            const plan = selectedPlan && ["professional", "enterprise", "premium"].includes(selectedPlan) ? selectedPlan : "free"
-            
             // Create new user with Google data
             await User.create({
               name: user.name,
               email: user.email,
-              phone: "", // Will need to be filled later
+              phone: "",
               organization: "",
-              plan: plan,
+              plan: "free",
               isActive: true,
-              isEmailVerified: true, // Google users are auto-verified
-              // No password needed for OAuth users
+              isEmailVerified: true,
               password: "oauth_user"
             })
-            
-            // Clear the selected plan from localStorage
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem("selectedPlan")
-            }
+            console.log("New Google user created:", user.email)
           } else {
-            // User exists, just allow login
             console.log("Existing user logging in:", existingUser.email)
           }
           
           return true
         } catch (error) {
           console.error("Error during Google sign-in:", error)
-          return false
+          // Still allow sign-in even if our DB operation fails
+          // NextAuth adapter will handle the user
+          return true
         }
       }
       return true
