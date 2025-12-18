@@ -38,7 +38,7 @@ interface DataTableProps<T> {
   rowKey?: (item: T) => string
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T extends object>({
   columns,
   data,
   pagination,
@@ -126,7 +126,7 @@ export function DataTable<T extends Record<string, unknown>>({
                   <TableCell key={col.key} className={col.className}>
                     {col.render 
                       ? col.render(item) 
-                      : String(item[col.key] ?? '')}
+                      : String((item as Record<string, unknown>)[col.key] ?? '')}
                   </TableCell>
                 ))}
               </TableRow>
