@@ -12,13 +12,16 @@ import {
   Settings,
   Moon, 
   Sun, 
-  ChevronLeft 
+  ChevronLeft,
+  LogOut
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "next-themes"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 const navigationItems = [
@@ -56,6 +59,7 @@ const navigationItems = [
 
 export function AdminSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -69,6 +73,20 @@ export function AdminSidebar() {
       return pathname === '/admin' || pathname === '/admin/dashboard'
     }
     return pathname.startsWith(href)
+  }
+
+  const handleLogout = async () => {
+    try {
+      const res = await fetch("/api/admin/logout", { method: "POST" })
+      if (res.ok) {
+        toast.success("Logged out successfully")
+        router.push("/admin/login")
+      } else {
+        toast.error("Logout failed")
+      }
+    } catch (error) {
+      toast.error("Logout failed")
+    }
   }
 
   return (
@@ -195,6 +213,28 @@ export function AdminSidebar() {
             {collapsed && (
               <TooltipContent side="right" sideOffset={12}>
                 Toggle Theme
+              </TooltipContent>
+            )}
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size={collapsed ? "icon" : "default"}
+                className={cn(
+                  "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent",
+                  collapsed ? "h-10 w-10" : "w-full justify-start gap-3"
+                )}
+                onClick={handleLogout}
+              >
+                <LogOut className="h-5 w-5 shrink-0" />
+                {!collapsed && <span>Logout</span>}
+              </Button>
+            </TooltipTrigger>
+            {collapsed && (
+              <TooltipContent side="right" sideOffset={12}>
+                Logout
               </TooltipContent>
             )}
           </Tooltip>
