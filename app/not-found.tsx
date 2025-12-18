@@ -1,8 +1,6 @@
-"use client"
-
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Home, ArrowLeft } from "lucide-react"
+import { Home } from "lucide-react"
 
 export default function NotFound() {
   return (
@@ -12,7 +10,7 @@ export default function NotFound() {
           <h1 className="text-9xl font-bold text-primary/20">404</h1>
           <h2 className="text-2xl font-semibold text-foreground mb-2">Page Not Found</h2>
           <p className="text-muted-foreground">
-            Sorry, we couldn't find the page you're looking for. It might have been moved or doesn't exist.
+            Sorry, we couldn't find the page you're looking for.
           </p>
         </div>
         
@@ -22,10 +20,6 @@ export default function NotFound() {
               <Home className="h-4 w-4 mr-2" />
               Go Home
             </Link>
-          </Button>
-          <Button variant="outline" onClick={() => window.history.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Go Back
           </Button>
         </div>
         
