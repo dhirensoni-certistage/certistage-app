@@ -16,6 +16,7 @@ function SignupForm() {
   const searchParams = useSearchParams()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [verificationLink, setVerificationLink] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -119,6 +120,9 @@ function SignupForm() {
       }
 
       toast.success("Verification email sent! Check your inbox.")
+      if (signupData.verificationLink) {
+        setVerificationLink(signupData.verificationLink)
+      }
       setIsSubmitted(true)
       setIsSubmitting(false)
     } catch (error) {
@@ -151,6 +155,17 @@ function SignupForm() {
                   <Link href="/">Back to Home</Link>
                 </Button>
               </div>
+              
+              {verificationLink && (
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800 mb-2">
+                    Email not received? Click below to verify directly:
+                  </p>
+                  <Button asChild variant="outline" size="sm" className="w-full">
+                    <a href={verificationLink}>Verify Email Now</a>
+                  </Button>
+                </div>
+              )}
               
               <p className="text-sm text-gray-500 mt-6">
                 Didn't receive the email?{' '}
