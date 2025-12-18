@@ -1,19 +1,23 @@
 import Link from "next/link"
 import Image from "next/image"
-import Head from "next/head"
 import { Award, Users, Zap, Shield, Target, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "About Us",
+  description: "Learn about CertiStage's mission to simplify certificate management for organizations. Trusted by 500+ companies worldwide for professional certificate generation.",
+  keywords: ["about certistage", "certificate platform", "digital certificates", "professional certificates", "certificate management"],
+  openGraph: {
+    title: "About CertiStage - Professional Certificate Generation Platform",
+    description: "Learn about CertiStage's mission to simplify certificate management for organizations.",
+  },
+}
 
 export default function AboutPage() {
   return (
-    <>
-      <Head>
-        <title>About CertiStage - Professional Certificate Generation Platform</title>
-        <meta name="description" content="Learn about CertiStage's mission to simplify certificate management for organizations. Trusted by companies worldwide for professional certificate generation." />
-        <meta name="keywords" content="about certistage, certificate platform, digital certificates, professional certificates, certificate management" />
-      </Head>
-      <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       <header className="border-b border-border/50 bg-background">
         <div className="container mx-auto px-4 h-14 flex items-center">
           <Link href="/" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
@@ -196,6 +200,5 @@ export default function AboutPage() {
         </div>
       </footer>
       </div>
-    </>
   )
 }

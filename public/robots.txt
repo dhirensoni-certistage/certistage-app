@@ -1,17 +1,35 @@
+# https://www.certistage.com robots.txt
+
 User-agent: *
 Allow: /
 
-# Disallow admin and API routes
+# Disallow admin, API, and private client routes
 Disallow: /admin/
 Disallow: /api/
-Disallow: /client/
+Disallow: /client/dashboard
+Disallow: /client/events
+Disallow: /client/certificates
+Disallow: /client/recipients
+Disallow: /client/reports
+Disallow: /client/settings
+Disallow: /client/upgrade
+Disallow: /auth/
+Disallow: /setup
+Disallow: /verify-email
+Disallow: /reset-password
+Disallow: /forgot-password
 
-# Allow specific public pages
+# Allow public pages
+Allow: /
 Allow: /about
 Allow: /contact
 Allow: /privacy
 Allow: /terms
 Allow: /refund
 Allow: /shipping
+Allow: /signup
+Allow: /client/login
+Allow: /download/
 
-Sitemap: https://yourdomain.com/sitemap.xml
+# Sitemap
+Sitemap: https://www.certistage.com/sitemap.xml

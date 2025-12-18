@@ -1,6 +1,16 @@
 import Link from "next/link"
 import Image from "next/image"
 import { AlertCircle } from "lucide-react"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Refund Policy",
+  description: "CertiStage Refund Policy - Learn about our refund and cancellation policy for subscription plans and services.",
+  openGraph: {
+    title: "Refund Policy - CertiStage",
+    description: "Learn about our refund and cancellation policy for subscription plans.",
+  },
+}
 
 export default function RefundPage() {
   return (

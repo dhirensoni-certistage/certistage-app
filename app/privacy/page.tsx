@@ -1,5 +1,15 @@
 import Link from "next/link"
 import Image from "next/image"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description: "CertiStage Privacy Policy - Learn how we collect, use, and protect your personal information when using our certificate generation platform.",
+  openGraph: {
+    title: "Privacy Policy - CertiStage",
+    description: "Learn how we collect, use, and protect your personal information.",
+  },
+}
 
 export default function PrivacyPage() {
   return (

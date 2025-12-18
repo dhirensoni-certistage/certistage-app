@@ -1,5 +1,15 @@
 import Link from "next/link"
 import Image from "next/image"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description: "CertiStage Terms of Service - Read our terms and conditions for using our certificate generation platform and services.",
+  openGraph: {
+    title: "Terms of Service - CertiStage",
+    description: "Read our terms and conditions for using our certificate generation platform.",
+  },
+}
 
 export default function TermsPage() {
   return (
