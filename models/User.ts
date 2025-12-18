@@ -9,6 +9,7 @@ export interface IUser extends Document {
   plan: "free" | "professional" | "enterprise" | "premium"
   planExpiresAt?: Date
   isActive: boolean
+  isEmailVerified: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -26,7 +27,8 @@ const UserSchema = new Schema<IUser>(
       default: "free"
     },
     planExpiresAt: { type: Date },
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
+    isEmailVerified: { type: Boolean, default: false }
   },
   { timestamps: true }
 )
