@@ -79,11 +79,14 @@ export default function UsersPage() {
     {
       key: "plan",
       header: "Plan",
-      render: (user) => (
-        <Badge className={planColors[user.plan] || "bg-gray-100"}>
-          {user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}
-        </Badge>
-      )
+      render: (user) => {
+        const plan = user.plan || "free"
+        return (
+          <Badge className={planColors[plan] || "bg-gray-100"}>
+            {plan.charAt(0).toUpperCase() + plan.slice(1)}
+          </Badge>
+        )
+      }
     },
     {
       key: "isActive",

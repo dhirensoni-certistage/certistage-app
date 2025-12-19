@@ -39,10 +39,12 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .lean()
 
-    // Format users with default eventsCount
+    // Format users with defaults
     const formattedUsers = users.map(user => ({
       ...user,
-      eventsCount: 0 // Will be populated separately if needed
+      plan: user.plan || "free",
+      isActive: user.isActive ?? true,
+      eventsCount: 0
     }))
 
     return NextResponse.json({
