@@ -3,6 +3,7 @@ import crypto from "crypto"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import Payment from "@/models/Payment"
+import Settings from "@/models/Settings"
 import { type PlanId, PLAN_PRICES } from "@/lib/razorpay"
 
 export async function POST(request: NextRequest) {
@@ -27,8 +28,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User ID and plan required" }, { status: 400 })
     }
 
-    // Get secret from request or env
-    const razorpayKeySecret = keySecret || process.env.RAZORPAY_KEY_SECRET
+    // Try to get secret from database first
+    let razorpayKeySecret = keySecret
+    
+    if (!razorpayKeySecret) {
+      try {
+        const setting = await Settings.findOne({ key: "payment_config" })
+        if (setting?.value?.razorpay?.keySecret) {
+          razorpayKeySecret = setting.value.razorpay.keySecret
+        }
+      } catch (dbError) {
+        console.error("Failed to get payment config from DB:", dbError)
+      }
+    }
+    
+    // Fallback to env
+    razorpayKeySecret = razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET
 
     if (!razorpayKeySecret) {
       return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 })
@@ -76,11 +91,12 @@ export async function POST(request: NextRequest) {
     // Calculate plan expiry (1 year from now)
     const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
 
-    // Update user's plan in database
+    // Update user's plan in database and clear pendingPlan
     const user = await User.findByIdAndUpdate(
       userId,
       {
         plan: plan,
+        pendingPlan: null,
         planExpiresAt: planExpiresAt
       },
       { new: true }

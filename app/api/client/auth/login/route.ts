@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
         phone: user.phone,
         organization: user.organization,
         plan: user.plan,
+        pendingPlan: user.pendingPlan || null,
         planExpiresAt: user.planExpiresAt,
         planStatus
       },

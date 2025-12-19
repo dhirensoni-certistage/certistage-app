@@ -43,14 +43,19 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Create user
+    // Check if paid plan selected - if yes, create with free plan and pending payment
+    const selectedPlan = verificationRecord.userData.plan || "free"
+    const isPaidPlan = selectedPlan !== "free"
+
+    // Create user - for paid plans, start with free and set pending payment
     const user = await User.create({
       name: verificationRecord.userData.name,
       email: verificationRecord.email,
       password: hashedPassword,
       phone: verificationRecord.userData.phone,
       organization: verificationRecord.userData.organization,
-      plan: verificationRecord.userData.plan || "free",
+      plan: isPaidPlan ? "free" : "free", // Always start with free
+      pendingPlan: isPaidPlan ? selectedPlan : null, // Store selected paid plan
       isActive: true
     })
 

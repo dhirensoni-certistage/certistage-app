@@ -159,18 +159,34 @@ export default function AdminSettingsPage() {
     }
   }
 
+  // Load payment config from database
+  const loadPaymentConfig = async () => {
+    try {
+      const res = await fetch("/api/admin/settings?key=payment_config")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.value) {
+          setConfig(data.value)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load payment config:", error)
+      // Fallback to localStorage
+      const saved = localStorage.getItem("payment_config")
+      if (saved) {
+        try {
+          setConfig(JSON.parse(saved))
+        } catch (e) {
+          console.error("Error loading config from localStorage")
+        }
+      }
+    }
+  }
+
   useEffect(() => {
     checkSystemHealth()
     fetchAdmins()
-    // Load saved config
-    const saved = localStorage.getItem("payment_config")
-    if (saved) {
-      try {
-        setConfig(JSON.parse(saved))
-      } catch (e) {
-        console.error("Error loading config")
-      }
-    }
+    loadPaymentConfig()
   }, [])
 
   const handleSave = async () => {
@@ -187,10 +203,28 @@ export default function AdminSettingsPage() {
       }
     }
     setIsSaving(true)
-    localStorage.setItem("payment_config", JSON.stringify(config))
-    await new Promise(resolve => setTimeout(resolve, 800))
+    
+    try {
+      // Save to database
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "payment_config", value: config })
+      })
+      
+      if (res.ok) {
+        // Also save to localStorage as backup
+        localStorage.setItem("payment_config", JSON.stringify(config))
+        toast.success("Payment settings saved!")
+      } else {
+        toast.error("Failed to save settings")
+      }
+    } catch (error) {
+      console.error("Save error:", error)
+      toast.error("Failed to save settings")
+    }
+    
     setIsSaving(false)
-    toast.success("Payment settings saved!")
   }
 
   const handleTestConnection = async () => {

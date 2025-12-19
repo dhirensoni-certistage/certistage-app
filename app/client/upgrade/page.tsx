@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Check, Crown, Building2, ArrowLeft, Sparkles, Zap } from "lucide-react"
-import { getClientSession, clearClientSession, updateUserPlan, PLAN_FEATURES, type PlanType } from "@/lib/auth"
+import { Check, Crown, Building2, ArrowLeft, Sparkles, Zap, AlertCircle, Loader2 } from "lucide-react"
+import { getClientSession, PLAN_FEATURES, type PlanType } from "@/lib/auth"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
@@ -68,27 +68,33 @@ const features: Record<string, string[]> = {
   ]
 }
 
-export default function UpgradePage() {
+function UpgradePageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const pendingPlanParam = searchParams.get("pending") as PlanType | null
+  
   const [currentPlan, setCurrentPlan] = useState<PlanType>("free")
+  const [pendingPlan, setPendingPlan] = useState<PlanType | null>(null)
   const [userId, setUserId] = useState<string>("")
   const [userName, setUserName] = useState<string>("")
   const [userEmail, setUserEmail] = useState<string>("")
   const [userPhone, setUserPhone] = useState<string>("")
 
   const { initiatePayment, isLoading, isProcessing } = useRazorpay({
-    onSuccess: (data) => {
-      // Update local session with new plan
+    onSuccess: async (data) => {
+      // Update local session with new plan and clear pendingPlan
       const session = getClientSession()
       if (session) {
         session.userPlan = data.plan
+        session.pendingPlan = null
         localStorage.setItem("clientSession", JSON.stringify(session))
       }
       setCurrentPlan(data.plan)
+      setPendingPlan(null)
       
-      // Refresh page to reflect changes
+      // Redirect to dashboard after success
       setTimeout(() => {
-        window.location.reload()
+        router.push("/client/dashboard")
       }, 1500)
     },
     onError: (error) => {
@@ -100,11 +106,13 @@ export default function UpgradePage() {
     const session = getClientSession()
     if (session?.loginType === "user") {
       setCurrentPlan(session.userPlan || "free")
+      setPendingPlan(session.pendingPlan || pendingPlanParam || null)
       setUserId(session.userId || "")
       setUserName(session.userName || "")
       setUserEmail(session.userEmail || "")
+      setUserPhone(session.userPhone || "")
     }
-  }, [])
+  }, [pendingPlanParam])
 
   const handleUpgrade = async (planId: PlanType) => {
     if (!userId) {
@@ -130,10 +138,50 @@ export default function UpgradePage() {
         </Link>
       </Button>
 
+      {/* Pending Plan Alert */}
+      {pendingPlan && (
+        <div className="mb-6 rounded-xl border-2 border-amber-500/50 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+            <div>
+              <p className="font-semibold text-amber-900 dark:text-amber-100">
+                Complete Your {PLAN_FEATURES[pendingPlan]?.displayName} Upgrade
+              </p>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                You selected the {PLAN_FEATURES[pendingPlan]?.displayName} plan ({PLAN_FEATURES[pendingPlan]?.priceYearly}/year) during signup. 
+                Click the button below to complete your payment and unlock all features.
+              </p>
+              <Button 
+                className="mt-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600"
+                onClick={() => handleUpgrade(pendingPlan)}
+                disabled={isLoading || isProcessing}
+              >
+                {isLoading || isProcessing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Crown className="h-4 w-4 mr-2" />
+                    Pay {PLAN_FEATURES[pendingPlan]?.priceYearly} Now
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold mb-2">Upgrade Your Plan</h1>
+        <h1 className="text-3xl font-bold mb-2">
+          {pendingPlan ? "Complete Your Upgrade" : "Upgrade Your Plan"}
+        </h1>
         <p className="text-muted-foreground">
-          Choose the plan that best fits your needs
+          {pendingPlan 
+            ? "Complete payment to unlock your selected plan features"
+            : "Choose the plan that best fits your needs"
+          }
         </p>
         <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted">
           <span className="text-sm text-muted-foreground">Current Plan:</span>
@@ -196,11 +244,16 @@ export default function UpgradePage() {
         </Card>
         {plans.map((plan) => {
           const isCurrentPlan = currentPlan === plan.id
+          const isPendingPlan = pendingPlan === plan.id
           const Icon = plan.icon
 
           return (
             <div key={plan.id} className="relative pt-3">
-              {plan.badge && (
+              {isPendingPlan ? (
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-medium text-white rounded-md z-10 bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse">
+                  Your Selected Plan
+                </div>
+              ) : plan.badge && (
                 <div className={cn(
                   "absolute top-0 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-medium text-white rounded-md z-10",
                   plan.popular && "bg-primary",
@@ -212,9 +265,10 @@ export default function UpgradePage() {
               <Card 
                 className={cn(
                   "relative transition-all flex flex-col h-full",
-                  plan.popular && "border-primary shadow-lg border-2",
-                  plan.id === "enterprise" && "border-amber-500/50",
-                  plan.id === "premium" && "border-violet-500/50 bg-gradient-to-b from-background to-muted/30",
+                  isPendingPlan && "border-amber-500 shadow-lg border-2 ring-2 ring-amber-500/20",
+                  !isPendingPlan && plan.popular && "border-primary shadow-lg border-2",
+                  !isPendingPlan && plan.id === "enterprise" && "border-amber-500/50",
+                  !isPendingPlan && plan.id === "premium" && "border-violet-500/50 bg-gradient-to-b from-background to-muted/30",
                   isCurrentPlan && "opacity-60"
                 )}
               >
@@ -252,9 +306,10 @@ export default function UpgradePage() {
                 <Button 
                   className={cn(
                     "w-full mt-4",
-                    plan.popular && "bg-primary hover:bg-primary/90"
+                    isPendingPlan && "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600",
+                    !isPendingPlan && plan.popular && "bg-primary hover:bg-primary/90"
                   )}
-                  variant={plan.popular ? "default" : "outline"}
+                  variant={isPendingPlan || plan.popular ? "default" : "outline"}
                   disabled={isCurrentPlan || isLoading || isProcessing}
                   onClick={() => handleUpgrade(plan.id)}
                 >
@@ -262,7 +317,9 @@ export default function UpgradePage() {
                     ? "Current Plan" 
                     : isLoading || isProcessing
                       ? "Processing..." 
-                      : "Get Started"
+                      : isPendingPlan
+                        ? "Complete Payment"
+                        : "Get Started"
                   }
                 </Button>
               </CardContent>
@@ -281,5 +338,17 @@ export default function UpgradePage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function UpgradePage() {
+  return (
+    <Suspense fallback={
+      <div className="p-8 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <UpgradePageContent />
+    </Suspense>
   )
 }

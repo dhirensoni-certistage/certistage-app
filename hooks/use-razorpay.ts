@@ -40,7 +40,7 @@ export function useRazorpay(options: UseRazorpayOptions = {}) {
         throw new Error("Failed to load payment gateway")
       }
 
-      // Create order via API (API will use env credentials)
+      // Create order via API (API will get credentials from database or env)
       const orderResponse = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -80,7 +80,7 @@ export function useRazorpay(options: UseRazorpayOptions = {}) {
         handler: async function(response: RazorpayPaymentResponse) {
           setIsProcessing(true)
           try {
-            // Verify payment
+            // Verify payment (API will get credentials from database or env)
             const verifyResponse = await fetch("/api/razorpay/verify-payment", {
               method: "POST",
               headers: { "Content-Type": "application/json" },

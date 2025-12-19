@@ -60,7 +60,9 @@ export default function ClientLoginPage() {
         userId: data.user.id,
         userName: data.user.name,
         userEmail: data.user.email,
+        userPhone: data.user.phone,
         userPlan: data.user.plan,
+        pendingPlan: data.user.pendingPlan || null,
         planExpiresAt: data.user.planExpiresAt,
         loginType: "user",
         loggedInAt: new Date().toISOString()
@@ -73,7 +75,13 @@ export default function ClientLoginPage() {
       }
 
       toast.success(`Welcome back, ${data.user.name}!`)
-      router.push("/client/events")
+      
+      // If user has pending plan, redirect to upgrade page
+      if (data.user.pendingPlan) {
+        router.push("/client/upgrade?pending=" + data.user.pendingPlan)
+      } else {
+        router.push("/client/events")
+      }
     } catch (error) {
       console.error("Login error:", error)
       toast.error("Something went wrong. Please try again.")

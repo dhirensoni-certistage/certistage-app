@@ -114,7 +114,8 @@ export default function ClientDashboard() {
     }
     const plan = session.userPlan || "free"
     // Show banner for all plans except the highest one (premium)
-    if (plan === "premium") {
+    // Also show if user has a pending plan upgrade
+    if (plan === "premium" && !session.pendingPlan) {
       setShowUpgradeBanner(false)
       return
     }
@@ -212,8 +213,31 @@ export default function ClientDashboard() {
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
-      {/* Upgrade banner for free users */}
-      {showUpgradeBanner && (
+      {/* Pending Plan Upgrade Banner */}
+      {session?.pendingPlan && (
+        <div className="rounded-xl border-2 border-amber-500/50 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center justify-center">
+              <Crown className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-semibold text-amber-900 dark:text-amber-100">Complete Your {PLAN_FEATURES[session.pendingPlan]?.displayName} Upgrade!</p>
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                You selected the {PLAN_FEATURES[session.pendingPlan]?.displayName} plan during signup. Complete payment to unlock all features.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={dismissBanner} className="border-amber-300">Later</Button>
+            <Button asChild size="sm" className="bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm hover:from-amber-600 hover:to-orange-600">
+              <Link href={`/client/upgrade?pending=${session.pendingPlan}`}>Complete Payment</Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade banner for free users (only if no pending plan) */}
+      {showUpgradeBanner && !session?.pendingPlan && (
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center">

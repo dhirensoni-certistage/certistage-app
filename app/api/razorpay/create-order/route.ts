@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PLAN_PRICES, generateReceipt, type PlanId } from "@/lib/razorpay"
-import crypto from "crypto"
+import connectDB from "@/lib/mongodb"
+import Settings from "@/models/Settings"
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,9 +18,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Free plan does not require payment" }, { status: 400 })
     }
 
-    // Get Razorpay credentials from request or env
-    const razorpayKeyId = keyId || process.env.RAZORPAY_KEY_ID
-    const razorpayKeySecret = keySecret || process.env.RAZORPAY_KEY_SECRET
+    // Try to get credentials from database first
+    let razorpayKeyId = keyId
+    let razorpayKeySecret = keySecret
+    
+    if (!razorpayKeyId || !razorpayKeySecret) {
+      try {
+        await connectDB()
+        const setting = await Settings.findOne({ key: "payment_config" })
+        if (setting?.value?.razorpay) {
+          razorpayKeyId = razorpayKeyId || setting.value.razorpay.keyId
+          razorpayKeySecret = razorpayKeySecret || setting.value.razorpay.keySecret
+        }
+      } catch (dbError) {
+        console.error("Failed to get payment config from DB:", dbError)
+      }
+    }
+    
+    // Fallback to env variables
+    razorpayKeyId = razorpayKeyId || process.env.RAZORPAY_KEY_ID
+    razorpayKeySecret = razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET
 
     if (!razorpayKeyId || !razorpayKeySecret) {
       return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 })

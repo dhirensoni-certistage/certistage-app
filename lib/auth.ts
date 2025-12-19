@@ -87,7 +87,9 @@ export interface ClientSession {
   userId?: string
   userName?: string
   userEmail?: string
+  userPhone?: string
   userPlan?: PlanType
+  pendingPlan?: PlanType | null
   loginType: "user" | "event"
   loggedInAt: string
 }
