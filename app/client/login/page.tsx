@@ -76,9 +76,9 @@ export default function ClientLoginPage() {
 
       toast.success(`Welcome back, ${data.user.name}!`)
       
-      // If user has pending plan, redirect to upgrade page
+      // If user has pending plan, redirect to payment completion page
       if (data.user.pendingPlan) {
-        router.push("/client/upgrade?pending=" + data.user.pendingPlan)
+        router.push("/client/complete-payment")
       } else {
         router.push("/client/events")
       }

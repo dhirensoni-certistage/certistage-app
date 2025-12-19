@@ -86,9 +86,30 @@ export default function VerifyEmailPage() {
 
       const data = await res.json()
 
-      if (res.ok) {
-        toast.success("Account created successfully! Please login.")
-        router.push('/client/login?message=Account created successfully')
+      if (res.ok && data.user) {
+        // Auto-login: Create session immediately after signup
+        const session = {
+          loginType: "user",
+          userId: data.user.id,
+          userName: data.user.name,
+          userEmail: data.user.email,
+          userPhone: data.user.phone,
+          userPlan: data.user.plan,
+          pendingPlan: data.pendingPlan || null,
+          loggedInAt: new Date().toISOString()
+        }
+        localStorage.setItem("clientSession", JSON.stringify(session))
+        
+        // Redirect based on plan type
+        if (data.pendingPlan) {
+          // Paid plan selected - go to payment page
+          toast.success("Account created! Complete your payment to activate your plan.")
+          router.push('/client/complete-payment')
+        } else {
+          // Free plan - go directly to events/dashboard
+          toast.success(`Welcome to CertiStage, ${data.user.name}! 🎉`)
+          router.push('/client/events')
+        }
       } else {
         toast.error(data.error || "Failed to create account")
       }

@@ -47,9 +47,13 @@ export default function ClientLayout({
     }
   }
 
+  // Pages that should render without any layout (standalone pages)
+  const standalonePages = ["/client/login", "/client/complete-payment"]
+  const isStandalonePage = standalonePages.includes(pathname)
+
   useEffect(() => {
-    // Skip everything for login page
-    if (pathname === "/client/login") {
+    // Skip everything for standalone pages (login, payment completion)
+    if (isStandalonePage) {
       setIsLoading(false)
       setIsAuthenticated(false)
       return
@@ -92,8 +96,8 @@ export default function ClientLayout({
     )
   }
 
-  // Login page - no sidebar
-  if (pathname === "/client/login") {
+  // Standalone pages (login, payment completion) - no layout wrapper
+  if (isStandalonePage) {
     return <>{children}</>
   }
 

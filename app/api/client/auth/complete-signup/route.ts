@@ -102,8 +102,10 @@ export async function POST(request: NextRequest) {
         email: user.email,
         phone: user.phone,
         organization: user.organization,
-        plan: user.plan
+        plan: user.plan,
+        pendingPlan: user.pendingPlan || null
       },
+      pendingPlan: user.pendingPlan || null,
       message: "Account created successfully"
     })
   } catch (error) {
