@@ -21,29 +21,6 @@ interface UserDetails {
   phone?: string
 }
 
-function getRazorpayConfig() {
-  if (typeof window === "undefined") return { keyId: "", keySecret: "", isLive: false }
-  
-  const saved = localStorage.getItem("payment_config")
-  if (saved) {
-    try {
-      const config = JSON.parse(saved)
-      // Return razorpay config from payment_config structure
-      if (config.razorpay) {
-        return {
-          keyId: config.razorpay.keyId || "",
-          keySecret: config.razorpay.keySecret || "",
-          isLive: config.razorpay.isLive || false
-        }
-      }
-      return config
-    } catch (e) {
-      return { keyId: "", keySecret: "", isLive: false }
-    }
-  }
-  return { keyId: "", keySecret: "", isLive: false }
-}
-
 export function useRazorpay(options: UseRazorpayOptions = {}) {
   const [isLoading, setIsLoading] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -51,14 +28,6 @@ export function useRazorpay(options: UseRazorpayOptions = {}) {
   const initiatePayment = useCallback(async (plan: PlanId, user: UserDetails) => {
     if (plan === "free") {
       toast.error("Free plan does not require payment")
-      return
-    }
-
-    const config = getRazorpayConfig()
-    
-    if (!config.keyId || !config.keySecret) {
-      toast.error("Payment gateway not configured. Please contact support.")
-      options.onError?.("Payment gateway not configured")
       return
     }
 
@@ -71,7 +40,7 @@ export function useRazorpay(options: UseRazorpayOptions = {}) {
         throw new Error("Failed to load payment gateway")
       }
 
-      // Create order via API
+      // Create order via API (API will use env credentials)
       const orderResponse = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -79,9 +48,7 @@ export function useRazorpay(options: UseRazorpayOptions = {}) {
           plan,
           userId: user.id,
           userEmail: user.email,
-          userName: user.name,
-          keyId: config.keyId,
-          keySecret: config.keySecret
+          userName: user.name
         })
       })
 
@@ -91,12 +58,12 @@ export function useRazorpay(options: UseRazorpayOptions = {}) {
         throw new Error(orderData.error || "Failed to create order")
       }
 
-      const { order } = orderData
+      const { order, razorpayKeyId } = orderData
       const planDetails = PLAN_DETAILS[plan]
 
       // Open Razorpay checkout
       const razorpayOptions = {
-        key: config.keyId,
+        key: razorpayKeyId,
         amount: order.amount,
         currency: order.currency,
         name: "CertiStage",
@@ -122,8 +89,7 @@ export function useRazorpay(options: UseRazorpayOptions = {}) {
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
                 plan,
-                userId: user.id,
-                keySecret: config.keySecret
+                userId: user.id
               })
             })
 
