@@ -16,7 +16,7 @@ function createTransporter() {
     socketTimeout: 15000,
     pool: false, // Don't use connection pooling in serverless
     maxConnections: 1
-  })
+  } as nodemailer.TransportOptions)
 }
 
 export interface EmailTemplate {
@@ -207,5 +207,153 @@ export const emailTemplates = {
         </body>
       </html>
     `
-  })
+  }),
+
+  invoice: (data: {
+    invoiceNumber: string
+    customerName: string
+    customerEmail: string
+    customerPhone?: string
+    customerOrganization?: string
+    planName: string
+    amount: number
+    gatewayFee?: number
+    totalAmount: number
+    paymentId: string
+    paymentDate: Date
+    validUntil: Date
+  }) => {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://certistage.com'
+    const logoUrl = `${appUrl}/Certistage-logo.svg`
+    const formattedDate = data.paymentDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    const formattedValidUntil = data.validUntil.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    
+    return {
+      subject: `Invoice #${data.invoiceNumber} - CertiStage ${data.planName} Plan`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Invoice #${data.invoiceNumber}</title>
+          </head>
+          <body style="font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1f2937; max-width: 650px; margin: 0 auto; padding: 20px; background-color: #f3f4f6;">
+            <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+              
+              <!-- Header with Logo -->
+              <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+                <img src="${logoUrl}" alt="CertiStage" style="height: 40px; margin-bottom: 10px;" onerror="this.style.display='none'">
+                <h1 style="color: white; margin: 10px 0 5px 0; font-size: 28px; font-weight: 600;">INVOICE</h1>
+                <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 14px;">#${data.invoiceNumber}</p>
+              </div>
+
+              <!-- Invoice Details -->
+              <div style="padding: 30px;">
+                
+                <!-- Company & Customer Info -->
+                <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+                  <div style="flex: 1;">
+                    <h3 style="color: #10b981; margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">From</h3>
+                    <p style="margin: 0; font-weight: 600;">CertiStage</p>
+                    <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">Certificate Generation Platform</p>
+                    <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">support@certistage.com</p>
+                    <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">www.certistage.com</p>
+                  </div>
+                  <div style="flex: 1; text-align: right;">
+                    <h3 style="color: #10b981; margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Bill To</h3>
+                    <p style="margin: 0; font-weight: 600;">${data.customerName}</p>
+                    <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">${data.customerEmail}</p>
+                    ${data.customerPhone ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;">${data.customerPhone}</p>` : ''}
+                    ${data.customerOrganization ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;">${data.customerOrganization}</p>` : ''}
+                  </div>
+                </div>
+
+                <!-- Invoice Meta -->
+                <div style="background: #f8fafc; padding: 15px 20px; border-radius: 8px; margin-bottom: 25px;">
+                  <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                      <td style="padding: 5px 0;"><span style="color: #6b7280; font-size: 13px;">Invoice Date:</span></td>
+                      <td style="padding: 5px 0; text-align: right; font-weight: 500;">${formattedDate}</td>
+                      <td style="padding: 5px 0; padding-left: 30px;"><span style="color: #6b7280; font-size: 13px;">Payment ID:</span></td>
+                      <td style="padding: 5px 0; text-align: right; font-weight: 500; font-family: monospace; font-size: 12px;">${data.paymentId}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 5px 0;"><span style="color: #6b7280; font-size: 13px;">Valid Until:</span></td>
+                      <td style="padding: 5px 0; text-align: right; font-weight: 500;">${formattedValidUntil}</td>
+                      <td style="padding: 5px 0; padding-left: 30px;"><span style="color: #6b7280; font-size: 13px;">Status:</span></td>
+                      <td style="padding: 5px 0; text-align: right;"><span style="background: #d1fae5; color: #059669; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">PAID</span></td>
+                    </tr>
+                  </table>
+                </div>
+
+                <!-- Items Table -->
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+                  <thead>
+                    <tr style="background: #f8fafc;">
+                      <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb;">Description</th>
+                      <th style="padding: 12px 15px; text-align: center; font-size: 12px; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb;">Duration</th>
+                      <th style="padding: 12px 15px; text-align: right; font-size: 12px; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb;">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="padding: 15px; border-bottom: 1px solid #e5e7eb;">
+                        <p style="margin: 0; font-weight: 600;">${data.planName} Plan</p>
+                        <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 13px;">Annual Subscription - CertiStage</p>
+                      </td>
+                      <td style="padding: 15px; text-align: center; border-bottom: 1px solid #e5e7eb;">1 Year</td>
+                      <td style="padding: 15px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 500;">₹${(data.amount / 100).toLocaleString('en-IN')}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- Totals -->
+                <div style="background: #f8fafc; padding: 20px; border-radius: 8px;">
+                  <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                      <td style="padding: 8px 0; color: #6b7280;">Plan Amount</td>
+                      <td style="padding: 8px 0; text-align: right;">₹${(data.amount / 100).toLocaleString('en-IN')}</td>
+                    </tr>
+                    ${data.gatewayFee ? `
+                    <tr>
+                      <td style="padding: 8px 0; color: #6b7280;">Payment Gateway Charges</td>
+                      <td style="padding: 8px 0; text-align: right;">₹${(data.gatewayFee / 100).toLocaleString('en-IN')}</td>
+                    </tr>
+                    ` : ''}
+                    <tr style="border-top: 2px solid #e5e7eb;">
+                      <td style="padding: 12px 0; font-size: 18px; font-weight: 700; color: #10b981;">Total Paid</td>
+                      <td style="padding: 12px 0; text-align: right; font-size: 18px; font-weight: 700; color: #10b981;">₹${(data.totalAmount / 100).toLocaleString('en-IN')}</td>
+                    </tr>
+                  </table>
+                </div>
+
+                <!-- Thank You Note -->
+                <div style="text-align: center; margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 8px;">
+                  <p style="margin: 0; font-size: 16px; color: #059669; font-weight: 600;">🎉 Thank you for your purchase!</p>
+                  <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 14px;">Your ${data.planName} plan is now active.</p>
+                </div>
+
+                <!-- CTA Button -->
+                <div style="text-align: center; margin-top: 25px;">
+                  <a href="${appUrl}/client/dashboard" style="background: #10b981; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 15px;">Go to Dashboard</a>
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div style="background: #1f2937; padding: 25px; text-align: center;">
+                <p style="margin: 0 0 10px 0; color: #9ca3af; font-size: 13px;">This is a computer-generated invoice and does not require a signature.</p>
+                <p style="margin: 0; color: #6b7280; font-size: 12px;">© 2025 CertiStage. All rights reserved.</p>
+                <p style="margin: 10px 0 0 0;">
+                  <a href="${appUrl}" style="color: #10b981; text-decoration: none; font-size: 12px;">www.certistage.com</a>
+                  <span style="color: #4b5563; margin: 0 10px;">|</span>
+                  <a href="mailto:support@certistage.com" style="color: #10b981; text-decoration: none; font-size: 12px;">support@certistage.com</a>
+                </p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `
+    }
+  }
 }

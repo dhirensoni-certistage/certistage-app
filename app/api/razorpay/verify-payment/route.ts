@@ -125,18 +125,44 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Send payment success email
+    // Send invoice email to customer
     try {
       const { sendEmail, emailTemplates } = await import('@/lib/email')
-      const paymentTemplate = emailTemplates.paymentSuccess(
-        user.name, 
-        plan.charAt(0).toUpperCase() + plan.slice(1), 
-        PLAN_PRICES[plan as PlanId] || 0
-      )
+      const amount = PLAN_PRICES[plan as PlanId] || 0
+      const planDisplayName = plan.charAt(0).toUpperCase() + plan.slice(1)
+      
+      // Generate invoice number: INV-YYYYMMDD-XXXXX
+      const now = new Date()
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
+      const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase()
+      const invoiceNumber = `INV-${dateStr}-${randomStr}`
+      
+      // Calculate gateway fee (included in total, shown for transparency)
+      // Razorpay charges ~2% - we show this as already included
+      const gatewayFeePercent = 2
+      const baseAmount = Math.round(amount / (1 + gatewayFeePercent / 100))
+      const gatewayFee = amount - baseAmount
+      
+      // Send professional invoice email
+      const invoiceTemplate = emailTemplates.invoice({
+        invoiceNumber,
+        customerName: user.name,
+        customerEmail: user.email,
+        customerPhone: user.phone,
+        customerOrganization: user.organization,
+        planName: planDisplayName,
+        amount: baseAmount,
+        gatewayFee: gatewayFee,
+        totalAmount: amount,
+        paymentId: razorpay_payment_id,
+        paymentDate: now,
+        validUntil: planExpiresAt
+      })
+      
       await sendEmail({
         to: user.email,
-        subject: paymentTemplate.subject,
-        html: paymentTemplate.html
+        subject: invoiceTemplate.subject,
+        html: invoiceTemplate.html
       })
       
       // Send admin notification
@@ -144,8 +170,8 @@ export async function POST(request: NextRequest) {
         const adminTemplate = emailTemplates.adminNotification('payment', {
           userName: user.name,
           userEmail: user.email,
-          plan: plan.charAt(0).toUpperCase() + plan.slice(1),
-          amount: PLAN_PRICES[plan as PlanId] || 0,
+          plan: planDisplayName,
+          amount: amount,
           paymentId: razorpay_payment_id
         })
         await sendEmail({
@@ -155,7 +181,7 @@ export async function POST(request: NextRequest) {
         })
       }
     } catch (emailError) {
-      console.error('Failed to send payment confirmation email:', emailError)
+      console.error('Failed to send invoice email:', emailError)
       // Don't fail payment verification if email fails
     }
 
