@@ -76,20 +76,23 @@ export function ActivityFeed({ activities, loading }: ActivityFeedProps) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Recent Activity</CardTitle>
+        {activities.length > 0 && (
+          <span className="text-xs text-muted-foreground">{activities.length} items</span>
+        )}
       </CardHeader>
       <CardContent>
         {activities.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">No recent activity</p>
         ) : (
-          <div className="space-y-4">
+          <div className="max-h-[400px] overflow-y-auto pr-2 space-y-4">
             {activities.map((activity, index) => {
               const config = activityConfig[activity.type]
               const Icon = config.icon
               return (
                 <div key={index} className="flex items-center gap-4">
-                  <div className={cn("h-10 w-10 rounded-full flex items-center justify-center", config.bgColor)}>
+                  <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0", config.bgColor)}>
                     <Icon className={cn("h-5 w-5", config.color)} />
                   </div>
                   <div className="flex-1 min-w-0">

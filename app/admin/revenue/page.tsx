@@ -11,6 +11,7 @@ import { IndianRupee, TrendingUp, Percent, Download, RefreshCw, Loader2 } from "
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts"
+import { Breadcrumbs } from "@/components/admin/breadcrumbs"
 
 interface RevenueData {
   totals: { allTime: number; thisMonth: number; lastMonth: number; successRate: number }
@@ -20,7 +21,11 @@ interface RevenueData {
   pagination: Pagination
 }
 
-const PLAN_COLORS: Record<string, string> = { professional: "#3b82f6", enterprise: "#8b5cf6", premium: "#f59e0b" }
+const PLAN_COLORS: Record<string, string> = { 
+  professional: "#3b82f6", 
+  enterprise: "#8b5cf6", 
+  premium: "#f59e0b" 
+}
 
 const filters: FilterConfig[] = [
   { key: "status", label: "Status", options: [{ value: "success", label: "Success" }, { value: "pending", label: "Pending" }, { value: "failed", label: "Failed" }] },
@@ -66,7 +71,7 @@ export default function RevenuePage() {
       } else {
         toast.error(result.error || "Failed to sync payment")
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to sync payment")
     } finally {
       setSyncingPayment(null)
@@ -85,7 +90,7 @@ export default function RevenuePage() {
       } else {
         toast.error(result.error || "Bulk sync failed")
       }
-    } catch (error) {
+    } catch {
       toast.error("Bulk sync failed")
     } finally {
       setBulkSyncing(false)
@@ -109,10 +114,36 @@ export default function RevenuePage() {
     }
   }
 
+  // Custom tooltip for bar chart
+  const CustomBarTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-popover border border-border rounded-lg shadow-lg p-3">
+          <p className="text-sm font-medium text-foreground">{label}</p>
+          <p className="text-sm text-emerald-600">₹{payload[0].value.toLocaleString()}</p>
+        </div>
+      )
+    }
+    return null
+  }
+
+  // Custom tooltip for pie chart
+  const CustomPieTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-popover border border-border rounded-lg shadow-lg p-3">
+          <p className="text-sm font-medium text-foreground capitalize">{payload[0].name}</p>
+          <p className="text-sm" style={{ color: payload[0].payload.fill }}>₹{payload[0].value.toLocaleString()}</p>
+        </div>
+      )
+    }
+    return null
+  }
+
   const columns: Column<RevenueData["payments"][0]>[] = [
-    { key: "user", header: "User", render: (p) => <div><p className="font-medium">{p.user.name}</p><p className="text-xs text-muted-foreground">{p.user.email}</p></div> },
+    { key: "user", header: "User", render: (p) => <div><p className="font-medium">{p.user?.name || "Unknown"}</p><p className="text-xs text-muted-foreground">{p.user?.email || ""}</p></div> },
     { key: "plan", header: "Plan", render: (p) => <Badge>{p.plan}</Badge> },
-    { key: "amount", header: "Amount", render: (p) => `₹${p.amount.toLocaleString()}` },
+    { key: "amount", header: "Amount", render: (p) => `₹${(p.amount || 0).toLocaleString()}` },
     { key: "status", header: "Status", render: (p) => (
       <div className="flex items-center gap-2">
         <Badge variant={p.status === "success" ? "default" : p.status === "pending" ? "secondary" : "destructive"}>{p.status}</Badge>
@@ -137,6 +168,8 @@ export default function RevenuePage() {
       <AdminHeader title="Revenue" description="Track payments and revenue analytics" />
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
+          <Breadcrumbs />
+          
           {/* Action Buttons */}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={handleBulkSync} disabled={bulkSyncing}>
@@ -148,6 +181,7 @@ export default function RevenuePage() {
               Export CSV
             </Button>
           </div>
+          
           {/* Metric Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard title="Total Revenue" value={`₹${(data?.totals.allTime ?? 0).toLocaleString()}`} icon={IndianRupee} loading={loading} />
@@ -156,20 +190,42 @@ export default function RevenuePage() {
             <MetricCard title="Success Rate" value={`${data?.totals.successRate ?? 0}%`} icon={Percent} loading={loading} />
           </div>
 
-          {/* Charts */}
+          {/* Charts - Fixed colors */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader><CardTitle>Monthly Revenue</CardTitle></CardHeader>
               <CardContent>
                 <div className="h-[300px]">
-                  {data?.monthlyRevenue.length === 0 ? <p className="text-center text-muted-foreground py-12">No data</p> : (
+                  {!data?.monthlyRevenue || data.monthlyRevenue.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-12">No data available</p>
+                  ) : (
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={data?.monthlyRevenue}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                        <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                        <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                        <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      <BarChart data={data.monthlyRevenue}>
+                        <defs>
+                          <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.9}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.6}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis 
+                          dataKey="month" 
+                          tick={{ fill: "#6b7280", fontSize: 12 }}
+                          axisLine={{ stroke: "#e5e7eb" }}
+                          tickLine={{ stroke: "#e5e7eb" }}
+                        />
+                        <YAxis 
+                          tick={{ fill: "#6b7280", fontSize: 12 }}
+                          axisLine={{ stroke: "#e5e7eb" }}
+                          tickLine={{ stroke: "#e5e7eb" }}
+                          tickFormatter={(value) => `₹${value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}`}
+                        />
+                        <Tooltip content={<CustomBarTooltip />} />
+                        <Bar 
+                          dataKey="revenue" 
+                          fill="url(#colorRevenue)" 
+                          radius={[6, 6, 0, 0]} 
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   )}
@@ -181,14 +237,29 @@ export default function RevenuePage() {
               <CardHeader><CardTitle>Revenue by Plan</CardTitle></CardHeader>
               <CardContent>
                 <div className="h-[300px]">
-                  {data?.planBreakdown.length === 0 ? <p className="text-center text-muted-foreground py-12">No data</p> : (
+                  {!data?.planBreakdown || data.planBreakdown.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-12">No data available</p>
+                  ) : (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={data?.planBreakdown} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="revenue" label={({ plan, percent }) => `${plan} ${(percent * 100).toFixed(0)}%`}>
-                          {data?.planBreakdown.map((entry, i) => <Cell key={i} fill={PLAN_COLORS[entry.plan] || "#64748b"} />)}
+                        <Pie 
+                          data={data.planBreakdown} 
+                          cx="50%" 
+                          cy="50%" 
+                          innerRadius={60} 
+                          outerRadius={100} 
+                          dataKey="revenue" 
+                          label={({ plan, percent }) => `${plan} ${(percent * 100).toFixed(0)}%`}
+                          labelLine={{ stroke: "#6b7280" }}
+                        >
+                          {data.planBreakdown.map((entry, i) => (
+                            <Cell key={i} fill={PLAN_COLORS[entry.plan] || "#64748b"} />
+                          ))}
                         </Pie>
-                        <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                        <Legend />
+                        <Tooltip content={<CustomPieTooltip />} />
+                        <Legend 
+                          formatter={(value) => <span className="text-foreground capitalize">{value}</span>}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   )}
@@ -202,7 +273,15 @@ export default function RevenuePage() {
             <CardHeader><CardTitle>Payment History</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <SearchFilter searchPlaceholder="" filters={filters} onSearch={() => {}} onFilter={setFilterValues} />
-              <DataTable columns={columns} data={data?.payments ?? []} pagination={pagination} onPageChange={(p) => setPagination((prev) => ({ ...prev, page: p }))} loading={loading} rowKey={(p) => p._id} emptyMessage="No payments found" />
+              <DataTable 
+                columns={columns} 
+                data={data?.payments ?? []} 
+                pagination={pagination} 
+                onPageChange={(p) => setPagination((prev) => ({ ...prev, page: p }))} 
+                loading={loading} 
+                rowKey={(p) => p._id} 
+                emptyMessage="No payments found" 
+              />
             </CardContent>
           </Card>
         </div>

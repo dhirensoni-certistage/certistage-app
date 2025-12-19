@@ -7,7 +7,9 @@ import { DataTable, Column, Pagination } from "@/components/admin/data-table"
 import { SearchFilter, FilterConfig } from "@/components/admin/search-filter"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Download } from "lucide-react"
+import { Download, Trash2, Mail } from "lucide-react"
+import { toast } from "sonner"
+import { Breadcrumbs } from "@/components/admin/breadcrumbs"
 
 interface User {
   _id: string
@@ -109,11 +111,30 @@ export default function UsersPage() {
     window.open("/api/admin/export/users", "_blank")
   }
 
+  const bulkActions = [
+    {
+      label: "Export Selected",
+      icon: <Download className="h-4 w-4 mr-2" />,
+      onClick: (ids: string[]) => {
+        toast.success(`Exporting ${ids.length} users...`)
+        // Implement export selected
+      }
+    },
+    {
+      label: "Send Email",
+      icon: <Mail className="h-4 w-4 mr-2" />,
+      onClick: (ids: string[]) => {
+        toast.info(`Email feature coming soon for ${ids.length} users`)
+      }
+    }
+  ]
+
   return (
     <>
       <AdminHeader title="Users" description="Manage all registered users" />
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
+          <Breadcrumbs />
           <div className="flex items-center justify-between gap-4">
             <SearchFilter
               searchPlaceholder="Search by name, email, or organization..."
@@ -136,6 +157,8 @@ export default function UsersPage() {
             loading={loading}
             rowKey={(user) => user._id}
             emptyMessage="No users found"
+            selectable
+            bulkActions={bulkActions}
           />
         </div>
       </div>

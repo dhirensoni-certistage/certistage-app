@@ -9,7 +9,7 @@ interface PlanDistributionChartProps {
   loading?: boolean
 }
 
-const COLORS = {
+const COLORS: Record<string, string> = {
   free: "#94a3b8",
   professional: "#3b82f6",
   enterprise: "#8b5cf6",
@@ -43,6 +43,38 @@ export function PlanDistributionChart({ data, loading }: PlanDistributionChartPr
     plan: item.plan,
   }))
 
+  // Custom tooltip
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const color = COLORS[payload[0].payload.plan] || "#64748b"
+      return (
+        <div className="bg-popover border border-border rounded-lg shadow-lg p-3">
+          <p className="text-sm font-medium text-foreground">{payload[0].name}</p>
+          <p className="text-sm" style={{ color }}>{payload[0].value} users</p>
+        </div>
+      )
+    }
+    return null
+  }
+
+  // Custom legend
+  const renderLegend = (props: any) => {
+    const { payload } = props
+    return (
+      <div className="flex flex-wrap justify-center gap-4 mt-4">
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-2">
+            <div 
+              className="w-3 h-3 rounded-full" 
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="text-sm text-foreground">{entry.value}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -60,28 +92,23 @@ export function PlanDistributionChart({ data, loading }: PlanDistributionChartPr
                 <Pie
                   data={formattedData}
                   cx="50%"
-                  cy="50%"
+                  cy="45%"
                   innerRadius={60}
                   outerRadius={100}
                   paddingAngle={2}
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                  labelLine={{ stroke: "#6b7280" }}
                 >
                   {formattedData.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
-                      fill={COLORS[entry.plan as keyof typeof COLORS] || "#64748b"} 
+                      fill={COLORS[entry.plan] || "#64748b"} 
                     />
                   ))}
                 </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: "hsl(var(--card))", 
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px"
-                  }}
-                />
-                <Legend />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend content={renderLegend} />
               </PieChart>
             </ResponsiveContainer>
           )}

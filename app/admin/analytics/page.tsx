@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Award, Download, Clock, Percent, User, Calendar } from "lucide-react"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts"
+import { Breadcrumbs } from "@/components/admin/breadcrumbs"
 
 interface AnalyticsData {
   certificateTrends: Array<{ date: string; count: number }>
@@ -42,17 +43,38 @@ export default function AnalyticsPage() {
 
   const handleFilter = () => fetchAnalytics()
 
+  // Custom tooltip for charts
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-popover border border-border rounded-lg shadow-lg p-3">
+          <p className="text-sm font-medium text-foreground">{label}</p>
+          <p className="text-sm text-primary">{payload[0].value} certificates</p>
+        </div>
+      )
+    }
+    return null
+  }
+
   return (
     <>
       <AdminHeader title="Analytics" description="Platform usage analytics and insights" />
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
+          <Breadcrumbs />
+          
           {/* Date Range Filter */}
           <Card>
             <CardContent className="pt-6">
               <div className="flex flex-wrap items-end gap-4">
-                <div><Label>Start Date</Label><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1" /></div>
-                <div><Label>End Date</Label><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1" /></div>
+                <div>
+                  <Label>Start Date</Label>
+                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label>End Date</Label>
+                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1" />
+                </div>
                 <Button onClick={handleFilter}>Apply Filter</Button>
                 <Button variant="outline" onClick={() => { setStartDate(""); setEndDate(""); fetchAnalytics() }}>Clear</Button>
               </div>
@@ -67,39 +89,82 @@ export default function AnalyticsPage() {
             <MetricCard title="Download Rate" value={`${data?.downloadStats.downloadRate ?? 0}%`} icon={Percent} loading={loading} />
           </div>
 
-          {/* Certificate Trends Chart */}
+          {/* Certificate Trends Chart - Fixed with proper colors */}
           <Card>
             <CardHeader><CardTitle>Certificate Generation Trends</CardTitle></CardHeader>
             <CardContent>
               <div className="h-[300px]">
-                {data?.certificateTrends.length === 0 ? <p className="text-center text-muted-foreground py-12">No data</p> : (
+                {!data?.certificateTrends || data.certificateTrends.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-12">No data available</p>
+                ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={data?.certificateTrends.map(d => ({ ...d, date: new Date(d.date).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) }))}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                      <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                      <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
-                    </LineChart>
+                    <AreaChart data={data.certificateTrends.map(d => ({ 
+                      ...d, 
+                      date: new Date(d.date).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) 
+                    }))}>
+                      <defs>
+                        <linearGradient id="colorCert" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#14b8a6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis 
+                        dataKey="date" 
+                        tick={{ fill: "#6b7280", fontSize: 12 }} 
+                        axisLine={{ stroke: "#e5e7eb" }}
+                        tickLine={{ stroke: "#e5e7eb" }}
+                      />
+                      <YAxis 
+                        tick={{ fill: "#6b7280", fontSize: 12 }} 
+                        axisLine={{ stroke: "#e5e7eb" }}
+                        tickLine={{ stroke: "#e5e7eb" }}
+                      />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Area 
+                        type="monotone" 
+                        dataKey="count" 
+                        stroke="#14b8a6" 
+                        strokeWidth={2}
+                        fill="url(#colorCert)" 
+                      />
+                    </AreaChart>
                   </ResponsiveContainer>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Top Users & Events */}
+          {/* Top Users & Events - Fixed with max-height and scroll */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
-              <CardHeader><CardTitle>Top 10 Users by Events</CardTitle></CardHeader>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Top 10 Users by Events</CardTitle>
+                  {data?.topUsers && data.topUsers.length > 0 && (
+                    <span className="text-xs text-muted-foreground">{data.topUsers.length} users</span>
+                  )}
+                </div>
+              </CardHeader>
               <CardContent>
-                {data?.topUsers.length === 0 ? <p className="text-muted-foreground">No data</p> : (
-                  <div className="space-y-3">
-                    {data?.topUsers.map((item, i) => (
-                      <div key={item.user._id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                        <span className="text-sm font-bold text-muted-foreground w-6">{i + 1}</span>
-                        <User className="h-4 w-4 text-primary" />
-                        <div className="flex-1 min-w-0"><p className="font-medium truncate">{item.user.name}</p><p className="text-xs text-muted-foreground">{item.user.email}</p></div>
-                        <div className="text-right"><p className="font-bold">{item.eventsCount}</p><p className="text-xs text-muted-foreground">events</p></div>
+                {!data?.topUsers || data.topUsers.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No data available</p>
+                ) : (
+                  <div className="max-h-[400px] overflow-y-auto pr-2 space-y-3">
+                    {data.topUsers.map((item, i) => (
+                      <div key={item.user?._id || i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-bold text-primary">{i + 1}</span>
+                        </div>
+                        <User className="h-4 w-4 text-primary shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{item.user?.name || "Unknown"}</p>
+                          <p className="text-xs text-muted-foreground truncate">{item.user?.email || ""}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-bold text-primary">{item.eventsCount}</p>
+                          <p className="text-xs text-muted-foreground">events</p>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -108,16 +173,33 @@ export default function AnalyticsPage() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle>Top 10 Events by Recipients</CardTitle></CardHeader>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Top 10 Events by Recipients</CardTitle>
+                  {data?.topEvents && data.topEvents.length > 0 && (
+                    <span className="text-xs text-muted-foreground">{data.topEvents.length} events</span>
+                  )}
+                </div>
+              </CardHeader>
               <CardContent>
-                {data?.topEvents.length === 0 ? <p className="text-muted-foreground">No data</p> : (
-                  <div className="space-y-3">
-                    {data?.topEvents.map((item, i) => (
-                      <div key={item.event._id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                        <span className="text-sm font-bold text-muted-foreground w-6">{i + 1}</span>
-                        <Calendar className="h-4 w-4 text-primary" />
-                        <div className="flex-1 min-w-0"><p className="font-medium truncate">{item.event.name}</p><p className="text-xs text-muted-foreground">{item.owner?.name}</p></div>
-                        <div className="text-right"><p className="font-bold">{item.recipientsCount}</p><p className="text-xs text-muted-foreground">recipients</p></div>
+                {!data?.topEvents || data.topEvents.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No data available</p>
+                ) : (
+                  <div className="max-h-[400px] overflow-y-auto pr-2 space-y-3">
+                    {data.topEvents.map((item, i) => (
+                      <div key={item.event?._id || i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
+                        <div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-bold text-purple-600">{i + 1}</span>
+                        </div>
+                        <Calendar className="h-4 w-4 text-purple-600 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{item.event?.name || "Unknown"}</p>
+                          <p className="text-xs text-muted-foreground truncate">{item.owner?.name || ""}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-bold text-purple-600">{item.recipientsCount}</p>
+                          <p className="text-xs text-muted-foreground">recipients</p>
+                        </div>
                       </div>
                     ))}
                   </div>

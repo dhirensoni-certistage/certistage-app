@@ -7,7 +7,9 @@ import { DataTable, Column, Pagination } from "@/components/admin/data-table"
 import { SearchFilter, FilterConfig } from "@/components/admin/search-filter"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Download } from "lucide-react"
+import { Download, ToggleLeft, ToggleRight } from "lucide-react"
+import { toast } from "sonner"
+import { Breadcrumbs } from "@/components/admin/breadcrumbs"
 
 interface Event {
   _id: string
@@ -98,11 +100,38 @@ export default function EventsPage() {
     window.open("/api/admin/export/events", "_blank")
   }
 
+  const bulkActions = [
+    {
+      label: "Export Selected",
+      icon: <Download className="h-4 w-4 mr-2" />,
+      onClick: (ids: string[]) => {
+        toast.success(`Exporting ${ids.length} events...`)
+      }
+    },
+    {
+      label: "Activate",
+      icon: <ToggleRight className="h-4 w-4 mr-2" />,
+      onClick: async (ids: string[]) => {
+        toast.info(`Activating ${ids.length} events...`)
+        // Implement bulk activate
+      }
+    },
+    {
+      label: "Deactivate",
+      icon: <ToggleLeft className="h-4 w-4 mr-2" />,
+      onClick: async (ids: string[]) => {
+        toast.info(`Deactivating ${ids.length} events...`)
+        // Implement bulk deactivate
+      }
+    }
+  ]
+
   return (
     <>
       <AdminHeader title="Events" description="Manage all events across all users" />
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
+          <Breadcrumbs />
           <div className="flex items-center justify-between gap-4">
             <SearchFilter
               searchPlaceholder="Search by event name or owner email..."
@@ -125,6 +154,8 @@ export default function EventsPage() {
             loading={loading}
             rowKey={(event) => event._id}
             emptyMessage="No events found"
+            selectable
+            bulkActions={bulkActions}
           />
         </div>
       </div>

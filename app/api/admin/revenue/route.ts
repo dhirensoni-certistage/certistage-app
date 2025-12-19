@@ -69,16 +69,19 @@ export async function GET(request: NextRequest) {
       createdAt: p.createdAt
     }))
 
+    // Convert paise to rupees for display
+    const toRupees = (paise: number) => Math.round(paise / 100)
+
     return NextResponse.json({
       totals: {
-        allTime: allTimeResult[0]?.total || 0,
-        thisMonth: thisMonthResult[0]?.total || 0,
-        lastMonth: lastMonthResult[0]?.total || 0,
+        allTime: toRupees(allTimeResult[0]?.total || 0),
+        thisMonth: toRupees(thisMonthResult[0]?.total || 0),
+        lastMonth: toRupees(lastMonthResult[0]?.total || 0),
         successRate: totalPayments > 0 ? Math.round((successPayments / totalPayments) * 100) : 0
       },
-      monthlyRevenue,
-      planBreakdown,
-      payments: formattedPayments,
+      monthlyRevenue: monthlyRevenue.map(m => ({ ...m, revenue: toRupees(m.revenue) })),
+      planBreakdown: planBreakdown.map(p => ({ ...p, revenue: toRupees(p.revenue) })),
+      payments: formattedPayments.map(p => ({ ...p, amount: toRupees(p.amount) })),
       pagination: { total, page, limit, totalPages }
     })
   } catch (error) {

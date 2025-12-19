@@ -21,7 +21,6 @@ import {
   Save, 
   CheckCircle2, 
   AlertCircle,
-  Settings,
   ExternalLink,
   Database,
   Server,
@@ -30,9 +29,18 @@ import {
   Plus,
   Trash2,
   IndianRupee,
-  Globe
+  Globe,
+  AlertTriangle,
+  Users,
+  Calendar,
+  FileText,
+  CreditCard as PaymentIcon,
+  Loader2
 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
+import { Breadcrumbs } from "@/components/admin/breadcrumbs"
+import { AdminHeader } from "@/components/admin/admin-header"
 import {
   Dialog,
   DialogContent,
@@ -183,11 +191,7 @@ export default function AdminSettingsPage() {
     }
   }
 
-  useEffect(() => {
-    checkSystemHealth()
-    fetchAdmins()
-    loadPaymentConfig()
-  }, [])
+  
 
   const handleSave = async () => {
     const gateway = config.activeGateway
@@ -256,15 +260,85 @@ export default function AdminSettingsPage() {
 
   const activeConfig = config.activeGateway === "razorpay" ? config.razorpay : config.stripe
 
+  // Data Management State
+  const [showClearDataDialog, setShowClearDataDialog] = useState(false)
+  const [clearDataOptions, setClearDataOptions] = useState({
+    users: false,
+    events: false,
+    certificates: false,
+    recipients: false,
+    payments: false
+  })
+  const [confirmText, setConfirmText] = useState("")
+  const [isClearing, setIsClearing] = useState(false)
+  const [dataCounts, setDataCounts] = useState<Record<string, number>>({})
+
+  const fetchDataCounts = async () => {
+    try {
+      const res = await fetch("/api/admin/data-counts")
+      if (res.ok) {
+        const data = await res.json()
+        setDataCounts(data)
+      }
+    } catch (error) {
+      console.error("Failed to fetch data counts:", error)
+    }
+  }
+
+  const handleClearData = async () => {
+    if (confirmText !== "DELETE") {
+      toast.error("Please type DELETE to confirm")
+      return
+    }
+
+    const selectedCollections = Object.entries(clearDataOptions)
+      .filter(([, selected]) => selected)
+      .map(([key]) => key)
+
+    if (selectedCollections.length === 0) {
+      toast.error("Please select at least one data type to clear")
+      return
+    }
+
+    setIsClearing(true)
+    try {
+      const res = await fetch("/api/admin/clear-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collections: selectedCollections })
+      })
+
+      if (res.ok) {
+        const result = await res.json()
+        toast.success(`Cleared: ${result.deleted.join(", ")}`)
+        setShowClearDataDialog(false)
+        setClearDataOptions({ users: false, events: false, certificates: false, recipients: false, payments: false })
+        setConfirmText("")
+        fetchDataCounts()
+      } else {
+        const error = await res.json()
+        toast.error(error.error || "Failed to clear data")
+      }
+    } catch {
+      toast.error("Failed to clear data")
+    } finally {
+      setIsClearing(false)
+    }
+  }
+
+  useEffect(() => {
+    checkSystemHealth()
+    fetchAdmins()
+    loadPaymentConfig()
+    fetchDataCounts()
+  }, [])
+
   return (
-    <div className="p-6 h-full overflow-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Settings className="h-6 w-6" />
-          Settings
-        </h1>
-        <p className="text-muted-foreground">Manage payment gateway and system configuration</p>
-      </div>
+    <>
+      <AdminHeader title="Settings" description="Manage payment gateway and system configuration" />
+      <div className="flex-1 overflow-auto p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Breadcrumbs />
 
       {/* System Health */}
       <Card className="mb-6">
@@ -338,18 +412,52 @@ export default function AdminSettingsPage() {
           {admins.length === 0 ? (
             <p className="text-muted-foreground text-center py-4">No admins found</p>
           ) : (
-            <div className="space-y-2">
-              {admins.map((admin) => (
-                <div key={admin._id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
-                  <div>
-                    <p className="font-medium">{admin.username}</p>
-                    <p className="text-xs text-muted-foreground">Added {new Date(admin.createdAt).toLocaleDateString()}</p>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {admins.map((admin, index) => {
+                const username = admin?.username || "Admin"
+                const initials = username.substring(0, 2).toUpperCase()
+                const createdDate = admin?.createdAt 
+                  ? new Date(admin.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                  : "Unknown"
+                
+                return (
+                  <div key={admin._id || index} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-sm font-semibold text-primary">{initials}</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{username}</p>
+                          {index === 0 && (
+                            <Badge variant="default" className="text-[10px] h-5">Super Admin</Badge>
+                          )}
+                          {index !== 0 && (
+                            <Badge variant="secondary" className="text-[10px] h-5">Admin</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Added {createdDate}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {admins.length > 1 && index !== 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteAdmin(admin._id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Remove
+                        </Button>
+                      )}
+                      {index === 0 && (
+                        <Badge variant="outline" className="text-xs">You</Badge>
+                      )}
+                    </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => handleDeleteAdmin(admin._id)} disabled={admins.length <= 1}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>
@@ -563,6 +671,200 @@ export default function AdminSettingsPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+
+      {/* Data Management - Danger Zone */}
+      <Card className="mb-6 border-destructive/50">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                <CardDescription>Clear test data from database</CardDescription>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-lg space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-destructive">Warning: This action is irreversible</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Clearing data will permanently delete selected records from the database. 
+                  This is useful for removing test data before going live.
+                </p>
+              </div>
+            </div>
+
+            {/* Data Counts */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="p-3 bg-background rounded-lg border text-center">
+                <Users className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
+                <p className="text-lg font-bold">{dataCounts.users || 0}</p>
+                <p className="text-xs text-muted-foreground">Users</p>
+              </div>
+              <div className="p-3 bg-background rounded-lg border text-center">
+                <Calendar className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
+                <p className="text-lg font-bold">{dataCounts.events || 0}</p>
+                <p className="text-xs text-muted-foreground">Events</p>
+              </div>
+              <div className="p-3 bg-background rounded-lg border text-center">
+                <FileText className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
+                <p className="text-lg font-bold">{dataCounts.certificates || 0}</p>
+                <p className="text-xs text-muted-foreground">Cert Types</p>
+              </div>
+              <div className="p-3 bg-background rounded-lg border text-center">
+                <Users className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
+                <p className="text-lg font-bold">{dataCounts.recipients || 0}</p>
+                <p className="text-xs text-muted-foreground">Recipients</p>
+              </div>
+              <div className="p-3 bg-background rounded-lg border text-center">
+                <PaymentIcon className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
+                <p className="text-lg font-bold">{dataCounts.payments || 0}</p>
+                <p className="text-xs text-muted-foreground">Payments</p>
+              </div>
+            </div>
+
+            <Button 
+              variant="destructive" 
+              onClick={() => { setShowClearDataDialog(true); fetchDataCounts() }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear Test Data
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Clear Data Dialog */}
+      <Dialog open={showClearDataDialog} onOpenChange={setShowClearDataDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Clear Test Data
+            </DialogTitle>
+            <DialogDescription>
+              Select which data to clear. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Checkboxes */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Checkbox 
+                    id="clear-users" 
+                    checked={clearDataOptions.users}
+                    onCheckedChange={(checked) => setClearDataOptions(prev => ({ ...prev, users: !!checked }))}
+                  />
+                  <label htmlFor="clear-users" className="text-sm font-medium cursor-pointer">
+                    Users ({dataCounts.users || 0})
+                  </label>
+                </div>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Checkbox 
+                    id="clear-events" 
+                    checked={clearDataOptions.events}
+                    onCheckedChange={(checked) => setClearDataOptions(prev => ({ ...prev, events: !!checked }))}
+                  />
+                  <label htmlFor="clear-events" className="text-sm font-medium cursor-pointer">
+                    Events ({dataCounts.events || 0})
+                  </label>
+                </div>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Checkbox 
+                    id="clear-certificates" 
+                    checked={clearDataOptions.certificates}
+                    onCheckedChange={(checked) => setClearDataOptions(prev => ({ ...prev, certificates: !!checked }))}
+                  />
+                  <label htmlFor="clear-certificates" className="text-sm font-medium cursor-pointer">
+                    Certificate Types ({dataCounts.certificates || 0})
+                  </label>
+                </div>
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Checkbox 
+                    id="clear-recipients" 
+                    checked={clearDataOptions.recipients}
+                    onCheckedChange={(checked) => setClearDataOptions(prev => ({ ...prev, recipients: !!checked }))}
+                  />
+                  <label htmlFor="clear-recipients" className="text-sm font-medium cursor-pointer">
+                    Recipients ({dataCounts.recipients || 0})
+                  </label>
+                </div>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Checkbox 
+                    id="clear-payments" 
+                    checked={clearDataOptions.payments}
+                    onCheckedChange={(checked) => setClearDataOptions(prev => ({ ...prev, payments: !!checked }))}
+                  />
+                  <label htmlFor="clear-payments" className="text-sm font-medium cursor-pointer">
+                    Payments ({dataCounts.payments || 0})
+                  </label>
+                </div>
+                <PaymentIcon className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+
+            {/* Confirmation Input */}
+            <div className="space-y-2">
+              <Label className="text-destructive">Type DELETE to confirm</Label>
+              <Input 
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder="DELETE"
+                className="font-mono"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowClearDataDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleClearData}
+              disabled={isClearing || confirmText !== "DELETE"}
+            >
+              {isClearing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Clearing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear Selected Data
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+        </div>
+      </div>
+    </>
   )
 }

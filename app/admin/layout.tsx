@@ -4,6 +4,8 @@ import type React from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
+import { CommandPalette } from "@/components/admin/command-palette"
+import { KeyboardShortcuts } from "@/components/admin/keyboard-shortcuts"
 
 export default function AdminLayout({
   children,
@@ -58,6 +60,8 @@ export default function AdminLayout({
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
+      <CommandPalette />
+      <KeyboardShortcuts />
       <AdminSidebar />
       <main className="flex-1 flex flex-col overflow-hidden">{children}</main>
     </div>

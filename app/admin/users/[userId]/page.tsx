@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { UserStatusToggle } from "@/components/admin/users/user-status-toggle"
-import { ArrowLeft, Mail, Phone, Building, Calendar, CreditCard } from "lucide-react"
+import { Breadcrumbs } from "@/components/admin/breadcrumbs"
+import { Mail, Phone, Building, Calendar, CreditCard, ExternalLink, Award, Users, FileText } from "lucide-react"
 
 interface UserDetails {
   user: {
@@ -41,6 +42,13 @@ interface UserDetails {
     totalCertificates: number
     totalRecipients: number
   }
+}
+
+const planColors: Record<string, string> = {
+  free: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+  professional: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  enterprise: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  premium: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
 }
 
 export default function UserDetailsPage({ params }: { params: Promise<{ userId: string }> }) {
@@ -79,6 +87,9 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
         <div className="flex-1 overflow-auto p-6">
           <div className="max-w-4xl mx-auto space-y-6">
             <Skeleton className="h-48 w-full" />
+            <div className="grid grid-cols-3 gap-4">
+              {[1,2,3].map(i => <Skeleton key={i} className="h-24" />)}
+            </div>
             <Skeleton className="h-64 w-full" />
           </div>
         </div>
@@ -105,45 +116,134 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
       <AdminHeader title={user.name} description={user.email} />
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-4xl mx-auto space-y-6">
-          <Button variant="ghost" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Users
-          </Button>
+          <Breadcrumbs items={[
+            { label: "Users", href: "/admin/users" },
+            { label: user.name }
+          ]} />
 
-          {/* User Info Card */}
+          {/* User Profile Card */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Profile Information</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-2xl font-bold text-primary">
+                    {user.name.substring(0, 2).toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <CardTitle className="text-xl">{user.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge className={planColors[user.plan] || planColors.free}>
+                      {user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}
+                    </Badge>
+                    <Badge variant={user.isActive ? "default" : "destructive"}>
+                      {user.isActive ? "Active" : "Blocked"}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
               <UserStatusToggle userId={user._id} isActive={user.isActive} onStatusChange={handleStatusChange} />
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4">
-              <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" />{user.email}</div>
-              <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" />{user.phone}</div>
-              {user.organization && <div className="flex items-center gap-2"><Building className="h-4 w-4 text-muted-foreground" />{user.organization}</div>}
-              <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground" />Joined {new Date(user.createdAt).toLocaleDateString()}</div>
-              <div><Badge>{user.plan}</Badge></div>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm truncate">{user.email}</span>
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm">{user.phone || "Not provided"}</span>
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                  <Building className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm truncate">{user.organization || "Not provided"}</span>
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                  <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm">
+                    {new Date(user.createdAt).toLocaleDateString("en-IN", { 
+                      day: "numeric", month: "short", year: "numeric" 
+                    })}
+                  </span>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Stats */}
+          {/* Stats Grid */}
           <div className="grid grid-cols-3 gap-4">
-            <Card><CardContent className="pt-6 text-center"><p className="text-3xl font-bold">{stats.totalEvents}</p><p className="text-sm text-muted-foreground">Events</p></CardContent></Card>
-            <Card><CardContent className="pt-6 text-center"><p className="text-3xl font-bold">{stats.totalCertificates}</p><p className="text-sm text-muted-foreground">Certificate Types</p></CardContent></Card>
-            <Card><CardContent className="pt-6 text-center"><p className="text-3xl font-bold">{stats.totalRecipients}</p><p className="text-sm text-muted-foreground">Recipients</p></CardContent></Card>
+            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-8 w-8 text-blue-600" />
+                  <div>
+                    <p className="text-2xl font-bold text-blue-600">{stats.totalEvents}</p>
+                    <p className="text-xs text-blue-600/70">Events</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-8 w-8 text-purple-600" />
+                  <div>
+                    <p className="text-2xl font-bold text-purple-600">{stats.totalCertificates}</p>
+                    <p className="text-xs text-purple-600/70">Certificate Types</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <Users className="h-8 w-8 text-green-600" />
+                  <div>
+                    <p className="text-2xl font-bold text-green-600">{stats.totalRecipients}</p>
+                    <p className="text-xs text-green-600/70">Recipients</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Events */}
           <Card>
-            <CardHeader><CardTitle>Events ({events.length})</CardTitle></CardHeader>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Events</CardTitle>
+                <Badge variant="secondary">{events.length} events</Badge>
+              </div>
+            </CardHeader>
             <CardContent>
-              {events.length === 0 ? <p className="text-muted-foreground">No events created</p> : (
-                <div className="space-y-2">
+              {events.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No events created yet</p>
+              ) : (
+                <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2">
                   {events.map((event) => (
-                    <div key={event._id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                      <div>
-                        <p className="font-medium">{event.name}</p>
-                        <p className="text-sm text-muted-foreground">{event.certificateTypesCount} types • {event.recipientsCount} recipients</p>
+                    <div 
+                      key={event._id} 
+                      className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border cursor-pointer hover:bg-muted/70 transition-colors"
+                      onClick={() => router.push(`/admin/events/${event._id}`)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Calendar className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{event.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {event.certificateTypesCount} types • {event.recipientsCount} recipients
+                          </p>
+                        </div>
                       </div>
-                      <Badge variant={event.isActive ? "default" : "secondary"}>{event.isActive ? "Active" : "Inactive"}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={event.isActive ? "default" : "secondary"}>
+                          {event.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -153,18 +253,42 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
 
           {/* Payments */}
           <Card>
-            <CardHeader><CardTitle>Payment History ({payments.length})</CardTitle></CardHeader>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Payment History</CardTitle>
+                <Badge variant="secondary">{payments.length} payments</Badge>
+              </div>
+            </CardHeader>
             <CardContent>
-              {payments.length === 0 ? <p className="text-muted-foreground">No payments</p> : (
-                <div className="space-y-2">
+              {payments.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No payment history</p>
+              ) : (
+                <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2">
                   {payments.map((payment) => (
-                    <div key={payment._id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                      <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" /><span>{payment.plan}</span></div>
-                      <div className="text-right">
-                        <p className="font-medium">₹{payment.amount}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(payment.createdAt).toLocaleDateString()}</p>
+                    <div key={payment._id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+                          payment.status === "success" ? "bg-green-500/10" : "bg-yellow-500/10"
+                        }`}>
+                          <CreditCard className={`h-5 w-5 ${
+                            payment.status === "success" ? "text-green-600" : "text-yellow-600"
+                          }`} />
+                        </div>
+                        <div>
+                          <p className="font-medium capitalize">{payment.plan} Plan</p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(payment.createdAt).toLocaleDateString("en-IN", {
+                              day: "numeric", month: "short", year: "numeric"
+                            })}
+                          </p>
+                        </div>
                       </div>
-                      <Badge variant={payment.status === "success" ? "default" : "secondary"}>{payment.status}</Badge>
+                      <div className="flex items-center gap-3">
+                        <p className="font-bold text-lg">₹{payment.amount.toLocaleString()}</p>
+                        <Badge variant={payment.status === "success" ? "default" : payment.status === "pending" ? "secondary" : "destructive"}>
+                          {payment.status}
+                        </Badge>
+                      </div>
                     </div>
                   ))}
                 </div>
