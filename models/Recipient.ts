@@ -29,8 +29,13 @@ const RecipientSchema = new Schema<IRecipient>(
   { timestamps: true }
 )
 
-// Index for faster search
+// Indexes for faster queries
+RecipientSchema.index({ eventId: 1 })
+RecipientSchema.index({ certificateTypeId: 1 })
+RecipientSchema.index({ eventId: 1, certificateTypeId: 1 })
 RecipientSchema.index({ email: 1, eventId: 1 })
 RecipientSchema.index({ mobile: 1, eventId: 1 })
+RecipientSchema.index({ regNo: 1, eventId: 1 })
+RecipientSchema.index({ name: 1, eventId: 1 })
 
 export default mongoose.models.Recipient || mongoose.model<IRecipient>("Recipient", RecipientSchema)

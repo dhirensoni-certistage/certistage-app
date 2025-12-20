@@ -3,18 +3,22 @@ import connectDB from "@/lib/mongodb"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
+import mongoose from "mongoose"
 
 // GET - Get dashboard data for an event
 export async function GET(request: NextRequest) {
   try {
     await connectDB()
-    
+
     const { searchParams } = new URL(request.url)
     const eventId = searchParams.get("eventId")
-    
+    const includeRecipients = searchParams.get("includeRecipients") !== "false" // Default true for backward compatibility
+
     if (!eventId) {
       return NextResponse.json({ error: "Event ID required" }, { status: 400 })
     }
+
+    const eventObjectId = new mongoose.Types.ObjectId(eventId)
 
     // Get event
     const event = await Event.findById(eventId).lean()
@@ -22,57 +26,121 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    // Get certificate types with recipients
+    // Get certificate types
     const certTypes = await CertificateType.find({ eventId }).lean()
-    
-    // Get all recipients for this event
-    const recipients = await Recipient.find({ eventId }).lean()
 
-    // Build certificate types with stats
-    const certificateTypes = certTypes.map(ct => {
-      const typeRecipients = recipients.filter(r => 
-        r.certificateTypeId?.toString() === ct._id?.toString()
-      )
-      const downloaded = typeRecipients.filter(r => (r.downloadCount || 0) > 0).length
-      const ctAny = ct as any
-      
-      return {
-        id: ct._id?.toString(),
-        name: ct.name,
-        templateImage: ctAny.templateImage || "",
-        template: ctAny.templateImage || "", // Alias for compatibility
-        textFields: ctAny.textFields || [],
-        // Font and styling fields
-        fontSize: ctAny.fontSize || 24,
-        fontFamily: ctAny.fontFamily || "Arial",
-        fontBold: ctAny.fontBold || false,
-        fontItalic: ctAny.fontItalic || false,
-        textPosition: ctAny.textPosition || { x: 50, y: 60 },
-        showNameField: ctAny.showNameField !== false,
-        customFields: ctAny.customFields || [],
-        signatures: ctAny.signatures || [],
-        createdAt: ctAny.createdAt,
-        recipients: typeRecipients.map(r => ({
-          id: r._id?.toString(),
-          name: r.name,
-          email: r.email,
-          mobile: r.mobile || "",
-          certificateId: r.regNo || r._id?.toString(),
-          downloadCount: r.downloadCount || 0,
-          status: (r.downloadCount || 0) > 0 ? "downloaded" : "pending",
-          downloadedAt: r.lastDownloadAt
-        })),
-        stats: {
-          total: typeRecipients.length,
-          downloaded,
-          pending: typeRecipients.length - downloaded
+    let certificateTypes
+    let totalRecipients = 0
+    let downloadedRecipients = 0
+
+    if (includeRecipients) {
+      // Get recipients grouped by certificate type using aggregation
+      const recipientsByType = await Recipient.aggregate([
+        { $match: { eventId: eventObjectId } },
+        {
+          $group: {
+            _id: "$certificateTypeId",
+            recipients: {
+              $push: {
+                id: { $toString: "$_id" },
+                name: "$name",
+                email: { $ifNull: ["$email", ""] },
+                mobile: { $ifNull: ["$mobile", ""] },
+                certificateId: { $ifNull: ["$regNo", { $toString: "$_id" }] },
+                downloadCount: { $ifNull: ["$downloadCount", 0] },
+                downloadedAt: "$lastDownloadAt"
+              }
+            },
+            total: { $sum: 1 },
+            downloaded: { $sum: { $cond: [{ $gt: [{ $ifNull: ["$downloadCount", 0] }, 0] }, 1, 0] } }
+          }
         }
-      }
-    })
+      ])
 
-    // Calculate overall stats
-    const totalRecipients = recipients.length
-    const downloadedRecipients = recipients.filter(r => (r.downloadCount || 0) > 0).length
+      // Create map for quick lookup
+      const recipientsMap = new Map(recipientsByType.map(r => [r._id?.toString(), r]))
+
+      // Build certificate types with recipients
+      certificateTypes = certTypes.map(ct => {
+        const typeData = recipientsMap.get(ct._id?.toString()) || { recipients: [], total: 0, downloaded: 0 }
+        const ctAny = ct as any
+
+        return {
+          id: ct._id?.toString(),
+          name: ct.name,
+          templateImage: ctAny.templateImage || "",
+          template: ctAny.templateImage || "",
+          textFields: ctAny.textFields || [],
+          fontSize: ctAny.fontSize || 24,
+          fontFamily: ctAny.fontFamily || "Arial",
+          fontBold: ctAny.fontBold || false,
+          fontItalic: ctAny.fontItalic || false,
+          textPosition: ctAny.textPosition || { x: 50, y: 60 },
+          showNameField: ctAny.showNameField !== false,
+          customFields: ctAny.customFields || [],
+          signatures: ctAny.signatures || [],
+          createdAt: ctAny.createdAt,
+          recipients: typeData.recipients.map((r: any) => ({
+            ...r,
+            status: r.downloadCount > 0 ? "downloaded" : "pending"
+          })),
+          stats: {
+            total: typeData.total,
+            downloaded: typeData.downloaded,
+            pending: typeData.total - typeData.downloaded
+          }
+        }
+      })
+
+      // Calculate totals
+      totalRecipients = recipientsByType.reduce((sum, r) => sum + r.total, 0)
+      downloadedRecipients = recipientsByType.reduce((sum, r) => sum + r.downloaded, 0)
+    } else {
+      // Stats only mode (faster for dashboard)
+      const statsAgg = await Recipient.aggregate([
+        { $match: { eventId: eventObjectId } },
+        {
+          $group: {
+            _id: "$certificateTypeId",
+            total: { $sum: 1 },
+            downloaded: { $sum: { $cond: [{ $gt: ["$downloadCount", 0] }, 1, 0] } }
+          }
+        }
+      ])
+
+      const statsMap = new Map(statsAgg.map(s => [s._id?.toString(), s]))
+
+      certificateTypes = certTypes.map(ct => {
+        const stats = statsMap.get(ct._id?.toString()) || { total: 0, downloaded: 0 }
+        const ctAny = ct as any
+
+        return {
+          id: ct._id?.toString(),
+          name: ct.name,
+          templateImage: ctAny.templateImage || "",
+          template: ctAny.templateImage || "",
+          textFields: ctAny.textFields || [],
+          fontSize: ctAny.fontSize || 24,
+          fontFamily: ctAny.fontFamily || "Arial",
+          fontBold: ctAny.fontBold || false,
+          fontItalic: ctAny.fontItalic || false,
+          textPosition: ctAny.textPosition || { x: 50, y: 60 },
+          showNameField: ctAny.showNameField !== false,
+          customFields: ctAny.customFields || [],
+          signatures: ctAny.signatures || [],
+          createdAt: ctAny.createdAt,
+          recipients: [],
+          stats: {
+            total: stats.total,
+            downloaded: stats.downloaded,
+            pending: stats.total - stats.downloaded
+          }
+        }
+      })
+
+      totalRecipients = statsAgg.reduce((sum, s) => sum + s.total, 0)
+      downloadedRecipients = statsAgg.reduce((sum, s) => sum + s.downloaded, 0)
+    }
 
     const dashboardEvent = {
       _id: event._id?.toString(),

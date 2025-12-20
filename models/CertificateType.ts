@@ -109,4 +109,8 @@ const CertificateTypeSchema = new Schema<ICertificateType>(
   { timestamps: true }
 )
 
+// Indexes for faster queries
+CertificateTypeSchema.index({ eventId: 1 })
+CertificateTypeSchema.index({ eventId: 1, isActive: 1 })
+
 export default mongoose.models.CertificateType || mongoose.model<ICertificateType>("CertificateType", CertificateTypeSchema)

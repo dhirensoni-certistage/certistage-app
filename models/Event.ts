@@ -19,4 +19,9 @@ const EventSchema = new Schema<IEvent>(
   { timestamps: true }
 )
 
+// Indexes for faster queries
+EventSchema.index({ ownerId: 1 })
+EventSchema.index({ ownerId: 1, isActive: 1 })
+EventSchema.index({ isActive: 1, createdAt: -1 })
+
 export default mongoose.models.Event || mongoose.model<IEvent>("Event", EventSchema)

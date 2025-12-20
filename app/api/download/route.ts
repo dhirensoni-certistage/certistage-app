@@ -3,45 +3,49 @@ import connectDB from "@/lib/mongodb"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
+import mongoose from "mongoose"
 
 // GET - Get certificate data for download page
 export async function GET(request: NextRequest) {
   try {
     await connectDB()
-    
+
     const { searchParams } = new URL(request.url)
     const eventId = searchParams.get("eventId")
     const typeId = searchParams.get("typeId")
     const recipientId = searchParams.get("recipientId")
-    
+
     // Get single recipient for download
     if (recipientId) {
       const recipient = await Recipient.findById(recipientId).lean()
       if (!recipient) {
         return NextResponse.json({ error: "Recipient not found" }, { status: 404 })
       }
-      
-      const certType = await CertificateType.findById(recipient.certificateTypeId).lean()
-      const event = await Event.findById(recipient.eventId).lean()
-      
+
+      // Parallel fetch for speed
+      const [certType, event] = await Promise.all([
+        CertificateType.findById(recipient.certificateTypeId).lean(),
+        Event.findById(recipient.eventId).lean()
+      ])
+
       return NextResponse.json({
         recipient,
         certificateType: certType,
         event
       })
     }
-    
+
     // Get event info
     if (eventId && !typeId) {
       const event = await Event.findById(eventId).lean()
       if (!event || !event.isActive) {
         return NextResponse.json({ error: "Event not found" }, { status: 404 })
       }
-      
+
       const certTypes = await CertificateType.find({ eventId, isActive: true })
         .select("name")
         .lean()
-      
+
       return NextResponse.json({
         event: {
           id: event._id,
@@ -51,25 +55,41 @@ export async function GET(request: NextRequest) {
         certificateTypes: certTypes
       })
     }
-    
-    // Get certificate type with recipients for search
+
+    // Get certificate type with stats (not all recipients)
     if (eventId && typeId) {
-      const event = await Event.findById(eventId).lean()
+      const [event, certType] = await Promise.all([
+        Event.findById(eventId).lean(),
+        CertificateType.findById(typeId).lean()
+      ])
+
       if (!event || !event.isActive) {
         return NextResponse.json({ error: "Event not found" }, { status: 404 })
       }
-      
-      const certType = await CertificateType.findById(typeId).lean()
+
       if (!certType || !certType.isActive) {
         return NextResponse.json({ error: "Certificate type not found" }, { status: 404 })
       }
-      
-      // Get recipients for this certificate type
-      const recipients = await Recipient.find({ 
-        eventId, 
-        certificateTypeId: typeId 
-      }).lean()
-      
+
+      // Get stats using aggregation (faster than loading all recipients)
+      const stats = await Recipient.aggregate([
+        {
+          $match: {
+            eventId: new mongoose.Types.ObjectId(eventId),
+            certificateTypeId: new mongoose.Types.ObjectId(typeId)
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            downloaded: { $sum: { $cond: [{ $gt: ["$downloadCount", 0] }, 1, 0] } }
+          }
+        }
+      ])
+
+      const statsData = stats[0] || { total: 0, downloaded: 0 }
+
       return NextResponse.json({
         event: {
           id: event._id,
@@ -89,25 +109,17 @@ export async function GET(request: NextRequest) {
           customFields: certType.customFields || [],
           signatures: certType.signatures || [],
           stats: {
-            total: recipients.length,
-            downloaded: recipients.filter(r => r.downloadCount > 0).length,
-            pending: recipients.filter(r => r.downloadCount === 0).length
+            total: statsData.total,
+            downloaded: statsData.downloaded,
+            pending: statsData.total - statsData.downloaded
           },
           createdAt: certType.createdAt
         },
-        recipients: recipients.map(r => ({
-          id: r._id.toString(),
-          name: r.name,
-          email: r.email || "",
-          mobile: r.mobile || "",
-          certificateId: r.regNo || r._id.toString(),
-          status: r.downloadCount > 0 ? "downloaded" : "pending",
-          downloadCount: r.downloadCount || 0
-        })),
-        downloadLimit: -1 // TODO: Get from user plan
+        recipients: [], // Recipients fetched via search
+        downloadLimit: -1
       })
     }
-    
+
     return NextResponse.json({ error: "Event ID required" }, { status: 400 })
   } catch (error) {
     console.error("Download GET error:", error)

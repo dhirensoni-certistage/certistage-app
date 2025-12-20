@@ -39,4 +39,10 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true }
 )
 
+// Indexes for faster queries
+UserSchema.index({ plan: 1 })
+UserSchema.index({ isActive: 1 })
+UserSchema.index({ createdAt: -1 })
+UserSchema.index({ plan: 1, isActive: 1 })
+
 export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema)

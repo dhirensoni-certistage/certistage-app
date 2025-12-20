@@ -35,4 +35,10 @@ const PaymentSchema = new Schema<IPayment>(
   { timestamps: true }
 )
 
+// Indexes for faster queries
+PaymentSchema.index({ userId: 1 })
+PaymentSchema.index({ status: 1 })
+PaymentSchema.index({ status: 1, createdAt: -1 })
+PaymentSchema.index({ userId: 1, status: 1 })
+
 export default mongoose.models.Payment || mongoose.model<IPayment>("Payment", PaymentSchema)
