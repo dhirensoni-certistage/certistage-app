@@ -4,6 +4,7 @@ import { MongoDBAdapter } from "@auth/mongodb-adapter"
 import { MongoClient } from "mongodb"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
+import { sendEmail, emailTemplates } from "@/lib/email"
 
 const client = new MongoClient(process.env.MONGODB_URI!)
 
@@ -40,6 +41,20 @@ export const authOptions: NextAuthOptions = {
               password: "oauth_user"
             })
             console.log("New Google user created:", user.email)
+            
+            // Send welcome email to new Google users
+            try {
+              const welcomeTemplate = emailTemplates.welcome(user.name || "User", user.email!)
+              await sendEmail({
+                to: user.email!,
+                subject: welcomeTemplate.subject,
+                html: welcomeTemplate.html
+              })
+              console.log("Welcome email sent to Google user:", user.email)
+            } catch (emailError) {
+              console.error("Failed to send welcome email:", emailError)
+              // Don't block signup if email fails
+            }
           } else {
             console.log("Existing user logging in:", existingUser.email)
           }
