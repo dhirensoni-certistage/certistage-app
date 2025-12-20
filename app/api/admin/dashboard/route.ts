@@ -109,7 +109,7 @@ export async function GET() {
     // Recent Activity
     const [recentUsers, recentEvents, recentPayments] = await Promise.all([
       User.find().sort({ createdAt: -1 }).limit(5).select("name email createdAt").lean(),
-      Event.find().sort({ createdAt: -1 }).limit(5).populate("userId", "name email").lean(),
+      Event.find().sort({ createdAt: -1 }).limit(5).populate("ownerId", "name email").lean(),
       Payment.find({ status: "success" }).sort({ createdAt: -1 }).limit(5).populate("userId", "name email").lean()
     ])
 
@@ -130,12 +130,12 @@ export async function GET() {
     })
 
     recentEvents.forEach((event: any) => {
-      const ownerName = event.userId?.name || "Unknown"
+      const ownerName = event.ownerId?.name || "Unknown"
       activities.push({
         type: "event_created",
         description: `${ownerName} created event "${event.name}"`,
         timestamp: event.createdAt.toISOString(),
-        userId: event.userId?._id?.toString()
+        userId: event.ownerId?._id?.toString()
       })
     })
 
@@ -168,8 +168,11 @@ export async function GET() {
       recentActivity,
       actionItems
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Dashboard API error:", error)
-    return NextResponse.json({ error: "Failed to fetch dashboard data" }, { status: 500 })
+    return NextResponse.json({ 
+      error: "Failed to fetch dashboard data",
+      details: error?.message || "Unknown error"
+    }, { status: 500 })
   }
 }
