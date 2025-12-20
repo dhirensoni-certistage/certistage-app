@@ -103,7 +103,12 @@ export default function UsersPage() {
     {
       key: "createdAt",
       header: "Joined",
-      render: (user) => new Date(user.createdAt).toLocaleDateString("en-IN")
+      render: (user) => {
+        if (!user.createdAt) return "-"
+        const date = new Date(user.createdAt)
+        if (isNaN(date.getTime())) return "-"
+        return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+      }
     }
   ]
 
