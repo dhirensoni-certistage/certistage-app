@@ -156,9 +156,13 @@ export default function AdminSettingsPage() {
   const checkSystemHealth = async () => {
     setSystemHealth({ database: "checking", api: "checking" })
     try {
-      const res = await fetch("/api/admin/dashboard")
+      const res = await fetch("/api/health")
       if (res.ok) {
-        setSystemHealth({ api: "healthy", database: "connected" })
+        const data = await res.json()
+        setSystemHealth({ 
+          api: "healthy", 
+          database: data.services?.database === "connected" ? "connected" : "error" 
+        })
       } else {
         setSystemHealth({ api: "error", database: "error" })
       }
