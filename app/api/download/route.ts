@@ -3,7 +3,6 @@ import connectDB from "@/lib/mongodb"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
-import mongoose from "mongoose"
 
 // GET - Get certificate data for download page
 export async function GET(request: NextRequest) {
@@ -56,11 +55,14 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get certificate type with stats (not all recipients)
+    // Get certificate type with recipients for search
     if (eventId && typeId) {
-      const [event, certType] = await Promise.all([
+      const [event, certType, recipients] = await Promise.all([
         Event.findById(eventId).lean(),
-        CertificateType.findById(typeId).lean()
+        CertificateType.findById(typeId).lean(),
+        Recipient.find({ eventId, certificateTypeId: typeId })
+          .select("name email mobile regNo downloadCount lastDownloadAt")
+          .lean()
       ])
 
       if (!event || !event.isActive) {
@@ -71,24 +73,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Certificate type not found" }, { status: 404 })
       }
 
-      // Get stats using aggregation (faster than loading all recipients)
-      const stats = await Recipient.aggregate([
-        {
-          $match: {
-            eventId: new mongoose.Types.ObjectId(eventId),
-            certificateTypeId: new mongoose.Types.ObjectId(typeId)
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: 1 },
-            downloaded: { $sum: { $cond: [{ $gt: ["$downloadCount", 0] }, 1, 0] } }
-          }
-        }
-      ])
-
-      const statsData = stats[0] || { total: 0, downloaded: 0 }
+      const downloaded = recipients.filter(r => (r.downloadCount || 0) > 0).length
 
       return NextResponse.json({
         event: {
@@ -109,13 +94,21 @@ export async function GET(request: NextRequest) {
           customFields: certType.customFields || [],
           signatures: certType.signatures || [],
           stats: {
-            total: statsData.total,
-            downloaded: statsData.downloaded,
-            pending: statsData.total - statsData.downloaded
+            total: recipients.length,
+            downloaded,
+            pending: recipients.length - downloaded
           },
           createdAt: certType.createdAt
         },
-        recipients: [], // Recipients fetched via search
+        recipients: recipients.map(r => ({
+          id: r._id.toString(),
+          name: r.name,
+          email: r.email || "",
+          mobile: r.mobile || "",
+          certificateId: r.regNo || r._id.toString(),
+          status: (r.downloadCount || 0) > 0 ? "downloaded" : "pending",
+          downloadCount: r.downloadCount || 0
+        })),
         downloadLimit: -1
       })
     }
