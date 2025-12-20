@@ -396,6 +396,13 @@ export default function RecipientsPage() {
       return
     }
 
+    // Check if userId is available
+    if (!userId) {
+      toast.error("Session expired. Please refresh the page.")
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      return
+    }
+
     import("xlsx").then((XLSX) => {
       const reader = new FileReader()
       reader.onload = (evt) => {
