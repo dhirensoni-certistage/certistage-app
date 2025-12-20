@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from "mongoose"
 
 export interface IRecipient extends Document {
   name: string
-  email: string
+  email?: string
   mobile?: string
   regNo?: string
   certificateTypeId: mongoose.Types.ObjectId
@@ -17,8 +17,8 @@ export interface IRecipient extends Document {
 const RecipientSchema = new Schema<IRecipient>(
   {
     name: { type: String, required: true },
-    email: { type: String, required: true },
-    mobile: { type: String },
+    email: { type: String, default: "" },
+    mobile: { type: String, default: "" },
     regNo: { type: String },
     certificateTypeId: { type: Schema.Types.ObjectId, ref: "CertificateType", required: true },
     eventId: { type: Schema.Types.ObjectId, ref: "Event", required: true },
