@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
+import Event from "@/models/Event"
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     const total = await User.countDocuments(query)
     const totalPages = Math.ceil(total / limit)
 
-    // Get users - simplified query without aggregate
+    // Get users
     const users = await User.find(query)
       .select("_id name email plan isActive createdAt")
       .sort({ createdAt: -1 })
@@ -39,12 +40,25 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .lean()
 
-    // Format users with defaults
+    // Get events count for each user
+    const userIds = users.map(u => u._id)
+    const eventCounts = await Event.aggregate([
+      { $match: { ownerId: { $in: userIds } } },
+      { $group: { _id: "$ownerId", count: { $sum: 1 } } }
+    ])
+    
+    // Create a map of userId -> eventCount
+    const eventCountMap = new Map(
+      eventCounts.map(e => [e._id.toString(), e.count])
+    )
+
+    // Format users with actual event counts
     const formattedUsers = users.map(user => ({
       ...user,
       plan: user.plan || "free",
       isActive: user.isActive ?? true,
-      eventsCount: 0
+      eventsCount: eventCountMap.get(user._id.toString()) || 0,
+      createdAt: user.createdAt || null
     }))
 
     return NextResponse.json({

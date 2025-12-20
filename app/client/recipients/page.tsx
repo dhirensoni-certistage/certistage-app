@@ -405,7 +405,7 @@ export default function RecipientsPage() {
 
     import("xlsx").then((XLSX) => {
       const reader = new FileReader()
-      reader.onload = (evt) => {
+      reader.onload = async (evt) => {
         try {
           const data = evt.target?.result
           const workbook = XLSX.read(data, { type: "binary" })
@@ -465,7 +465,75 @@ export default function RecipientsPage() {
             }
           }
 
-          // API call to add recipients
+          // For large imports (>500), use chunked upload
+          const CHUNK_SIZE = 500
+          if (recipients.length > CHUNK_SIZE) {
+            // Show progress toast
+            const toastId = toast.loading(`Importing ${recipients.length} recipients...`, {
+              description: "Please wait, this may take a moment."
+            })
+            
+            let imported = 0
+            let failed = 0
+            const chunks = []
+            
+            for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
+              chunks.push(recipients.slice(i, i + CHUNK_SIZE))
+            }
+            
+            for (let i = 0; i < chunks.length; i++) {
+              try {
+                const res = await fetch('/api/client/recipients', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    userId,
+                    eventId,
+                    certificateTypeId: selectedTypeId,
+                    recipients: chunks[i],
+                    isBulkImport: true
+                  })
+                })
+                
+                if (res.ok) {
+                  const data = await res.json()
+                  imported += data.count || chunks[i].length
+                } else {
+                  failed += chunks[i].length
+                }
+                
+                // Update progress
+                const progress = Math.round(((i + 1) / chunks.length) * 100)
+                toast.loading(`Importing... ${progress}% (${imported} done)`, {
+                  id: toastId,
+                  description: `Processing batch ${i + 1} of ${chunks.length}`
+                })
+              } catch {
+                failed += chunks[i].length
+              }
+            }
+            
+            // Final result
+            toast.dismiss(toastId)
+            if (eventId) fetchEventData(eventId)
+            
+            if (failed === 0) {
+              toast.success(`Import Complete!`, {
+                description: `${imported} recipients imported successfully.`,
+                duration: 5000
+              })
+            } else {
+              toast.warning(`Import Partially Complete`, {
+                description: `${imported} imported, ${failed} failed.`,
+                duration: 5000
+              })
+            }
+            return
+          }
+
+          // API call to add recipients (small batches)
+          const toastId = toast.loading(`Importing ${recipients.length} recipients...`)
+          
           fetch('/api/client/recipients', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -477,6 +545,7 @@ export default function RecipientsPage() {
               isBulkImport: true
             })
           }).then(async res => {
+            toast.dismiss(toastId)
             if (res.ok) {
               const data = await res.json()
               if (eventId) fetchEventData(eventId)
@@ -492,6 +561,7 @@ export default function RecipientsPage() {
               })
             }
           }).catch(() => {
+            toast.dismiss(toastId)
             toast.error("Failed to import recipients")
           })
         } catch {
