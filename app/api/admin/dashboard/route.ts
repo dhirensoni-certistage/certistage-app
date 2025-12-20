@@ -65,16 +65,18 @@ export async function GET() {
       .lean()
 
     pendingPaymentsList.forEach((payment: any) => {
-      actionItems.push({
-        id: `payment-${payment._id}`,
-        type: "pending_payment",
-        title: `Pending Payment: ${payment.userId?.name || "Unknown"}`,
-        description: `${payment.plan} plan - ₹${Math.round(payment.amount / 100)}`,
-        actionLabel: "Review",
-        actionHref: "/admin/revenue",
-        timestamp: payment.createdAt,
-        priority: "high"
-      })
+      if (payment._id) {
+        actionItems.push({
+          id: `payment-${payment._id}`,
+          type: "pending_payment",
+          title: `Pending Payment: ${payment.userId?.name || "Unknown"}`,
+          description: `${payment.plan || "Plan"} - ₹${Math.round((payment.amount || 0) / 100)}`,
+          actionLabel: "Review",
+          actionHref: "/admin/revenue",
+          timestamp: payment.createdAt || new Date(),
+          priority: "high"
+        })
+      }
     })
 
     // Get today's new users
@@ -85,16 +87,18 @@ export async function GET() {
       .lean()
 
     todayUsers.forEach((user: any) => {
-      actionItems.push({
-        id: `user-${user._id}`,
-        type: "new_user",
-        title: `New Signup: ${user.name}`,
-        description: user.email,
-        actionLabel: "View",
-        actionHref: `/admin/users/${user._id}`,
-        timestamp: user.createdAt,
-        priority: "low"
-      })
+      if (user._id) {
+        actionItems.push({
+          id: `user-${user._id}`,
+          type: "new_user",
+          title: `New Signup: ${user.name || "User"}`,
+          description: user.email || "",
+          actionLabel: "View",
+          actionHref: `/admin/users/${user._id}`,
+          timestamp: user.createdAt || new Date(),
+          priority: "low"
+        })
+      }
     })
 
     // Sort action items by priority and timestamp
@@ -121,32 +125,38 @@ export async function GET() {
     }> = []
 
     recentUsers.forEach((user: any) => {
-      activities.push({
-        type: "signup",
-        description: `${user.name} signed up`,
-        timestamp: user.createdAt.toISOString(),
-        userId: user._id.toString()
-      })
+      if (user.createdAt) {
+        activities.push({
+          type: "signup",
+          description: `${user.name || "User"} signed up`,
+          timestamp: new Date(user.createdAt).toISOString(),
+          userId: user._id?.toString()
+        })
+      }
     })
 
     recentEvents.forEach((event: any) => {
-      const ownerName = event.ownerId?.name || "Unknown"
-      activities.push({
-        type: "event_created",
-        description: `${ownerName} created event "${event.name}"`,
-        timestamp: event.createdAt.toISOString(),
-        userId: event.ownerId?._id?.toString()
-      })
+      if (event.createdAt) {
+        const ownerName = event.ownerId?.name || "Unknown"
+        activities.push({
+          type: "event_created",
+          description: `${ownerName} created event "${event.name || "Untitled"}"`,
+          timestamp: new Date(event.createdAt).toISOString(),
+          userId: event.ownerId?._id?.toString()
+        })
+      }
     })
 
     recentPayments.forEach((payment: any) => {
-      const userName = payment.userId?.name || "Unknown"
-      activities.push({
-        type: "payment",
-        description: `${userName} upgraded to ${payment.plan} (₹${Math.round(payment.amount / 100)})`,
-        timestamp: payment.createdAt.toISOString(),
-        userId: payment.userId?._id?.toString()
-      })
+      if (payment.createdAt) {
+        const userName = payment.userId?.name || "Unknown"
+        activities.push({
+          type: "payment",
+          description: `${userName} upgraded to ${payment.plan || "paid"} (₹${Math.round((payment.amount || 0) / 100)})`,
+          timestamp: new Date(payment.createdAt).toISOString(),
+          userId: payment.userId?._id?.toString()
+        })
+      }
     })
 
     const recentActivity = activities
