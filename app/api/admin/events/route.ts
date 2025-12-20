@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
       const searchLower = search.toLowerCase()
       events = events.filter(
         (e) =>
-          e.name.toLowerCase().includes(searchLower) ||
+          e.name?.toLowerCase().includes(searchLower) ||
           e.owner?.email?.toLowerCase().includes(searchLower) ||
           e.owner?.name?.toLowerCase().includes(searchLower)
       )

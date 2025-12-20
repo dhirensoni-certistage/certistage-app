@@ -228,10 +228,10 @@ export default function CertTypeRecipientsPage() {
 
   // Filter recipients
   const filteredRecipients = certType?.recipients.filter(r => 
-    r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.mobile.includes(searchQuery) ||
-    r.certificateId.toLowerCase().includes(searchQuery.toLowerCase())
+    r.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.mobile?.includes(searchQuery) ||
+    r.certificateId?.toLowerCase().includes(searchQuery.toLowerCase())
   ) || []
 
   if (!certType) return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>

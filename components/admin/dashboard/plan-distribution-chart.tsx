@@ -37,11 +37,13 @@ export function PlanDistributionChart({ data, loading }: PlanDistributionChartPr
     )
   }
 
-  const formattedData = data.map((item) => ({
-    name: PLAN_LABELS[item.plan] || item.plan,
-    value: item.count,
-    plan: item.plan,
-  }))
+  const formattedData = data
+    .filter((item) => item.plan != null)
+    .map((item) => ({
+      name: PLAN_LABELS[item.plan] || item.plan || "Unknown",
+      value: item.count,
+      plan: item.plan || "free",
+    }))
 
   // Custom tooltip
   const CustomTooltip = ({ active, payload }: any) => {

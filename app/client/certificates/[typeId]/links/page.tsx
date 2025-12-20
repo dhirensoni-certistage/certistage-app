@@ -118,8 +118,8 @@ export default function CertTypeLinksPage() {
   }
 
   const filteredRecipients = certType?.recipients.filter(r => 
-    r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.certificateId.toLowerCase().includes(searchQuery.toLowerCase())
+    r.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.certificateId?.toLowerCase().includes(searchQuery.toLowerCase())
   ) || []
 
   if (!certType) return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>

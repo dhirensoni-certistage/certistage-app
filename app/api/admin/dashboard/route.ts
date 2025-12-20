@@ -49,8 +49,9 @@ export async function GET() {
 
     // Plan Distribution
     const planDistribution = await User.aggregate([
+      { $match: { plan: { $ne: null, $exists: true } } },
       { $group: { _id: "$plan", count: { $sum: 1 } } },
-      { $project: { plan: "$_id", count: 1, _id: 0 } }
+      { $project: { plan: { $ifNull: ["$_id", "free"] }, count: 1, _id: 0 } }
     ])
 
     // Action Items - things that need attention

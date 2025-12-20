@@ -1591,7 +1591,7 @@ function LinksTab({ certType, eventId }: { certType: CertificateType; eventId: s
   }
 
   const filteredRecipients = certType.recipients.filter(r => 
-    r.name.toLowerCase().includes(searchQuery.toLowerCase()) || r.certificateId.toLowerCase().includes(searchQuery.toLowerCase())
+    r.name?.toLowerCase().includes(searchQuery.toLowerCase()) || r.certificateId?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (

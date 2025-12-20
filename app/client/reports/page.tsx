@@ -136,7 +136,7 @@ export default function ClientReportsPage() {
         if (statusFilter !== "all" && r.status !== statusFilter) return
         if (search) {
           const q = search.toLowerCase()
-          if (!r.name.toLowerCase().includes(q) && !r.email.toLowerCase().includes(q) && !r.certificateId.toLowerCase().includes(q)) return
+          if (!r.name?.toLowerCase().includes(q) && !r.email?.toLowerCase().includes(q) && !r.certificateId?.toLowerCase().includes(q)) return
         }
         results.push({ r, ct })
       })

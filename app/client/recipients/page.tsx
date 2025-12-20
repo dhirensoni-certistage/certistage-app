@@ -199,10 +199,10 @@ export default function RecipientsPage() {
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       recipients = recipients.filter(r => 
-        r.name.toLowerCase().includes(query) ||
-        r.email.toLowerCase().includes(query) ||
-        r.mobile.includes(query) ||
-        r.certificateId.toLowerCase().includes(query)
+        r.name?.toLowerCase().includes(query) ||
+        r.email?.toLowerCase().includes(query) ||
+        r.mobile?.includes(query) ||
+        r.certificateId?.toLowerCase().includes(query)
       )
     }
 
