@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
@@ -9,6 +9,7 @@ import { toast } from "sonner"
 export default function AuthCallback() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const [processing, setProcessing] = useState(false)
 
   // Sync NextAuth session to localStorage clientSession
   const syncClientSession = async (plan?: string) => {
@@ -46,26 +47,30 @@ export default function AuthCallback() {
   }
 
   useEffect(() => {
-    if (status === "loading") return
+    if (status === "loading" || processing) return
 
     if (status === "authenticated" && session?.user) {
       // Check if there was a selected plan
       const selectedPlan = localStorage.getItem("selectedPlan")
       
       if (selectedPlan && selectedPlan !== "free") {
-        // Update user plan
+        setProcessing(true)
+        // Clear the selected plan from localStorage
+        localStorage.removeItem("selectedPlan")
+        
+        // Store pending plan in user record and redirect to payment
         fetch("/api/client/profile", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: selectedPlan })
+          body: JSON.stringify({ pendingPlan: selectedPlan })
         }).then(async () => {
-          localStorage.removeItem("selectedPlan")
-          await syncClientSession(selectedPlan)
-          toast.success(`Welcome! You've been enrolled in the ${selectedPlan} plan.`)
-          router.push("/client/events")
+          await syncClientSession("free") // Keep as free until payment
+          // Redirect to upgrade page with selected plan
+          toast.info(`Complete payment to activate your ${selectedPlan} plan`)
+          router.push(`/client/upgrade?pending=${selectedPlan}`)
         }).catch(() => {
-          toast.error("Failed to update plan. Please contact support.")
-          router.push("/client/events")
+          toast.error("Failed to process plan selection. Please upgrade from settings.")
+          syncClientSession().then(() => router.push("/client/events"))
         })
       } else {
         // Sync session and redirect
@@ -78,7 +83,7 @@ export default function AuthCallback() {
       toast.error("Authentication failed. Please try again.")
       router.push("/signup")
     }
-  }, [session, status, router])
+  }, [session, status, router, processing])
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
