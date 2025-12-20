@@ -10,6 +10,18 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 
+// Page title mapping
+const pageTitles: Record<string, string> = {
+  "/client/events": "Events - CertiStage",
+  "/client/dashboard": "Dashboard - CertiStage",
+  "/client/certificates": "Certificates - CertiStage",
+  "/client/recipients": "Recipients - CertiStage",
+  "/client/reports": "Reports - CertiStage",
+  "/client/settings": "Settings - CertiStage",
+  "/client/upgrade": "Upgrade - CertiStage",
+  "/client/login": "Login - CertiStage",
+}
+
 export default function ClientLayout({
   children,
 }: {
@@ -22,6 +34,12 @@ export default function ClientLayout({
   const [hasEventSelected, setHasEventSelected] = useState(false)
   const [userName, setUserName] = useState("")
   const [userPlan, setUserPlan] = useState<string>("free")
+
+  // Set page title
+  useEffect(() => {
+    const baseTitle = pageTitles[pathname] || "CertiStage"
+    document.title = baseTitle
+  }, [pathname])
 
   // Sync session with server to get latest plan
   const syncSessionWithServer = async (session: ReturnType<typeof getClientSession>) => {
