@@ -55,20 +55,18 @@ export default function AuthCallback() {
       
       if (selectedPlan && selectedPlan !== "free") {
         setProcessing(true)
-        // Clear the selected plan from localStorage
-        localStorage.removeItem("selectedPlan")
         
-        // Store pending plan in user record and redirect to payment
+        // Store pending plan in user record and redirect to clean payment page
         fetch("/api/client/profile", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pendingPlan: selectedPlan })
         }).then(async () => {
           await syncClientSession("free") // Keep as free until payment
-          // Redirect to upgrade page with selected plan
-          toast.info(`Complete payment to activate your ${selectedPlan} plan`)
-          router.push(`/client/upgrade?pending=${selectedPlan}`)
+          // Redirect to clean payment page (no sidebar)
+          router.push(`/complete-payment?plan=${selectedPlan}`)
         }).catch(() => {
+          localStorage.removeItem("selectedPlan")
           toast.error("Failed to process plan selection. Please upgrade from settings.")
           syncClientSession().then(() => router.push("/client/events"))
         })
