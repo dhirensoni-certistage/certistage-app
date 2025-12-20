@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useRouter } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -13,9 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { getClientSession, getCurrentPlanFeatures, getTrialStatus } from "@/lib/auth"
-import { LockedFeature } from "@/components/client/upgrade-overlay"
-import { 
-  Download, 
+import {
+  Download,
   FileSpreadsheet,
   Search,
   CheckCircle2,
@@ -23,7 +23,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Loader2
+  Lock
 } from "lucide-react"
 import * as XLSX from "xlsx"
 import { toast } from "sonner"
@@ -64,13 +64,12 @@ interface ReportEvent {
 }
 
 export default function ClientReportsPage() {
+  const router = useRouter()
   const [event, setEvent] = useState<ReportEvent | null>(null)
   const [certFilter, setCertFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [search, setSearch] = useState("")
-  const [isTrialExpired, setIsTrialExpired] = useState(false)
   const [canExport, setCanExport] = useState(true)
-  const [isUserLogin, setIsUserLogin] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
@@ -97,16 +96,10 @@ export default function ClientReportsPage() {
       } else {
         setIsLoading(false)
       }
-      
+
       if (session.loginType === "user") {
-        setIsUserLogin(true)
         const planFeatures = getCurrentPlanFeatures()
         setCanExport(planFeatures.canExportReport)
-        
-        const trialStatus = getTrialStatus(session.userId)
-        setIsTrialExpired(trialStatus.isExpired)
-      } else {
-        setIsUserLogin(false)
       }
     } else {
       setIsLoading(false)
@@ -152,14 +145,19 @@ export default function ClientReportsPage() {
   const endIndex = startIndex + rowsPerPage
   const paginatedData = data.slice(startIndex, endIndex)
 
-  // Export
+  // Export - show upgrade toast if not allowed
   const exportData = (items: { r: EventRecipient; ct: CertificateType }[], name: string) => {
     if (!canExport) {
-      toast.error("Export is not available in your plan. Please upgrade.")
+      toast.error("Upgrade your plan to unlock Report Export feature", {
+        action: {
+          label: "Upgrade",
+          onClick: () => router.push("/client/upgrade")
+        }
+      })
       return
     }
     if (!items.length) return toast.error("No data to export")
-    
+
     const rows = items.map((item, i) => ({
       "#": i + 1,
       "Certificate": item.ct.name,
@@ -185,9 +183,6 @@ export default function ClientReportsPage() {
     setSearch("")
   }
 
-  // Check if content should be locked
-  const isLocked = isTrialExpired || !canExport
-
   return (
     <div className="p-8 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -196,14 +191,13 @@ export default function ClientReportsPage() {
           <h1 className="text-3xl font-semibold tracking-tight">Reports</h1>
           <p className="text-muted-foreground mt-1">Export certificate data</p>
         </div>
+        {!canExport && (
+          <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-900/20">
+            <Lock className="h-3 w-3 mr-1" />
+            Export Locked
+          </Badge>
+        )}
       </div>
-      
-      <LockedFeature 
-        isLocked={isLocked} 
-        feature="Report Export"
-        description="Export your certificate data to Excel. Upgrade to unlock this feature."
-        type={isTrialExpired ? "trial-expired" : "locked"}
-      >
 
       {/* Quick Export */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -467,7 +461,6 @@ export default function ClientReportsPage() {
           </div>
         </CardContent>
       </Card>
-      </LockedFeature>
     </div>
   )
 }

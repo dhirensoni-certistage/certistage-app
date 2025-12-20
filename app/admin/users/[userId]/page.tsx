@@ -313,7 +313,7 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <p className="font-bold text-lg">₹{payment.amount.toLocaleString()}</p>
+                        <p className="font-bold text-lg">₹{(payment.amount / 100).toLocaleString()}</p>
                         <Badge variant={payment.status === "success" ? "default" : payment.status === "pending" ? "secondary" : "destructive"}>
                           {payment.status}
                         </Badge>
