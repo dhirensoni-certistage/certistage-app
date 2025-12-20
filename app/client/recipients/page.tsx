@@ -469,13 +469,23 @@ export default function RecipientsPage() {
               recipients,
               isBulkImport: true
             })
-          }).then(res => {
+          }).then(async res => {
             if (res.ok) {
+              const data = await res.json()
               if (eventId) fetchEventData(eventId)
-              toast.success(`${recipients.length} recipients imported!`)
+              // Show import summary
+              toast.success(`Import Successful!`, {
+                description: `${data.count || recipients.length} recipients imported successfully.`,
+                duration: 5000
+              })
             } else {
-              res.json().then(data => toast.error(data.error || "Failed to import"))
+              const data = await res.json()
+              toast.error(data.error || "Failed to import", {
+                description: data.details || "Please check your data and try again."
+              })
             }
+          }).catch(() => {
+            toast.error("Failed to import recipients")
           })
         } catch {
           toast.error("Failed to parse Excel file")

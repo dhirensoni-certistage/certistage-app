@@ -58,10 +58,16 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB()
     
-    const { userId, eventId, certificateTypeId, recipients, isBulkImport } = await request.json()
+    const body = await request.json()
+    const { userId, eventId, certificateTypeId, recipients, isBulkImport } = body
+    
+    console.log("Recipients POST request:", { userId, eventId, certificateTypeId, recipientsCount: recipients?.length, isBulkImport })
     
     if (!userId || !eventId || !certificateTypeId || !recipients || !Array.isArray(recipients)) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+      return NextResponse.json({ 
+        error: "Missing required fields",
+        details: { userId: !!userId, eventId: !!eventId, certificateTypeId: !!certificateTypeId, recipients: Array.isArray(recipients) }
+      }, { status: 400 })
     }
 
     // Verify event ownership
@@ -108,13 +114,14 @@ export async function POST(request: NextRequest) {
     // Verify certificate type exists
     const certType = await CertificateType.findById(certificateTypeId)
     if (!certType) {
+      console.log("Certificate type not found:", certificateTypeId)
       return NextResponse.json({ error: "Certificate type not found" }, { status: 404 })
     }
 
     // Create recipients
     const recipientDocs = recipients.map((r: any) => ({
       name: r.name,
-      email: r.email,
+      email: r.email || "",
       mobile: r.mobile || "",
       regNo: r.regNo || r.certificateId || "",
       certificateTypeId,
@@ -130,9 +137,12 @@ export async function POST(request: NextRequest) {
       count: created.length,
       message: `${created.length} recipient(s) added successfully`
     })
-  } catch (error) {
-    console.error("Recipients POST error:", error)
-    return NextResponse.json({ error: "Failed to add recipients" }, { status: 500 })
+  } catch (error: any) {
+    console.error("Recipients POST error:", error?.message || error)
+    return NextResponse.json({ 
+      error: "Failed to add recipients",
+      details: error?.message || "Unknown error"
+    }, { status: 500 })
   }
 }
 
