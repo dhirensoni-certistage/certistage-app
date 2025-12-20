@@ -94,17 +94,29 @@ export async function PATCH(
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Only allow updating isActive status
+    // Update isActive status
     if (typeof body.isActive === "boolean") {
       user.isActive = body.isActive
-      await user.save()
     }
+
+    // Update plan (admin can manually set plan)
+    if (body.plan && ["free", "professional", "enterprise", "premium"].includes(body.plan)) {
+      user.plan = body.plan
+      // Set plan expiry to 1 year from now if upgrading to paid plan
+      if (body.plan !== "free") {
+        user.planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      }
+    }
+
+    await user.save()
 
     return NextResponse.json({ 
       success: true, 
       user: { 
         _id: user._id, 
-        isActive: user.isActive 
+        isActive: user.isActive,
+        plan: user.plan,
+        planExpiresAt: user.planExpiresAt
       } 
     })
   } catch (error) {

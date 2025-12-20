@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { UserStatusToggle } from "@/components/admin/users/user-status-toggle"
 import { Breadcrumbs } from "@/components/admin/breadcrumbs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Mail, Phone, Building, Calendar, CreditCard, ExternalLink, Award, Users, FileText } from "lucide-react"
+import { toast } from "sonner"
 
 interface UserDetails {
   user: {
@@ -80,6 +82,25 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
     }
   }
 
+  const handlePlanChange = async (newPlan: string) => {
+    if (!data) return
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: newPlan })
+      })
+      if (res.ok) {
+        setData({ ...data, user: { ...data.user, plan: newPlan } })
+        toast.success(`Plan updated to ${newPlan}`)
+      } else {
+        toast.error("Failed to update plan")
+      }
+    } catch (error) {
+      toast.error("Failed to update plan")
+    }
+  }
+
   if (loading) {
     return (
       <>
@@ -134,9 +155,17 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
                   <CardTitle className="text-xl">{user.name}</CardTitle>
                   <p className="text-sm text-muted-foreground">{user.email}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <Badge className={planColors[user.plan] || planColors.free}>
-                      {user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}
-                    </Badge>
+                    <Select value={user.plan} onValueChange={handlePlanChange}>
+                      <SelectTrigger className="w-[140px] h-7">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="free">Free</SelectItem>
+                        <SelectItem value="professional">Professional</SelectItem>
+                        <SelectItem value="enterprise">Enterprise</SelectItem>
+                        <SelectItem value="premium">Premium</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Badge variant={user.isActive ? "default" : "destructive"}>
                       {user.isActive ? "Active" : "Blocked"}
                     </Badge>
