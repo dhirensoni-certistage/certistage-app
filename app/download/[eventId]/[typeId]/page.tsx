@@ -135,19 +135,32 @@ export default function CertTypeDownloadPage() {
       const searchLower = searchValue.toLowerCase().trim()
       const searchDigits = searchValue.replace(/[^0-9]/g, "")
       
-      const matches = certType.recipients.filter(r => 
-        r.email.toLowerCase() === searchLower ||
-        r.mobile.replace(/[^0-9]/g, "").includes(searchDigits) ||
-        r.mobile === searchValue
-      )
+      // Strict matching - exact email or mobile (last 10 digits)
+      const matches = certType.recipients.filter(r => {
+        // Exact email match
+        if (r.email && r.email.toLowerCase() === searchLower) {
+          return true
+        }
+        // Mobile match - compare last 10 digits for exact match
+        if (searchDigits.length >= 10) {
+          const recipientDigits = r.mobile.replace(/[^0-9]/g, "")
+          const searchLast10 = searchDigits.slice(-10)
+          const recipientLast10 = recipientDigits.slice(-10)
+          if (searchLast10 === recipientLast10 && recipientLast10.length === 10) {
+            return true
+          }
+        }
+        return false
+      })
 
       if (matches.length === 0) {
-        toast.error("No certificate found. Please check and try again.")
+        toast.error("No certificate found. Please check your email or mobile number.")
         setIsVerifying(false)
         return
       }
 
-      setMatchedRecipients(matches)
+      // Limit to max 5 matches for security
+      setMatchedRecipients(matches.slice(0, 5))
       
       if (matches.length === 1) {
         setSelectedRecipient(matches[0])
