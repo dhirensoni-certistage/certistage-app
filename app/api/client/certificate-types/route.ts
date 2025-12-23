@@ -5,23 +5,32 @@ import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 import { canUserCreateCertificateType, verifyEventOwnership } from "@/lib/plan-limits"
 
+function generateShortCode(length = 6): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
+
 // GET - List certificate types for an event
 export async function GET(request: NextRequest) {
   try {
     await connectDB()
-    
+
     const { searchParams } = new URL(request.url)
     const eventId = searchParams.get("eventId")
     const userId = searchParams.get("userId")
     const typeId = searchParams.get("typeId") // For single type fetch
-    
+
     // Single certificate type fetch
     if (typeId) {
       const certType = await CertificateType.findById(typeId).lean()
       if (!certType) {
         return NextResponse.json({ error: "Certificate type not found" }, { status: 404 })
       }
-      
+
       // Verify ownership if userId provided
       if (userId) {
         const event = await Event.findById(certType.eventId)
@@ -29,10 +38,10 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: "Access denied" }, { status: 403 })
         }
       }
-      
+
       const total = await Recipient.countDocuments({ certificateTypeId: typeId })
       const downloaded = await Recipient.countDocuments({ certificateTypeId: typeId, downloadCount: { $gt: 0 } })
-      
+
       return NextResponse.json({
         certificateType: {
           ...certType,
@@ -40,7 +49,7 @@ export async function GET(request: NextRequest) {
         }
       })
     }
-    
+
     if (!eventId) {
       return NextResponse.json({ error: "Event ID required" }, { status: 400 })
     }
@@ -61,7 +70,7 @@ export async function GET(request: NextRequest) {
     const typesWithStats = await Promise.all(certTypes.map(async (type) => {
       const total = await Recipient.countDocuments({ certificateTypeId: type._id })
       const downloaded = await Recipient.countDocuments({ certificateTypeId: type._id, downloadCount: { $gt: 0 } })
-      
+
       return {
         ...type,
         stats: {
@@ -83,9 +92,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     await connectDB()
-    
+
     const { userId, eventId, name, templateImage, textFields } = await request.json()
-    
+
     if (!userId || !eventId || !name) {
       return NextResponse.json({ error: "User ID, Event ID and name required" }, { status: 400 })
     }
@@ -99,7 +108,7 @@ export async function POST(request: NextRequest) {
     // Check plan limits
     const canCreate = await canUserCreateCertificateType(userId, eventId)
     if (!canCreate.allowed) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: canCreate.reason,
         limitReached: true,
         currentCount: canCreate.currentCount,
@@ -113,7 +122,9 @@ export async function POST(request: NextRequest) {
       eventId,
       templateImage: templateImage || "",
       textFields: textFields || [],
-      isActive: true
+      textFields: textFields || [],
+      isActive: true,
+      shortCode: generateShortCode()
     })
 
     return NextResponse.json({
@@ -134,10 +145,10 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     await connectDB()
-    
+
     const body = await request.json()
     const { userId, typeId } = body
-    
+
     if (!userId || !typeId) {
       return NextResponse.json({ error: "User ID and Type ID required" }, { status: 400 })
     }
@@ -155,12 +166,12 @@ export async function PUT(request: NextRequest) {
 
     // Update fields - accept all possible fields
     const updateData: Record<string, unknown> = {}
-    
+
     // Basic fields
     if (body.name) updateData.name = body.name
     if (body.templateImage !== undefined) updateData.templateImage = body.templateImage
     if (body.textFields !== undefined) updateData.textFields = body.textFields
-    
+
     // Font and styling fields (stored in textFields or as separate fields)
     if (body.fontSize !== undefined) updateData.fontSize = body.fontSize
     if (body.fontFamily !== undefined) updateData.fontFamily = body.fontFamily
@@ -197,12 +208,12 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     await connectDB()
-    
+
     const { searchParams } = new URL(request.url)
     const typeId = searchParams.get("typeId")
     const userId = searchParams.get("userId")
     const permanent = searchParams.get("permanent") === "true"
-    
+
     if (!userId || !typeId) {
       return NextResponse.json({ error: "User ID and Type ID required" }, { status: 400 })
     }
@@ -223,7 +234,7 @@ export async function DELETE(request: NextRequest) {
       await Recipient.deleteMany({ certificateTypeId: typeId })
       // Delete certificate type
       await CertificateType.findByIdAndDelete(typeId)
-      
+
       return NextResponse.json({
         success: true,
         message: "Certificate type and all recipients permanently deleted"
@@ -231,7 +242,7 @@ export async function DELETE(request: NextRequest) {
     } else {
       // Soft delete
       await CertificateType.findByIdAndUpdate(typeId, { isActive: false })
-      
+
       return NextResponse.json({
         success: true,
         message: "Certificate type deleted successfully"

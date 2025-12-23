@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { PLAN_FEATURES, type PlanType } from "@/lib/auth"
-import { 
-  Plus, 
+import {
+  Plus,
   Pencil,
   Crown,
   FolderOpen,
@@ -79,13 +79,13 @@ export default function EventsPage() {
       router.push("/client/login")
       return
     }
-    
+
     const session = JSON.parse(sessionStr)
     if (!session.userId) {
       router.push("/client/login")
       return
     }
-    
+
     setUserId(session.userId)
     setUserPlan(session.userPlan || "free")
     setActiveEventId(session.eventId || null)
@@ -101,7 +101,7 @@ export default function EventsPage() {
     try {
       const res = await fetch(`/api/client/events?userId=${uid}`)
       const data = await res.json()
-      
+
       if (res.ok) {
         setEvents(data.events || [])
         if (data.usage) {
@@ -137,10 +137,10 @@ export default function EventsPage() {
     currentCount: usage.events,
     maxEvents: usage.maxEvents
   } : { canCreate: false, currentCount: 0, maxEvents: 0 }
-  
+
   const planFeatures = PLAN_FEATURES[userPlan]
 
-  const filteredEvents = events.filter(e => 
+  const filteredEvents = events.filter(e =>
     e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     e.description?.toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -215,14 +215,14 @@ export default function EventsPage() {
                 <div className="absolute top-4 left-4 w-20 h-20 border border-white/20 rounded-full" />
                 <div className="absolute top-8 left-8 w-12 h-12 border border-white/10 rounded-full" />
                 <div className="absolute bottom-4 right-4 w-16 h-16 border border-white/15 rounded-full" />
-                
+
                 {/* Top row - Badge & Actions */}
                 <div className="relative flex items-start justify-between">
                   {activeEventId === event._id && (
                     <Badge className="bg-primary text-primary-foreground text-[10px]">Active</Badge>
                   )}
                   {activeEventId !== event._id && <div />}
-                  
+
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                       variant="secondary"
@@ -252,7 +252,7 @@ export default function EventsPage() {
                   <span className="mx-1">•</span>
                   <span>{event.stats.certificateTypesCount} certs</span>
                   <span className="mx-1">•</span>
-                  <span>{event.stats.total} recipients</span>
+                  <span>{event.stats.total} attendees</span>
                 </div>
               </div>
             </div>
@@ -285,13 +285,13 @@ export default function EventsPage() {
       )}
 
       {/* Dialogs */}
-      <CreateEventDialog 
-        open={createDialogOpen} 
+      <CreateEventDialog
+        open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         userId={userId || ""}
         onSuccess={() => { if (userId) loadEvents(userId); setCreateDialogOpen(false) }}
       />
-      
+
       {editEvent && (
         <EditEventDialog
           open={!!editEvent}

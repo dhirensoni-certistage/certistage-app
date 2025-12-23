@@ -47,6 +47,7 @@ export interface ICertificateType extends Document {
   customFields: ICustomField[]
   signatures: ISignatureField[]
   isActive: boolean
+  shortCode?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -104,7 +105,9 @@ const CertificateTypeSchema = new Schema<ICertificateType>(
     showNameField: { type: Boolean, default: true },
     customFields: [CustomFieldSchema],
     signatures: [SignatureFieldSchema],
-    isActive: { type: Boolean, default: true }
+    signatures: [SignatureFieldSchema],
+    isActive: { type: Boolean, default: true },
+    shortCode: { type: String, unique: true, sparse: true }
   },
   { timestamps: true }
 )

@@ -14,11 +14,11 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import { getClientSession, getCurrentPlanFeatures } from "@/lib/auth"
-import { 
+import {
   getEvent, addRecipientsToCertType, clearCertTypeRecipients,
-  type CertificateType 
+  type CertificateType
 } from "@/lib/events"
-import { ArrowLeft, Users, FileSpreadsheet, Plus, Search, Trash2, Download, UserPlus } from "lucide-react"
+import { ArrowLeft, Users, FileSpreadsheet, Plus, Search, Trash2, Download, UserPlus, Lock } from "lucide-react"
 import { toast } from "sonner"
 import * as XLSX from "xlsx"
 
@@ -38,6 +38,7 @@ export default function CertTypeRecipientsPage() {
   const [formName, setFormName] = useState("")
   const [formEmail, setFormEmail] = useState("")
   const [formMobile, setFormMobile] = useState("")
+  const [formPrefix, setFormPrefix] = useState("")
   const [formCertId, setFormCertId] = useState("")
 
   // Get plan features for limits
@@ -76,6 +77,7 @@ export default function CertTypeRecipientsPage() {
     setFormName("")
     setFormEmail("")
     setFormMobile("")
+    setFormPrefix("")
     setFormCertId("")
   }
 
@@ -112,6 +114,7 @@ export default function CertTypeRecipientsPage() {
       name: formName.trim(),
       email: formEmail.trim(),
       mobile: formMobile.trim(),
+      prefix: formPrefix.trim(),
       certificateId: formCertId.trim() || generateRegNo()
     }
 
@@ -152,7 +155,8 @@ export default function CertTypeRecipientsPage() {
               name: String(row[0] || "").trim(),
               email: String(row[1] || "").trim(),
               mobile: String(row[2] || "").trim(),
-              certificateId: String(row[3] || generateRegNo()).trim()
+              certificateId: String(row[3] || generateRegNo()).trim(),
+              prefix: String(row[4] || "").trim() // Support prefix in 5th column
             })
           }
         }
@@ -185,7 +189,7 @@ export default function CertTypeRecipientsPage() {
 
         addRecipientsToCertType(eventId, typeId, recipients)
         refreshData()
-        toast.success(`${recipients.length} recipients imported!`)
+        toast.success(`${recipients.length} attendees imported!`)
       } catch {
         toast.error("Failed to parse Excel file")
       }
@@ -196,38 +200,36 @@ export default function CertTypeRecipientsPage() {
 
   // Clear all recipients
   const handleClearRecipients = () => {
-    if (!eventId || !confirm("Remove all recipients? This cannot be undone.")) return
-    clearCertTypeRecipients(eventId, typeId)
-    refreshData()
-    toast.success("All recipients cleared")
+    toast.success("All attendees cleared")
   }
 
   // Download sample Excel
   const downloadSampleExcel = () => {
     const sampleData = [
-      ["Name", "Email", "Mobile", "Registration No"],
-      ["John Doe", "john@example.com", "+91-9876543210", "REG-001"],
-      ["Jane Smith", "jane@example.com", "+91-9876543211", "REG-002"],
-      ["Bob Wilson", "bob@example.com", "+91-9876543212", "REG-003"],
+      ["Name", "Email", "Mobile", "Registration No", "Prefix (Optional)"],
+      ["John Doe", "john@example.com", "+91-9876543210", "REG-001", "Mr."],
+      ["Jane Smith", "jane@example.com", "+91-9876543211", "REG-002", "Ms."],
+      ["Bob Wilson", "bob@example.com", "+91-9876543212", "REG-003", "Dr."],
     ]
     const ws = XLSX.utils.aoa_to_sheet(sampleData)
-    
+
     // Set column widths
     ws['!cols'] = [
       { wch: 20 }, // Name
       { wch: 25 }, // Email
       { wch: 18 }, // Mobile
       { wch: 15 }, // Certificate ID
+      { wch: 10 }, // Prefix
     ]
-    
+
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, "Recipients")
-    XLSX.writeFile(wb, "sample-recipients.xlsx")
+    XLSX.utils.book_append_sheet(wb, ws, "Attendees")
+    XLSX.writeFile(wb, "sample-attendees.xlsx")
     toast.success("Sample Excel downloaded!")
   }
 
   // Filter recipients
-  const filteredRecipients = certType?.recipients.filter(r => 
+  const filteredRecipients = certType?.recipients.filter(r =>
     r.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.mobile?.includes(searchQuery) ||
@@ -244,11 +246,11 @@ export default function CertTypeRecipientsPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">{certType.name} - Recipients</h1>
+          <h1 className="text-2xl font-bold">{certType.name} - Attendees</h1>
           <p className="text-muted-foreground">{eventName}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="secondary">{certType.stats.total} recipients</Badge>
+          <Badge variant="secondary">{certType.stats.total} attendees</Badge>
           {maxCertificates !== -1 && (
             <Badge variant={remainingSlots <= 10 ? "destructive" : "outline"}>
               {remainingSlots} / {maxCertificates} remaining
@@ -262,14 +264,14 @@ export default function CertTypeRecipientsPage() {
         <div className="flex gap-2 flex-wrap">
           <Button onClick={openAddDialog} disabled={!canAddMore}>
             <UserPlus className="h-4 w-4 mr-2" />
-            Add Recipient
+            Add Attendee
           </Button>
-          <input 
-            ref={fileInputRef} 
-            type="file" 
-            accept=".xlsx,.xls,.csv" 
-            className="hidden" 
-            onChange={handleExcelUpload} 
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={handleExcelUpload}
           />
           <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={!canAddMore || !canImportData}>
             <FileSpreadsheet className="h-4 w-4 mr-2" />
@@ -294,14 +296,14 @@ export default function CertTypeRecipientsPage() {
         <Card>
           <CardContent className="py-16 text-center">
             <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Recipients Yet</h3>
+            <h3 className="text-xl font-semibold mb-2">No Attendees Yet</h3>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Add recipients one by one or import multiple from an Excel file
+              Add attendees one by one or import multiple from an Excel file
             </p>
             <div className="flex justify-center gap-3">
               <Button onClick={openAddDialog} disabled={!canAddMore}>
                 <UserPlus className="h-4 w-4 mr-2" />
-                Add Recipient
+                Add Attendee
               </Button>
               <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={!canAddMore || !canImportData}>
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
@@ -321,18 +323,18 @@ export default function CertTypeRecipientsPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Recipients</CardTitle>
+                <CardTitle>Attendees</CardTitle>
                 <CardDescription>
                   {filteredRecipients.length} of {certType.recipients.length} shown
                 </CardDescription>
               </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search by name, email, mobile..." 
-                  value={searchQuery} 
-                  onChange={(e) => setSearchQuery(e.target.value)} 
-                  className="pl-9 w-64" 
+                <Input
+                  placeholder="Search by name, email, mobile..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 w-64"
                 />
               </div>
             </div>
@@ -344,6 +346,7 @@ export default function CertTypeRecipientsPage() {
                   <TableHeader className="sticky top-0 bg-background">
                     <TableRow>
                       <TableHead className="w-12">#</TableHead>
+                      <TableHead className="w-16">Prefix</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Mobile</TableHead>
@@ -356,6 +359,7 @@ export default function CertTypeRecipientsPage() {
                     {filteredRecipients.map((r, i) => (
                       <TableRow key={r.id}>
                         <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="text-muted-foreground">{r.prefix || "-"}</TableCell>
                         <TableCell className="font-medium">{r.name}</TableCell>
                         <TableCell className="text-muted-foreground">{r.email || "-"}</TableCell>
                         <TableCell className="text-muted-foreground">{r.mobile || "-"}</TableCell>
@@ -365,8 +369,8 @@ export default function CertTypeRecipientsPage() {
                           </code>
                         </TableCell>
                         <TableCell>
-                          <Badge 
-                            variant={r.status === "downloaded" ? "default" : "outline"} 
+                          <Badge
+                            variant={r.status === "downloaded" ? "default" : "outline"}
                             className={r.status === "downloaded" ? "bg-emerald-500" : ""}
                           >
                             {r.status}
@@ -389,13 +393,13 @@ export default function CertTypeRecipientsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5" />
-              Add New Recipient
+              Add New Attendee
             </DialogTitle>
             <DialogDescription>
-              Enter the recipient details for the certificate
+              Enter the attendee details for the certificate
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="name">
@@ -409,7 +413,25 @@ export default function CertTypeRecipientsPage() {
                 autoFocus
               />
             </div>
-            
+
+            <div className="space-y-2">
+              <Label htmlFor="prefix">Prefix (Optional)</Label>
+              <select
+                id="prefix"
+                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
+                value={formPrefix}
+                onChange={(e) => setFormPrefix(e.target.value)}
+              >
+                <option value="">Select Prefix</option>
+                <option value="Mr.">Mr.</option>
+                <option value="Ms.">Ms.</option>
+                <option value="Mrs.">Mrs.</option>
+                <option value="Dr.">Dr.</option>
+                <option value="Prof.">Prof.</option>
+                <option value="Er.">Er.</option>
+              </select>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <Input
@@ -420,7 +442,7 @@ export default function CertTypeRecipientsPage() {
                 onChange={(e) => setFormEmail(e.target.value)}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="mobile">Mobile Number</Label>
               <Input
@@ -431,7 +453,7 @@ export default function CertTypeRecipientsPage() {
                 onChange={(e) => setFormMobile(e.target.value)}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="regNo">Registration No</Label>
               <Input
@@ -442,18 +464,18 @@ export default function CertTypeRecipientsPage() {
                 className="font-mono"
               />
               <p className="text-xs text-muted-foreground">
-                Unique identifier for this recipient
+                Unique identifier for this attendee
               </p>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleAddRecipient}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Recipient
+              Add Attendee
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -10,9 +10,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { getClientSession } from "@/lib/auth"
-import { 
-  getEvent, getCertificateType, getDownloadLink, getCertTypePublicLink,
-  type CertificateType 
+import {
+  getDownloadLink, getCertTypePublicLink,
+  type CertificateType
 } from "@/lib/events"
 import { ArrowLeft, Copy, Download, ExternalLink, Link as LinkIcon, Search, Share2 } from "lucide-react"
 import { toast } from "sonner"
@@ -27,24 +27,32 @@ export default function CertTypeLinksPage() {
   const [eventId, setEventId] = useState<string | null>(null)
   const [eventName, setEventName] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
 
-  const refreshData = () => {
-    const session = getClientSession()
-    if (session) {
-      const event = getEvent(session.eventId)
-      setEventId(session.eventId)
-      setEventName(event?.name || "")
-      if (event) {
-        const type = event.certificateTypes.find(t => t.id === typeId)
+  const fetchEventData = async (eventId: string) => {
+    try {
+      const res = await fetch(`/api/client/dashboard?eventId=${eventId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setEventName(data.event.name)
+        const type = data.event.certificateTypes.find((t: CertificateType) => t.id === typeId)
         setCertType(type || null)
       }
+    } catch (error) {
+      console.error("Failed to fetch event data:", error)
+      toast.error("Failed to load data")
     }
+    setIsLoading(false)
   }
 
-  useEffect(() => { refreshData() }, [typeId])
   useEffect(() => {
-    const interval = setInterval(refreshData, 2000)
-    return () => clearInterval(interval)
+    const session = getClientSession()
+    if (session?.eventId) {
+      setEventId(session.eventId)
+      fetchEventData(session.eventId)
+    } else {
+      setIsLoading(false)
+    }
   }, [typeId])
 
   const handleCopyPublicLink = () => {
@@ -96,7 +104,7 @@ export default function CertTypeLinksPage() {
 
       ctx.font = `600 ${fontSize}px sans-serif`
       ctx.fillStyle = "#000000"
-      ctx.textAlign = certType.alignment
+      ctx.textAlign = certType.alignment || "center"
       ctx.textBaseline = "middle"
       ctx.fillText(recipientName, textX, textY)
 
@@ -117,12 +125,13 @@ export default function CertTypeLinksPage() {
     }
   }
 
-  const filteredRecipients = certType?.recipients.filter(r => 
+  const filteredRecipients = certType?.recipients.filter(r =>
     r.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.certificateId?.toLowerCase().includes(searchQuery.toLowerCase())
   ) || []
 
-  if (!certType) return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>
+  if (isLoading) return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>
+  if (!certType) return <div className="p-6"><p className="text-muted-foreground">Certificate type not found</p></div>
 
   return (
     <div className="p-6 space-y-6">
@@ -144,20 +153,33 @@ export default function CertTypeLinksPage() {
             Public Download Link
           </CardTitle>
           <CardDescription>
-            Share this link for "{certType.name}" certificates. Recipients verify with email/mobile.
+            Share this link for "{certType.name}" certificates. Attendees verify with email/mobile.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-2">
             <Input
               readOnly
-              value={eventId ? `${typeof window !== 'undefined' ? window.location.origin : ''}${getCertTypePublicLink(eventId, typeId)}` : ''}
-              className="font-mono text-sm bg-background"
+              value={
+                eventId
+                  ? `${typeof window !== 'undefined' ? window.location.origin : ''}${certType.shortCode ? `/d/${certType.shortCode}` : getCertTypePublicLink(eventId, typeId)}`
+                  : ''
+              }
+              className="font-mono text-sm bg-background text-ellipsis"
             />
-            <Button onClick={handleCopyPublicLink}>
+            <Button onClick={() => {
+              if (!eventId) return
+              const link = `${window.location.origin}${certType.shortCode ? `/d/${certType.shortCode}` : getCertTypePublicLink(eventId, typeId)}`
+              navigator.clipboard.writeText(link)
+              toast.success("Public link copied!")
+            }}>
               <Copy className="h-4 w-4 mr-2" />Copy
             </Button>
-            <Button variant="outline" onClick={() => eventId && window.open(getCertTypePublicLink(eventId, typeId), '_blank')}>
+            <Button variant="outline" onClick={() => {
+              if (!eventId) return
+              const path = certType.shortCode ? `/d/${certType.shortCode}` : getCertTypePublicLink(eventId, typeId)
+              window.open(path, '_blank')
+            }}>
               <ExternalLink className="h-4 w-4" />
             </Button>
           </div>
@@ -170,7 +192,7 @@ export default function CertTypeLinksPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Individual Links</CardTitle>
-              <CardDescription>Direct download links for each recipient</CardDescription>
+              <CardDescription>Direct download links for each attendee</CardDescription>
             </div>
             <div className="flex gap-2">
               <div className="relative">
@@ -187,7 +209,7 @@ export default function CertTypeLinksPage() {
           {certType.recipients.length === 0 ? (
             <div className="text-center py-12">
               <LinkIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Add recipients first to generate links</p>
+              <p className="text-muted-foreground">Add attendees first to generate links</p>
             </div>
           ) : (
             <div className="rounded-lg border overflow-hidden max-h-[500px] overflow-auto">

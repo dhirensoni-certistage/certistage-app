@@ -38,6 +38,7 @@ export interface CertificateType {
     downloaded: number
     pending: number
   }
+  shortCode?: string
   createdAt: string
 }
 
@@ -63,6 +64,7 @@ export interface EventRecipient {
   name: string
   email: string
   mobile: string
+  prefix?: string // e.g., "Dr.", "Mr.", "Ms."
   certificateId: string
   status: "pending" | "downloaded"
   downloadedAt?: string
@@ -76,7 +78,7 @@ export function getEvents(): CertificateEvent[] {
   if (typeof window === "undefined") return []
   const eventsStr = localStorage.getItem(EVENTS_KEY)
   if (!eventsStr) return []
-  
+
   // Migrate old events to new format
   const events = JSON.parse(eventsStr)
   return events.map(migrateEvent)
@@ -96,10 +98,10 @@ function migrateEvent(event: any): CertificateEvent {
     }))
     return event
   }
-  
+
   // Migrate old format
   const certificateTypes: CertificateType[] = []
-  
+
   // If old event had template/recipients, create a default certificate type
   if (event.template || (event.recipients && event.recipients.length > 0)) {
     certificateTypes.push({
@@ -116,7 +118,7 @@ function migrateEvent(event: any): CertificateEvent {
       createdAt: event.createdAt
     })
   }
-  
+
   return {
     id: event.id,
     name: event.name,
@@ -178,7 +180,7 @@ export function setEventOwner(eventId: string, ownerId: string): boolean {
   const events = getEvents()
   const index = events.findIndex((e) => e.id === eventId)
   if (index === -1) return false
-  
+
   events[index].ownerId = ownerId
   localStorage.setItem(EVENTS_KEY, JSON.stringify(events))
   return true
@@ -327,7 +329,7 @@ export function getRecipientByCertificateId(
 ): { recipient: EventRecipient; certType: CertificateType } | null {
   const event = getEvent(eventId)
   if (!event) return null
-  
+
   for (const certType of event.certificateTypes) {
     const recipient = certType.recipients.find(r => r.certificateId === certificateId)
     if (recipient) {
@@ -369,11 +371,11 @@ export function findRecipientsByContact(
 ): { recipient: EventRecipient; certType: CertificateType }[] {
   const event = getEvent(eventId)
   if (!event) return []
-  
+
   const searchLower = contact.toLowerCase().trim()
   const searchDigits = contact.replace(/[^0-9]/g, "")
   const results: { recipient: EventRecipient; certType: CertificateType }[] = []
-  
+
   for (const certType of event.certificateTypes) {
     for (const recipient of certType.recipients) {
       if (
@@ -385,7 +387,7 @@ export function findRecipientsByContact(
       }
     }
   }
-  
+
   return results
 }
 
@@ -457,11 +459,11 @@ export function canUserCreateEvent(userId: string): {
 } {
   // Import plan features dynamically to avoid circular dependency
   const { getUserPlanFeatures } = require("./auth")
-  
+
   const currentCount = getUserEventCount(userId)
   const planFeatures = getUserPlanFeatures(userId)
   const maxEvents = planFeatures.maxEvents
-  
+
   // -1 means unlimited (Premium Plus)
   if (maxEvents === -1) {
     return {
@@ -470,19 +472,19 @@ export function canUserCreateEvent(userId: string): {
       maxEvents: -1
     }
   }
-  
+
   // Check if user has reached limit
   if (currentCount >= maxEvents) {
     return {
       canCreate: false,
       currentCount,
       maxEvents,
-      reason: maxEvents === 0 
+      reason: maxEvents === 0
         ? "Free plan doesn't include event creation. Upgrade to create events."
         : `You've reached your plan's event limit (${currentCount}/${maxEvents}). Upgrade for more events.`
     }
   }
-  
+
   return {
     canCreate: true,
     currentCount,
@@ -497,11 +499,11 @@ export function createEventForUser(
   description?: string
 ): CertificateEvent | { error: string } {
   const canCreate = canUserCreateEvent(userId)
-  
+
   if (!canCreate.canCreate) {
     return { error: canCreate.reason || "Cannot create event" }
   }
-  
+
   // Create event with owner
   return createEvent(name, description, userId)
 }

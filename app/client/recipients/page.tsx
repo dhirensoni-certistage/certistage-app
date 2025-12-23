@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { getClientSession, getTrialStatus, getCurrentPlanFeatures } from "@/lib/auth"
-import { 
+import {
   Users, FileSpreadsheet, Search, Trash2, Download, Plus, Lock,
   UserPlus, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle
 } from "lucide-react"
@@ -121,11 +121,11 @@ export default function RecipientsPage() {
       } else {
         setIsLoading(false)
       }
-      
+
       if (session.userId) {
         setUserId(session.userId)
       }
-      
+
       if (session.loginType === "user") {
         setIsUserLogin(true)
         const trialStatus = getTrialStatus(session.userId)
@@ -138,7 +138,7 @@ export default function RecipientsPage() {
         setCanImportData(true)
         setMaxCertificates(-1)
       }
-      
+
       if (isInitial) {
         setIsLoading(false)
       }
@@ -148,11 +148,11 @@ export default function RecipientsPage() {
   }
 
   // Initial load
-  useEffect(() => { 
+  useEffect(() => {
     setIsLoading(true)
     refreshData(true)
   }, [])
-  
+
   // Background refresh
   useEffect(() => {
     const interval = setInterval(() => {
@@ -167,7 +167,7 @@ export default function RecipientsPage() {
   const getAllRecipients = (): (EventRecipient & { certTypeName: string; certTypeId: string })[] => {
     if (!event) return []
     const allRecipients: (EventRecipient & { certTypeName: string; certTypeId: string })[] = []
-    
+
     event.certificateTypes.forEach(certType => {
       certType.recipients.forEach(recipient => {
         allRecipients.push({
@@ -177,7 +177,7 @@ export default function RecipientsPage() {
         })
       })
     })
-    
+
     return allRecipients
   }
 
@@ -198,7 +198,7 @@ export default function RecipientsPage() {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      recipients = recipients.filter(r => 
+      recipients = recipients.filter(r =>
         r.name?.toLowerCase().includes(query) ||
         r.email?.toLowerCase().includes(query) ||
         r.mobile?.includes(query) ||
@@ -268,7 +268,7 @@ export default function RecipientsPage() {
         if (res.ok) {
           toast.success(`${deleteTarget.recipient.name} deleted`)
         } else {
-          toast.error("Failed to delete recipient")
+          toast.error("Failed to delete attendee")
         }
       } else if (deleteTarget.type === 'bulk') {
         const selectedRecipients = paginatedRecipients.filter(r => selectedIds.has(r.id))
@@ -277,10 +277,10 @@ export default function RecipientsPage() {
             method: 'DELETE'
           })
         }
-        toast.success(`${selectedIds.size} recipients deleted`)
+        toast.success(`${selectedIds.size} attendees deleted`)
         setSelectedIds(new Set())
       }
-      
+
       // Refresh data
       if (eventId) {
         fetchEventData(eventId)
@@ -370,7 +370,7 @@ export default function RecipientsPage() {
           }]
         })
       })
-      
+
       if (res.ok) {
         if (eventId) fetchEventData(eventId)
         setIsAddDialogOpen(false)
@@ -378,7 +378,7 @@ export default function RecipientsPage() {
         toast.success(`${formName} added successfully!`)
       } else {
         const data = await res.json()
-        toast.error(data.error || "Failed to add recipient")
+        toast.error(data.error || "Failed to add attendee")
       }
     } catch (error) {
       toast.error("Failed to add recipient")
@@ -391,7 +391,7 @@ export default function RecipientsPage() {
 
     // Need to select certificate type first
     if (selectedTypeId === "all") {
-      toast.error("Please select a certificate type first to import recipients")
+      toast.error("Please select a certificate type first to import attendees")
       if (fileInputRef.current) fileInputRef.current.value = ""
       return
     }
@@ -469,18 +469,18 @@ export default function RecipientsPage() {
           const CHUNK_SIZE = 500
           if (recipients.length > CHUNK_SIZE) {
             // Show progress toast
-            const toastId = toast.loading(`Importing ${recipients.length} recipients...`, {
+            const toastId = toast.loading(`Importing ${recipients.length} attendees...`, {
               description: "Please wait, this may take a moment."
             })
-            
+
             let imported = 0
             let failed = 0
             const chunks = []
-            
+
             for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
               chunks.push(recipients.slice(i, i + CHUNK_SIZE))
             }
-            
+
             for (let i = 0; i < chunks.length; i++) {
               try {
                 const res = await fetch('/api/client/recipients', {
@@ -494,14 +494,14 @@ export default function RecipientsPage() {
                     isBulkImport: true
                   })
                 })
-                
+
                 if (res.ok) {
                   const data = await res.json()
                   imported += data.count || chunks[i].length
                 } else {
                   failed += chunks[i].length
                 }
-                
+
                 // Update progress
                 const progress = Math.round(((i + 1) / chunks.length) * 100)
                 toast.loading(`Importing... ${progress}% (${imported} done)`, {
@@ -512,14 +512,14 @@ export default function RecipientsPage() {
                 failed += chunks[i].length
               }
             }
-            
+
             // Final result
             toast.dismiss(toastId)
             if (eventId) fetchEventData(eventId)
-            
+
             if (failed === 0) {
               toast.success(`Import Complete!`, {
-                description: `${imported} recipients imported successfully.`,
+                description: `${imported} attendees imported successfully.`,
                 duration: 5000
               })
             } else {
@@ -532,8 +532,8 @@ export default function RecipientsPage() {
           }
 
           // API call to add recipients (small batches)
-          const toastId = toast.loading(`Importing ${recipients.length} recipients...`)
-          
+          const toastId = toast.loading(`Importing ${recipients.length} attendees...`)
+
           fetch('/api/client/recipients', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -551,7 +551,7 @@ export default function RecipientsPage() {
               if (eventId) fetchEventData(eventId)
               // Show import summary
               toast.success(`Import Successful!`, {
-                description: `${data.count || recipients.length} recipients imported successfully.`,
+                description: `${data.count || recipients.length} attendees imported successfully.`,
                 duration: 5000
               })
             } else {
@@ -562,7 +562,7 @@ export default function RecipientsPage() {
             }
           }).catch(() => {
             toast.dismiss(toastId)
-            toast.error("Failed to import recipients")
+            toast.error("Failed to import attendees")
           })
         } catch {
           toast.error("Failed to parse Excel file")
@@ -583,8 +583,8 @@ export default function RecipientsPage() {
       const ws = XLSX.utils.aoa_to_sheet(sampleData)
       ws["!cols"] = [{ wch: 20 }, { wch: 25 }, { wch: 18 }, { wch: 15 }]
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, "Recipients")
-      XLSX.writeFile(wb, "sample-recipients.xlsx")
+      XLSX.utils.book_append_sheet(wb, ws, "Attendees")
+      XLSX.writeFile(wb, "sample-attendees.xlsx")
       toast.success("Sample Excel downloaded!")
     })
   }
@@ -597,8 +597,8 @@ export default function RecipientsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Recipients</h1>
-          <p className="text-muted-foreground">Manage all certificate recipients{event ? ` for ${event.name}` : ''}</p>
+          <h1 className="text-2xl font-bold text-foreground">Attendees</h1>
+          <p className="text-muted-foreground">Manage all event attendees{event ? ` for ${event.name}` : ''}</p>
         </div>
       </div>
 
@@ -609,7 +609,7 @@ export default function RecipientsPage() {
             <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">No Certificate Types Yet</h3>
             <p className="text-muted-foreground mb-4">
-              Create a certificate type first before adding recipients
+              Create a certificate type first before adding attendees
             </p>
             <Button onClick={() => window.location.href = "/client/certificates"}>
               Go to Manage Certificate
@@ -618,262 +618,262 @@ export default function RecipientsPage() {
         </Card>
       ) : (
         <div className="rounded-lg border overflow-hidden flex flex-col flex-1 min-h-0">
-            {/* Filters in table header */}
-            <div className="bg-muted/50 border-b px-4 py-3 flex-shrink-0">
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Certificate Type Filter */}
-                <Select value={selectedTypeId} onValueChange={setSelectedTypeId} disabled={showTableSkeleton}>
-                    <SelectTrigger className="w-[180px] h-9">
-                      <SelectValue placeholder="All Certificate" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Certificate</SelectItem>
-                      {event?.certificateTypes.map((type) => (
-                        <SelectItem key={type.id} value={type.id}>
-                          {type.name} ({type.recipients.length})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                </Select>
+          {/* Filters in table header */}
+          <div className="bg-muted/50 border-b px-4 py-3 flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Certificate Type Filter */}
+              <Select value={selectedTypeId} onValueChange={setSelectedTypeId} disabled={showTableSkeleton}>
+                <SelectTrigger className="w-[180px] h-9">
+                  <SelectValue placeholder="All Certificate" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Certificate</SelectItem>
+                  {event?.certificateTypes.map((type) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name} ({type.recipients.length})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-                {/* Status Filter */}
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[130px] h-9">
-                    <SelectValue placeholder="All Status" />
+              {/* Status Filter */}
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[130px] h-9">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="downloaded">Downloaded</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Search */}
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name, email, mobile, reg no..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 h-9"
+                  />
+                </div>
+              </div>
+
+              {/* Import Dropdown */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleExcelUpload}
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Import
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={downloadSampleExcel}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Sample Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (!canImportData) {
+                        toast.error("Data import is not available in your plan. Please upgrade.")
+                        return
+                      }
+                      if (selectedTypeId === "all") {
+                        toast.error("Please select a certificate type first")
+                        return
+                      }
+                      fileInputRef.current?.click()
+                    }}
+                    className={!canImportData ? "opacity-50" : ""}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Import Excel {!canImportData && <Lock className="h-3 w-3 ml-1 inline" />}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Add Recipient Button */}
+              <Button
+                size="sm"
+                onClick={openAddDialog}
+                disabled={showTableSkeleton || !event || event.certificateTypes.length === 0}
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add Attendee
+              </Button>
+            </div>
+          </div>
+
+          {/* Table with sticky header */}
+          <div className="flex-1 overflow-auto min-h-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <table className="w-full text-sm table-fixed">
+              <thead className="sticky top-0 bg-muted z-10">
+                <tr>
+                  <th className="text-center p-3 font-medium w-[40px]">
+                    <Checkbox
+                      checked={paginatedRecipients.length > 0 && selectedIds.size === paginatedRecipients.length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </th>
+                  <th className="text-left p-3 font-medium w-[40px]">#</th>
+                  <th className="text-left p-3 font-medium w-[140px]">Name</th>
+                  <th className="text-left p-3 font-medium w-[180px]">Email</th>
+                  <th className="text-left p-3 font-medium w-[120px]">Mobile</th>
+                  <th className="text-left p-3 font-medium w-[150px]">Reg No</th>
+                  <th className="text-left p-3 font-medium w-[120px]">Certificate</th>
+                  <th className="text-left p-3 font-medium w-[90px]">Status</th>
+                  <th className="text-center p-3 font-medium w-[70px]">Downloads</th>
+                  <th className="text-center p-3 font-medium w-[50px]"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {showTableSkeleton ? (
+                  // Skeleton loader rows - only for table data
+                  Array.from({ length: rowsPerPage }).map((_, i) => (
+                    <tr key={i} className="border-t">
+                      <td className="p-3 text-center"><Skeleton className="h-4 w-4 mx-auto" /></td>
+                      <td className="p-3"><Skeleton className="h-4 w-6" /></td>
+                      <td className="p-3"><Skeleton className="h-4 w-24" /></td>
+                      <td className="p-3"><Skeleton className="h-4 w-32" /></td>
+                      <td className="p-3"><Skeleton className="h-4 w-20" /></td>
+                      <td className="p-3"><Skeleton className="h-4 w-28" /></td>
+                      <td className="p-3"><Skeleton className="h-4 w-20" /></td>
+                      <td className="p-3"><Skeleton className="h-5 w-16" /></td>
+                      <td className="p-3 text-center"><Skeleton className="h-4 w-8 mx-auto" /></td>
+                      <td className="p-3 text-center"><Skeleton className="h-6 w-6 mx-auto" /></td>
+                    </tr>
+                  ))
+                ) : filteredRecipients.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="p-8 text-center">
+                      <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="font-medium">No Attendees Found</p>
+                      <p className="text-sm text-muted-foreground">
+                        {searchQuery || statusFilter !== "all"
+                          ? "Try adjusting your filters"
+                          : "Add attendees to get started"}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRecipients.map((r, i) => (
+                    <tr key={r.id} className={`border-t hover:bg-muted/50 ${selectedIds.has(r.id) ? 'bg-muted/30' : ''}`}>
+                      <td className="p-3 text-center">
+                        <Checkbox
+                          checked={selectedIds.has(r.id)}
+                          onCheckedChange={() => toggleSelect(r.id)}
+                        />
+                      </td>
+                      <td className="p-3 text-muted-foreground">{startIndex + i + 1}</td>
+                      <td className="p-3 font-medium truncate" title={r.name}>{r.name}</td>
+                      <td className="p-3 text-muted-foreground truncate" title={r.email}>{r.email || "-"}</td>
+                      <td className="p-3 text-muted-foreground truncate">{r.mobile || "-"}</td>
+                      <td className="p-3">
+                        <code className="text-xs bg-muted px-2 py-1 rounded font-mono truncate block" title={r.certificateId}>
+                          {r.certificateId}
+                        </code>
+                      </td>
+                      <td className="p-3">
+                        <Badge variant="outline" className="text-xs">
+                          {r.certTypeName}
+                        </Badge>
+                      </td>
+                      <td className="p-3">
+                        <Badge
+                          variant={r.status === "downloaded" ? "default" : "outline"}
+                          className={r.status === "downloaded" ? "bg-emerald-500" : ""}
+                        >
+                          {r.status}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-center">{r.downloadCount}</td>
+                      <td className="p-3 text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => openDeleteDialog(r)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer with pagination - always at bottom */}
+          <div className="mt-auto flex-shrink-0 bg-background border-t px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-muted-foreground">
+                Total: <span className="text-primary font-medium">{filteredRecipients.length}</span>
+              </div>
+              {selectedIds.size > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => openDeleteDialog()}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Selected ({selectedIds.size})
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Rows</span>
+                <Select value={String(rowsPerPage)} onValueChange={(v) => setRowsPerPage(Number(v))}>
+                  <SelectTrigger className="w-[80px] h-8">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="downloaded">Downloaded</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
                   </SelectContent>
                 </Select>
-
-                {/* Search */}
-                <div className="flex-1 min-w-[200px]">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="Search by name, email, mobile, reg no..." 
-                      value={searchQuery} 
-                      onChange={(e) => setSearchQuery(e.target.value)} 
-                      className="pl-9 h-9" 
-                    />
-                  </div>
-                </div>
-
-                {/* Import Dropdown */}
-                <input 
-                  ref={fileInputRef} 
-                  type="file" 
-                  accept=".xlsx,.xls,.csv" 
-                  className="hidden" 
-                  onChange={handleExcelUpload} 
-                />
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Import
-                      <ChevronDown className="h-4 w-4 ml-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={downloadSampleExcel}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Sample Excel
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => {
-                        if (!canImportData) {
-                          toast.error("Data import is not available in your plan. Please upgrade.")
-                          return
-                        }
-                        if (selectedTypeId === "all") {
-                          toast.error("Please select a certificate type first")
-                          return
-                        }
-                        fileInputRef.current?.click()
-                      }}
-                      className={!canImportData ? "opacity-50" : ""}
-                    >
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Import Excel {!canImportData && <Lock className="h-3 w-3 ml-1 inline" />}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* Add Recipient Button */}
-                <Button 
-                  size="sm"
-                  onClick={openAddDialog} 
-                  disabled={showTableSkeleton || !event || event.certificateTypes.length === 0}
+              </div>
+              <span className="text-sm text-muted-foreground">
+                Showing {filteredRecipients.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredRecipients.length)} of {filteredRecipients.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => p - 1)}
                 >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add Recipient
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center justify-center h-8 w-8 rounded-md bg-primary text-primary-foreground text-sm font-medium">
+                  {currentPage}
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-
-            {/* Table with sticky header */}
-            <div className="flex-1 overflow-auto min-h-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              <table className="w-full text-sm table-fixed">
-                <thead className="sticky top-0 bg-muted z-10">
-                  <tr>
-                    <th className="text-center p-3 font-medium w-[40px]">
-                      <Checkbox 
-                        checked={paginatedRecipients.length > 0 && selectedIds.size === paginatedRecipients.length}
-                        onCheckedChange={toggleSelectAll}
-                      />
-                    </th>
-                    <th className="text-left p-3 font-medium w-[40px]">#</th>
-                    <th className="text-left p-3 font-medium w-[140px]">Name</th>
-                    <th className="text-left p-3 font-medium w-[180px]">Email</th>
-                    <th className="text-left p-3 font-medium w-[120px]">Mobile</th>
-                    <th className="text-left p-3 font-medium w-[150px]">Reg No</th>
-                    <th className="text-left p-3 font-medium w-[120px]">Certificate</th>
-                    <th className="text-left p-3 font-medium w-[90px]">Status</th>
-                    <th className="text-center p-3 font-medium w-[70px]">Downloads</th>
-                    <th className="text-center p-3 font-medium w-[50px]"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {showTableSkeleton ? (
-                    // Skeleton loader rows - only for table data
-                    Array.from({ length: rowsPerPage }).map((_, i) => (
-                      <tr key={i} className="border-t">
-                        <td className="p-3 text-center"><Skeleton className="h-4 w-4 mx-auto" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-6" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-24" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-32" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-20" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-28" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-20" /></td>
-                        <td className="p-3"><Skeleton className="h-5 w-16" /></td>
-                        <td className="p-3 text-center"><Skeleton className="h-4 w-8 mx-auto" /></td>
-                        <td className="p-3 text-center"><Skeleton className="h-6 w-6 mx-auto" /></td>
-                      </tr>
-                    ))
-                  ) : filteredRecipients.length === 0 ? (
-                    <tr>
-                      <td colSpan={10} className="p-8 text-center">
-                        <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                        <p className="font-medium">No Recipients Found</p>
-                        <p className="text-sm text-muted-foreground">
-                          {searchQuery || statusFilter !== "all" 
-                            ? "Try adjusting your filters" 
-                            : "Add recipients to get started"}
-                        </p>
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedRecipients.map((r, i) => (
-                      <tr key={r.id} className={`border-t hover:bg-muted/50 ${selectedIds.has(r.id) ? 'bg-muted/30' : ''}`}>
-                        <td className="p-3 text-center">
-                          <Checkbox 
-                            checked={selectedIds.has(r.id)}
-                            onCheckedChange={() => toggleSelect(r.id)}
-                          />
-                        </td>
-                        <td className="p-3 text-muted-foreground">{startIndex + i + 1}</td>
-                        <td className="p-3 font-medium truncate" title={r.name}>{r.name}</td>
-                        <td className="p-3 text-muted-foreground truncate" title={r.email}>{r.email || "-"}</td>
-                        <td className="p-3 text-muted-foreground truncate">{r.mobile || "-"}</td>
-                        <td className="p-3">
-                          <code className="text-xs bg-muted px-2 py-1 rounded font-mono truncate block" title={r.certificateId}>
-                            {r.certificateId}
-                          </code>
-                        </td>
-                        <td className="p-3">
-                          <Badge variant="outline" className="text-xs">
-                            {r.certTypeName}
-                          </Badge>
-                        </td>
-                        <td className="p-3">
-                          <Badge 
-                            variant={r.status === "downloaded" ? "default" : "outline"} 
-                            className={r.status === "downloaded" ? "bg-emerald-500" : ""}
-                          >
-                            {r.status}
-                          </Badge>
-                        </td>
-                        <td className="p-3 text-center">{r.downloadCount}</td>
-                        <td className="p-3 text-center">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => openDeleteDialog(r)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Footer with pagination - always at bottom */}
-            <div className="mt-auto flex-shrink-0 bg-background border-t px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-muted-foreground">
-                  Total: <span className="text-primary font-medium">{filteredRecipients.length}</span>
-                </div>
-                {selectedIds.size > 0 && (
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    onClick={() => openDeleteDialog()}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Selected ({selectedIds.size})
-                  </Button>
-                )}
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Rows</span>
-                  <Select value={String(rowsPerPage)} onValueChange={(v) => setRowsPerPage(Number(v))}>
-                    <SelectTrigger className="w-[80px] h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="25">25</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <span className="text-sm text-muted-foreground">
-                  Showing {filteredRecipients.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredRecipients.length)} of {filteredRecipients.length}
-                </span>
-                <div className="flex items-center gap-1">
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    className="h-8 w-8"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(p => p - 1)}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <div className="flex items-center justify-center h-8 w-8 rounded-md bg-primary text-primary-foreground text-sm font-medium">
-                    {currentPage}
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    className="h-8 w-8"
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setCurrentPage(p => p + 1)}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+          </div>
         </div>
       )}
 
@@ -886,9 +886,9 @@ export default function RecipientsPage() {
               Confirm Delete
             </DialogTitle>
             <DialogDescription>
-              {deleteTarget?.type === 'single' 
+              {deleteTarget?.type === 'single'
                 ? `Are you sure you want to delete "${deleteTarget.recipient?.name}"? This action cannot be undone.`
-                : `Are you sure you want to delete ${selectedIds.size} selected recipients? This action cannot be undone.`
+                : `Are you sure you want to delete ${selectedIds.size} selected attendees? This action cannot be undone.`
               }
             </DialogDescription>
           </DialogHeader>
@@ -910,13 +910,13 @@ export default function RecipientsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5" />
-              Add New Recipient
+              Add New Attendee
             </DialogTitle>
             <DialogDescription>
-              Enter the recipient details for the certificate
+              Enter the attendee details for the certificate
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {/* Certificate Type Selection */}
             <div className="space-y-2">
@@ -944,7 +944,7 @@ export default function RecipientsPage() {
                 autoFocus
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label>Email Address</Label>
               <Input
@@ -954,7 +954,7 @@ export default function RecipientsPage() {
                 onChange={(e) => setFormEmail(e.target.value)}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label>Mobile Number</Label>
               <Input
@@ -964,7 +964,7 @@ export default function RecipientsPage() {
                 onChange={(e) => setFormMobile(e.target.value)}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label>Registration No</Label>
               <Input
@@ -975,14 +975,14 @@ export default function RecipientsPage() {
               />
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleAddRecipient}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Recipient
+              Add Attendee
             </Button>
           </DialogFooter>
         </DialogContent>

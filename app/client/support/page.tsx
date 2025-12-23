@@ -16,6 +16,7 @@ import {
   ExternalLink
 } from "lucide-react"
 import { getClientSession, getCurrentPlanFeatures } from "@/lib/auth"
+import Link from "next/link"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -111,6 +112,15 @@ export default function SupportPage() {
                   >
                     support@certistage.com
                   </a>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <MessageSquare className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Manage Attendees</p>
+                  <Link href="/client/recipients" className="text-xs text-primary hover:underline">
+                    Manage Attendees
+                  </Link>
                 </div>
               </div>
 
@@ -291,7 +301,7 @@ export default function SupportPage() {
               </p>
             </div>
             <div className="space-y-2">
-              <h4 className="font-medium text-sm">Can't upload recipients?</h4>
+              <h4 className="font-medium text-sm">Can't upload attendees?</h4>
               <p className="text-sm text-muted-foreground">
                 Check that your Excel file has the correct column headers: Name, Email, Mobile.
               </p>
@@ -330,14 +340,15 @@ export default function SupportPage() {
             {resourceModal === "docs" && (
               <ul className="list-disc list-inside space-y-1">
                 <li>Create event and certificate type, then design the template.</li>
-                <li>Import recipients (Excel: Name, Email, Mobile, Registration No).</li>
+                <li>Import attendees (Excel: Name, Email, Mobile, Registration No).</li>
                 <li>Generate certificates and share download links.</li>
-                <li>Export reports for downloaded vs pending recipients.</li>
+                <li>Export reports for downloaded vs pending attendees.</li>
               </ul>
             )}
             {resourceModal === "faqs" && (
               <div className="space-y-2">
-                <p><span className="font-medium text-foreground">Import steps:</span> Recipients → choose type → Import Excel with required columns.</p>
+                <p><span className="font-medium text-foreground">How do I bulk import attendees?</span> Go to the 'Attendees' tab, click on 'Import', and download the sample Excel file. Fill in your attendee data and upload it back.</p>
+                <p><span className="font-medium text-foreground">Import steps:</span> Attendees → choose type → Import Excel with required columns.</p>
                 <p><span className="font-medium text-foreground">Downloads blocked:</span> Generate certificates and check plan limits.</p>
                 <p><span className="font-medium text-foreground">Edit after sending:</span> Update template, regenerate, resend links.</p>
                 <p><span className="font-medium text-foreground">Paid plans:</span> More events, bulk import, unlimited downloads/exports, priority support.</p>

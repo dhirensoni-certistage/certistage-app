@@ -51,7 +51,7 @@ export default function HomePage() {
               <span className="text-primary block mt-2">Made Simple</span>
             </h1>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Create, customize, and distribute beautiful certificates for your events, 
+              Create, customize, and distribute beautiful certificates for your events,
               courses, and achievements. Simple for you, seamless for recipients.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -413,9 +413,9 @@ export default function HomePage() {
               <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 text-xl font-bold text-primary">
                 2
               </div>
-              <h3 className="font-semibold text-foreground mb-2">Add Recipients</h3>
+              <h3 className="font-semibold text-foreground mb-2">Add Attendees</h3>
               <p className="text-sm text-muted-foreground">
-                Import your recipient list via Excel or add them manually.
+                Import your attendee list via Excel or add them manually.
               </p>
             </div>
             <div className="text-center">
@@ -462,7 +462,7 @@ export default function HomePage() {
                 Professional certificate generation platform for events, courses, and achievements.
               </p>
             </div>
-            
+
             {/* Quick Links */}
             <div>
               <h4 className="font-medium text-foreground mb-4">Quick Links</h4>
@@ -472,7 +472,7 @@ export default function HomePage() {
                 <Link href="#how-it-works" className="hover:text-foreground transition-colors">How it Works</Link>
               </nav>
             </div>
-            
+
             {/* Account */}
             <div>
               <h4 className="font-medium text-foreground mb-4">Account</h4>
@@ -482,7 +482,7 @@ export default function HomePage() {
                 <Link href="/contact" className="hover:text-foreground transition-colors">Contact Sales</Link>
               </nav>
             </div>
-            
+
             {/* Legal */}
             <div>
               <h4 className="font-medium text-foreground mb-4">Legal</h4>
@@ -494,7 +494,7 @@ export default function HomePage() {
               </nav>
             </div>
           </div>
-          
+
           <div className="border-t border-border/50 pt-8 text-center text-sm text-muted-foreground">
             <p>&copy; {new Date().getFullYear()} CertiStage. All rights reserved.</p>
           </div>

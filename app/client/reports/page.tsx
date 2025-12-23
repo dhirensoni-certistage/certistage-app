@@ -23,7 +23,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Lock
+  Lock,
+  Users
 } from "lucide-react"
 import * as XLSX from "xlsx"
 import { toast } from "sonner"
@@ -123,7 +124,7 @@ export default function ClientReportsPage() {
   const getData = () => {
     const results: { r: EventRecipient; ct: CertificateType }[] = []
     const types = certFilter === "all" ? event.certificateTypes : event.certificateTypes.filter(t => t.id === certFilter)
-    
+
     types.forEach(ct => {
       ct.recipients.forEach(r => {
         if (statusFilter !== "all" && r.status !== statusFilter) return
@@ -172,8 +173,8 @@ export default function ClientReportsPage() {
 
     const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, "Report")
-    XLSX.writeFile(wb, `${name}-${new Date().toISOString().split('T')[0]}.xlsx`)
+    XLSX.utils.book_append_sheet(wb, ws, "Attendees")
+    XLSX.writeFile(wb, `${name}-attendees-${new Date().toISOString().split('T')[0]}.xlsx`)
     toast.success(`Exported ${items.length} records`)
   }
 
@@ -189,7 +190,7 @@ export default function ClientReportsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Reports</h1>
-          <p className="text-muted-foreground mt-1">Export certificate data</p>
+          <p className="text-muted-foreground mt-1">Track and export certificate data for all attendees</p>
         </div>
         {!canExport && (
           <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-900/20">
@@ -201,7 +202,7 @@ export default function ClientReportsPage() {
 
       {/* Quick Export */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card 
+        <Card
           className="cursor-pointer hover:bg-muted/50 transition-colors"
           onClick={() => {
             const all: { r: EventRecipient; ct: CertificateType }[] = []
@@ -215,12 +216,12 @@ export default function ClientReportsPage() {
             </div>
             <div>
               <p className="font-semibold">Export All</p>
-              <p className="text-sm text-muted-foreground">{event.stats.total} recipients</p>
+              <p className="text-sm text-muted-foreground">{event.stats.total} attendees</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className="cursor-pointer hover:bg-muted/50 transition-colors"
           onClick={() => {
             const items: { r: EventRecipient; ct: CertificateType }[] = []
@@ -234,12 +235,12 @@ export default function ClientReportsPage() {
             </div>
             <div>
               <p className="font-semibold">Downloaded Only</p>
-              <p className="text-sm text-muted-foreground">{event.stats.downloaded} recipients</p>
+              <p className="text-sm text-muted-foreground">{event.stats.downloaded} attendees</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className="cursor-pointer hover:bg-muted/50 transition-colors"
           onClick={() => {
             const items: { r: EventRecipient; ct: CertificateType }[] = []
@@ -253,7 +254,7 @@ export default function ClientReportsPage() {
             </div>
             <div>
               <p className="font-semibold">Pending Only</p>
-              <p className="text-sm text-muted-foreground">{event.stats.pending} recipients</p>
+              <p className="text-sm text-muted-foreground">{event.stats.pending} attendees</p>
             </div>
           </CardContent>
         </Card>
@@ -290,7 +291,7 @@ export default function ClientReportsPage() {
       {/* Data Table */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-base">All Recipients</CardTitle>
+          <CardTitle className="text-base">All Attendees</CardTitle>
         </CardHeader>
         <CardContent>
           {/* Filters */}
@@ -325,8 +326,8 @@ export default function ClientReportsPage() {
                 <SelectItem value="pending">Pending</SelectItem>
               </SelectContent>
             </Select>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="default"
               onClick={() => exportData(data, `${event.name}-filtered`)}
               disabled={!data.length}
@@ -363,8 +364,16 @@ export default function ClientReportsPage() {
                 <tbody>
                   {data.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="h-24 text-center text-muted-foreground">
-                        No recipients found
+                      <td colSpan={6} className="h-24">
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                          <div className="rounded-full bg-muted p-3 mb-4">
+                            <Users className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                          <h3 className="font-semibold text-lg">No Attendees Found</h3>
+                          <p className="text-muted-foreground mt-1 max-w-sm">
+                            No attendees match your current filters. Try adjusting filter or search.
+                          </p>
+                        </div>
                       </td>
                     </tr>
                   ) : (

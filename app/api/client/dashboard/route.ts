@@ -3,7 +3,17 @@ import connectDB from "@/lib/mongodb"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
+
 import mongoose from "mongoose"
+
+function generateShortCode(length = 6): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
 
 // GET - Get dashboard data for an event
 export async function GET(request: NextRequest) {
@@ -28,6 +38,19 @@ export async function GET(request: NextRequest) {
 
     // Get certificate types
     const certTypes = await CertificateType.find({ eventId }).lean()
+
+    // Lazy migration: Generate shortCode for types that don't have it
+    const updates = certTypes
+      .filter(ct => !ct.shortCode)
+      .map(async (ct) => {
+        const shortCode = generateShortCode()
+        await CertificateType.findByIdAndUpdate(ct._id, { shortCode })
+        ct.shortCode = shortCode
+      })
+
+    if (updates.length > 0) {
+      await Promise.all(updates)
+    }
 
     let certificateTypes
     let totalRecipients = 0
@@ -80,6 +103,7 @@ export async function GET(request: NextRequest) {
           customFields: ctAny.customFields || [],
           signatures: ctAny.signatures || [],
           createdAt: ctAny.createdAt,
+          shortCode: ctAny.shortCode,
           recipients: typeData.recipients.map((r: any) => ({
             ...r,
             status: r.downloadCount > 0 ? "downloaded" : "pending"
@@ -129,6 +153,7 @@ export async function GET(request: NextRequest) {
           customFields: ctAny.customFields || [],
           signatures: ctAny.signatures || [],
           createdAt: ctAny.createdAt,
+          shortCode: ctAny.shortCode,
           recipients: [],
           stats: {
             total: stats.total,

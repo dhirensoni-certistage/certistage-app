@@ -28,6 +28,8 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  AreaChart,
+  Area,
   Legend
 } from "recharts"
 import { DashboardCardSkeleton, ChartSkeleton } from "@/components/ui/skeletons"
@@ -292,7 +294,7 @@ export default function ClientDashboard() {
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground">Recipients</span>
+              <span className="text-sm text-muted-foreground">Attendees</span>
               <Users className="h-4 w-4 text-muted-foreground" />
             </div>
             <p className="text-2xl font-bold">{event.stats.total}</p>
@@ -342,7 +344,7 @@ export default function ClientDashboard() {
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
               </div>
               <div className="flex items-center justify-between text-sm font-semibold">
-                <span>{certUsed}/{certLimit}</span>
+                <span>{event.stats.total} attendees</span>
                 <span className={usagePercent >= 80 ? "text-red-600" : "text-emerald-600"}>{usagePercent}%</span>
               </div>
               <Progress value={usagePercent} className="h-2" />
@@ -359,7 +361,7 @@ export default function ClientDashboard() {
       </div>
 
       {/* Charts Section */}
-      {event.stats.total > 0 && (
+      {(event.stats.total > 0 || event.certificateTypes.length > 0) && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Registration Distribution Donut with Filter */}
           {event.certificateTypes.length > 0 && (
@@ -367,11 +369,11 @@ export default function ClientDashboard() {
               <CardHeader className="pb-0">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base font-semibold">
-                    {registrationView === "registered" ? "Total Registered" : "Total Downloaded"}
+                    {registrationView === "registered" ? "Total Attendees" : "Total Downloaded"}
                   </CardTitle>
                   <Tabs value={registrationView} onValueChange={(v) => setRegistrationView(v as "registered" | "downloaded")}>
                     <TabsList className="h-8">
-                      <TabsTrigger value="registered" className="text-xs px-2 h-6">Registered</TabsTrigger>
+                      <TabsTrigger value="registered" className="text-xs px-2 h-6">Attendees</TabsTrigger>
                       <TabsTrigger value="downloaded" className="text-xs px-2 h-6">Downloaded</TabsTrigger>
                     </TabsList>
                   </Tabs>
@@ -412,6 +414,7 @@ export default function ClientDashboard() {
               </CardContent>
             </Card>
           )}
+
 
           {/* Download Status Donut */}
           <Card>
@@ -484,7 +487,7 @@ export default function ClientDashboard() {
                         tickLine={false}
                         allowDecimals={false}
                       />
-                      <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }} />
+                      <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                       <Legend
                         verticalAlign="top"
                         height={36}
@@ -498,6 +501,7 @@ export default function ClientDashboard() {
               </CardContent>
             </Card>
           )}
+
         </div>
       )}
 
@@ -508,60 +512,102 @@ export default function ClientDashboard() {
             <CardTitle className="text-base font-semibold">Certificate Progress</CardTitle>
             <CardDescription>Detailed breakdown by certificate type</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-5">
-            {event.certificateTypes.map((ct, index) => {
-              const rate = ct.stats.total > 0 ? Math.round((ct.stats.downloaded / ct.stats.total) * 100) : 0
-              const typeDownloads = ct.recipients.reduce((sum, r) => sum + r.downloadCount, 0)
-              return (
-                <div key={ct.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <p className="font-medium">{ct.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {ct.stats.total} recipients • {typeDownloads} total downloads
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-semibold">{rate}%</p>
-                      <p className="text-xs text-muted-foreground">
-                        <span className="text-emerald-600">{ct.stats.downloaded}</span>
-                        {" / "}
-                        {ct.stats.total}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                      style={{ width: `${rate}%` }}
-                    />
-                  </div>
-                </div>
-              )
-            })}
+          <CardContent>
+            <div className="h-[400px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={event.certificateTypes.map((ct, index) => ({
+                    name: ct.name,
+                    full_name: ct.name,
+                    rate: ct.stats.total > 0 ? Math.round((ct.stats.downloaded / ct.stats.total) * 100) : 0,
+                    downloaded: ct.stats.downloaded,
+                    total: ct.stats.total,
+                    // Premium professional palette
+                    fill: ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#f43f5e", "#06b6d4", "#6366f1", "#d946ef"][index % 8]
+                  }))}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  barSize={40}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.4} />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                    tickFormatter={(value) => value.length > 10 ? `${value.substring(0, 10)}...` : value}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                    domain={[0, 100]}
+                    unit="%"
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'transparent' }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-transparent backdrop-blur-none border-none rounded-xl shadow-none p-3 text-sm ring-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: data.fill }} />
+                              <p className="font-semibold">{data.full_name}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between gap-8">
+                                <span className="text-muted-foreground">Progress</span>
+                                <span className="font-medium" style={{ color: data.fill }}>{data.rate}%</span>
+                              </div>
+                              <div className="flex items-center justify-between gap-8">
+                                <span className="text-muted-foreground">Downloads</span>
+                                <span className="font-medium">{data.downloaded} / {data.total}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar
+                    dataKey="rate"
+                    radius={[10, 10, 0, 0]} // Rounded top only for vertical columns
+                    background={{ fill: 'hsl(var(--muted))', radius: 10, opacity: 0.1 }}
+                  >
+                    {
+                      event.certificateTypes.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#f43f5e", "#06b6d4", "#6366f1", "#d946ef"][index % 8]} />
+                      ))
+                    }
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       )}
 
       {/* Empty State */}
-      {event.stats.total === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="py-16 text-center">
-            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-              <Award className="h-8 w-8 text-muted-foreground" />
+      {event.stats.total === 0 && event.certificateTypes.length === 0 && (
+        <Card className="col-span-full border-dashed">
+          <CardContent className="flex flex-col items-center justify-center p-12 text-center h-[300px]">
+            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Crown className="h-6 w-6 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium mb-2">No Data Yet</h3>
-            <p className="text-muted-foreground max-w-sm mx-auto">
-              Add certificates and recipients to see analytics here
+            <h3 className="text-lg font-semibold mb-2">No Attendees Yet</h3>
+            <p className="text-sm text-muted-foreground max-w-[400px]">
+              Once you add or import attendees, you'll see real-time statistics and download progress here.
             </p>
           </CardContent>
         </Card>
       )}
+
+
     </div>
   )
 }

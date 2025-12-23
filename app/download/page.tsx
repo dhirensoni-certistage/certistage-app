@@ -111,16 +111,69 @@ export default function DownloadPage() {
       canvas.height = img.height
       ctx.drawImage(img, 0, 0)
 
-      // Draw name
-      const textX = (textPosition.x / 100) * canvas.width
-      const textY = (textPosition.y / 100) * canvas.height
-      const fontSize = Math.round(canvas.height * 0.04)
-      
-      ctx.font = `600 ${fontSize}px sans-serif`
-      ctx.fillStyle = "#000000"
-      ctx.textAlign = alignment
-      ctx.textBaseline = "middle"
-      ctx.fillText(recipientName, textX, textY)
+      // Draw name (if enabled)
+      if (certType.showNameField !== false) {
+        const textX = (textPosition.x / 100) * canvas.width
+        const textY = (textPosition.y / 100) * canvas.height
+        // Use configured font size or default
+        const fontSize = Math.round(canvas.height * ((certType.fontSize || 24) / 400)) // approximation based on 400px height base
+
+        ctx.font = `${certType.fontBold ? "bold" : "normal"} ${certType.fontItalic ? "italic" : "normal"} ${fontSize}px ${certType.fontFamily || "Arial"}, sans-serif`
+        ctx.fillStyle = "#000000"
+        ctx.textAlign = "center" // Name is usually centered
+        ctx.textBaseline = "middle"
+        ctx.fillText(recipient.name, textX, textY)
+      }
+
+      // Draw custom fields from certType
+      if (certType.customFields) {
+        certType.customFields.forEach(field => {
+          const fieldX = (field.position.x / 100) * canvas.width
+          const fieldY = (field.position.y / 100) * canvas.height
+          const fieldFontSize = Math.round(canvas.height * ((field.fontSize || 24) / 400))
+
+          ctx.font = `${field.fontBold ? "bold" : "normal"} ${field.fontItalic ? "italic" : "normal"} ${fieldFontSize}px ${field.fontFamily || "Arial"}, sans-serif`
+          ctx.fillStyle = "#000000"
+          ctx.textAlign = "center"
+          ctx.textBaseline = "middle"
+
+          // Get value based on variable
+          let value = ""
+          switch (field.variable) {
+            case "EMAIL": value = recipient.email; break;
+            case "MOBILE": value = recipient.mobile; break;
+            case "REG_NO": value = recipient.certificateId; break;
+            case "PREFIX": value = recipient.prefix || ""; break;
+            default: value = "";
+          }
+
+          if (value) {
+            ctx.fillText(value, fieldX, fieldY)
+          }
+        })
+      }
+
+      // Draw signatures
+      if (certType.signatures) {
+        for (const sig of certType.signatures) {
+          if (sig.image) {
+            const sigImg = new Image()
+            sigImg.crossOrigin = "anonymous"
+            await new Promise<void>((resolve) => {
+              sigImg.onload = () => resolve()
+              sigImg.onerror = () => resolve() // Skip if fails
+              sigImg.src = sig.image
+            })
+
+            const sigWidth = (sig.width / 100) * canvas.width
+            const sigHeight = (sigWidth / sigImg.width) * sigImg.height
+            const sigX = (sig.position.x / 100) * canvas.width - (sigWidth / 2)
+            const sigY = (sig.position.y / 100) * canvas.height - (sigHeight / 2)
+
+            ctx.drawImage(sigImg, sigX, sigY, sigWidth, sigHeight)
+          }
+        }
+      }
 
       // Create PDF
       const pdfWidth = 297
@@ -182,7 +235,7 @@ export default function DownloadPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      
+
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="max-w-3xl w-full space-y-6">
           {/* Event Info */}
@@ -297,7 +350,7 @@ function Footer() {
     <footer className="border-t border-border/50 bg-card/50 py-4">
       <div className="container mx-auto px-4 text-center">
         <p className="text-sm text-muted-foreground">
-          Powered by <span className="font-semibold text-primary">CertiStage</span> • 
+          Powered by <span className="font-semibold text-primary">CertiStage</span> •
           Certificate Generation Platform
         </p>
         <p className="text-xs text-muted-foreground/60 mt-1">

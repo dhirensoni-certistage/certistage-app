@@ -29,9 +29,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { getClientSession, getCurrentPlanFeatures, getTrialStatus, PLAN_FEATURES } from "@/lib/auth"
 import { LockedFeature } from "@/components/client/upgrade-overlay"
-import { 
+import {
   getCertTypePublicLink,
-  type CertificateEvent, type CertificateType, type TextField, type SignatureField 
+  type CertificateEvent, type CertificateType, type TextField, type SignatureField
 } from "@/lib/events"
 
 // Google Fonts list
@@ -61,8 +61,9 @@ const AVAILABLE_VARIABLES = [
   { key: "EMAIL", label: "Email Address", field: "email" },
   { key: "MOBILE", label: "Mobile Number", field: "mobile" },
   { key: "REG_NO", label: "Registration No", field: "certificateId" },
+  { key: "PREFIX", label: "Title/Prefix (Dr/Mr/Ms)", field: "prefix" },
 ]
-import { 
+import {
   Plus, FileText, Trash2, Image, Upload, Move, Eye, Check, ArrowLeft,
   Bold, Italic, Link as LinkIcon, Copy, Users, Download, Settings, PenTool, X, Crown, Award, Lock
 } from "lucide-react"
@@ -102,7 +103,7 @@ export default function CertificatesPage() {
   // Update local certificate type state immediately (for smooth UI)
   const updateLocalCertType = useCallback((updates: Partial<CertificateType>) => {
     if (!event || !selectedTypeId) return
-    
+
     setEvent(prev => {
       if (!prev) return prev
       return {
@@ -126,16 +127,16 @@ export default function CertificatesPage() {
       clearTimeout(debounceTimerRef.current)
       debounceTimerRef.current = null
     }
-    
+
     const updates = pendingUpdatesRef.current
     const typeId = currentTypeIdRef.current
     if (Object.keys(updates).length === 0 || !typeId) return
-    
+
     pendingUpdatesRef.current = {}
-    
+
     const session = getClientSession()
     if (!session?.userId) return
-    
+
     try {
       await fetch('/api/client/certificate-types', {
         method: 'PUT',
@@ -162,20 +163,20 @@ export default function CertificatesPage() {
   const syncToAPI = useCallback((typeId: string, updates: Record<string, unknown>) => {
     // Merge with pending updates
     pendingUpdatesRef.current = { ...pendingUpdatesRef.current, ...updates }
-    
+
     // Clear existing timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current)
     }
-    
+
     // Set new timer - sync after 500ms of no changes (reduced from 800ms)
     debounceTimerRef.current = setTimeout(async () => {
       const session = getClientSession()
       if (!session?.userId) return
-      
+
       const updatesToSend = { ...pendingUpdatesRef.current }
       pendingUpdatesRef.current = {} // Clear pending
-      
+
       try {
         await fetch('/api/client/certificate-types', {
           method: 'PUT',
@@ -196,7 +197,7 @@ export default function CertificatesPage() {
   const updateCertTypeAPI = async (typeId: string, updates: Record<string, unknown>) => {
     const session = getClientSession()
     if (!session?.userId) return false
-    
+
     try {
       const res = await fetch('/api/client/certificate-types', {
         method: 'PUT',
@@ -263,7 +264,7 @@ export default function CertificatesPage() {
       } else {
         setIsLoading(false)
       }
-      
+
       if (session.loginType === "user") {
         setIsUserLogin(true)
         const trialStatus = getTrialStatus(session.userId)
@@ -294,12 +295,12 @@ export default function CertificatesPage() {
     if (isDraggingText || draggingFieldId || draggingSignatureId || resizingSignatureId) {
       return
     }
-    
+
     // Also don't poll when in template editor tab with a selected type
     if (selectedTypeId && activeTab === "template") {
       return
     }
-    
+
     const interval = setInterval(refreshEvent, 5000) // Increased to 5 seconds
     return () => clearInterval(interval)
   }, [refreshEvent, isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, selectedTypeId, activeTab])
@@ -322,7 +323,7 @@ export default function CertificatesPage() {
       toast.error("Please enter certificate type name")
       return
     }
-    
+
     // Check certificate type limit
     if (maxCertificateTypes !== -1 && event && event.certificateTypes.length >= maxCertificateTypes) {
       const planFeatures = getCurrentPlanFeatures()
@@ -336,14 +337,14 @@ export default function CertificatesPage() {
       setShowAddDialog(false)
       return
     }
-    
+
     // Get userId from session
     const session = getClientSession()
     if (!session?.userId) {
       toast.error("Session expired. Please login again.")
       return
     }
-    
+
     try {
       const res = await fetch('/api/client/certificate-types', {
         method: 'POST',
@@ -354,9 +355,9 @@ export default function CertificatesPage() {
           name: newTypeName.trim()
         })
       })
-      
+
       const data = await res.json()
-      
+
       if (res.ok && data.certificateType) {
         fetchEventData(eventId)
         setSelectedTypeId(data.certificateType.id)
@@ -373,18 +374,18 @@ export default function CertificatesPage() {
 
   const handleDeleteType = async () => {
     if (!eventId || !deleteType) return
-    
+
     const session = getClientSession()
     if (!session?.userId) {
       toast.error("Session expired")
       return
     }
-    
+
     try {
       const res = await fetch(`/api/client/certificate-types?typeId=${deleteType.id}&userId=${session.userId}&permanent=true`, {
         method: 'DELETE'
       })
-      
+
       if (res.ok) {
         setDeleteType(null)
         if (selectedTypeId === deleteType.id) {
@@ -462,7 +463,7 @@ export default function CertificatesPage() {
       const ctx = canvas.getContext("2d")
       ctx?.drawImage(img, 0, 0, width, height)
       const compressedData = canvas.toDataURL("image/jpeg", 0.8)
-      
+
       // Upload to Cloudinary via API
       try {
         const res = await fetch('/api/client/upload-template', {
@@ -474,7 +475,7 @@ export default function CertificatesPage() {
             imageData: compressedData
           })
         })
-        
+
         if (res.ok) {
           fetchEventData(eventId)
           toast.success("Template uploaded!", { id: "template-upload" })
@@ -493,13 +494,13 @@ export default function CertificatesPage() {
 
   const removeTemplate = async () => {
     if (!eventId || !selectedTypeId) return
-    
+
     const session = getClientSession()
     if (!session?.userId) {
       toast.error("Session expired")
       return
     }
-    
+
     try {
       const res = await fetch('/api/client/certificate-types', {
         method: 'PUT',
@@ -510,7 +511,7 @@ export default function CertificatesPage() {
           templateImage: ""
         })
       })
-      
+
       if (res.ok) {
         fetchEventData(eventId)
         toast.info("Template removed")
@@ -580,7 +581,7 @@ export default function CertificatesPage() {
     const rect = containerRef.current.getBoundingClientRect()
     const x = Math.max(5, Math.min(95, ((e.clientX - rect.left) / rect.width) * 100))
     const y = Math.max(5, Math.min(95, ((e.clientY - rect.top) / rect.height) * 100))
-    
+
     if (isDraggingText) {
       // Only update local state during drag - API call on mouseUp
       setLocalPosition({ x, y })
@@ -610,7 +611,7 @@ export default function CertificatesPage() {
       const pos = localFieldPositions[draggingFieldId]
       if (pos) {
         const fields = selectedType.customFields || []
-        const updatedFields = fields.map(f => 
+        const updatedFields = fields.map(f =>
           f.id === draggingFieldId ? { ...f, position: pos } : f
         )
         updateCertTypeAPI(selectedTypeId, { customFields: updatedFields })
@@ -621,7 +622,7 @@ export default function CertificatesPage() {
       const pos = localSignaturePositions[draggingSignatureId]
       if (pos) {
         const sigs = selectedType.signatures || []
-        const updatedSigs = sigs.map(s => 
+        const updatedSigs = sigs.map(s =>
           s.id === draggingSignatureId ? { ...s, position: pos } : s
         )
         updateCertTypeAPI(selectedTypeId, { signatures: updatedSigs })
@@ -632,7 +633,7 @@ export default function CertificatesPage() {
       const newWidth = localSignatureWidths[resizingSignatureId]
       if (newWidth !== undefined) {
         const sigs = selectedType.signatures || []
-        const updatedSigs = sigs.map(s => 
+        const updatedSigs = sigs.map(s =>
           s.id === resizingSignatureId ? { ...s, width: newWidth } : s
         )
         updateCertTypeAPI(selectedTypeId, { signatures: updatedSigs })
@@ -764,7 +765,7 @@ export default function CertificatesPage() {
               }}
               onAddSignature={(file) => {
                 if (!eventId || !selectedTypeId) return
-                
+
                 // Check if digital signature is allowed in plan
                 const planFeatures = getCurrentPlanFeatures()
                 if (!planFeatures.canDigitalSignature) {
@@ -773,7 +774,7 @@ export default function CertificatesPage() {
                   })
                   return
                 }
-                
+
                 const reader = new FileReader()
                 reader.onload = (e) => {
                   const img = document.createElement("img")
@@ -792,7 +793,7 @@ export default function CertificatesPage() {
                     const ctx = canvas.getContext("2d")
                     ctx?.drawImage(img, 0, 0, width, height)
                     const compressedData = canvas.toDataURL("image/png", 0.8)
-                    
+
                     const newSig: SignatureField = {
                       id: `sig_${Date.now()}`,
                       image: compressedData,
@@ -917,7 +918,7 @@ export default function CertificatesPage() {
           <h1 className="text-2xl font-bold text-foreground">Manage Certificates</h1>
           <p className="text-muted-foreground">Create and manage certificate types for {event.name}</p>
         </div>
-        <Button 
+        <Button
           onClick={() => setShowAddDialog(true)}
           disabled={maxCertificateTypes !== -1 && event.certificateTypes.length >= maxCertificateTypes}
         >
@@ -926,7 +927,7 @@ export default function CertificatesPage() {
           {maxCertificateTypes !== -1 && event.certificateTypes.length >= maxCertificateTypes && <Lock className="h-3 w-3 ml-1 inline" />}
         </Button>
       </div>
-      
+
       {/* Limit Warning - Professional Design */}
       {maxCertificateTypes !== -1 && event.certificateTypes.length >= maxCertificateTypes && (
         <Card className="border-amber-500/30 bg-gradient-to-r from-amber-500/5 to-orange-500/5">
@@ -938,12 +939,12 @@ export default function CertificatesPage() {
               <div className="flex-1">
                 <h3 className="font-semibold text-foreground mb-1">Certificate Type Limit Reached</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  You've created {maxCertificateTypes} certificate type{maxCertificateTypes > 1 ? 's' : ''} — the maximum for your {getCurrentPlanFeatures().displayName} plan. 
+                  You've created {maxCertificateTypes} certificate type{maxCertificateTypes > 1 ? 's' : ''} — the maximum for your {getCurrentPlanFeatures().displayName} plan.
                   Upgrade to create more certificate types and unlock premium features.
                 </p>
                 <div className="flex items-center gap-3">
-                  <a 
-                    href="/client/upgrade" 
+                  <a
+                    href="/client/upgrade"
                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all shadow-sm"
                   >
                     <Crown className="h-4 w-4" />
@@ -979,8 +980,8 @@ export default function CertificatesPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {event.certificateTypes.map((certType) => (
-                <Card 
-                  key={certType.id} 
+                <Card
+                  key={certType.id}
                   className="hover:border-primary/50 transition-colors cursor-pointer group"
                   onClick={() => setSelectedTypeId(certType.id)}
                 >
@@ -1027,9 +1028,9 @@ export default function CertificatesPage() {
                           <Settings className="h-3.5 w-3.5 mr-1" />
                           Manage
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={(e) => {
                             e.stopPropagation()
                             if (!certType.template) {
@@ -1052,7 +1053,7 @@ export default function CertificatesPage() {
                   </CardContent>
                 </Card>
               ))}
-              
+
               {/* Add New Card - only show if not at limit */}
               {(maxCertificateTypes === -1 || event.certificateTypes.length < maxCertificateTypes) && (
                 <button
@@ -1237,9 +1238,9 @@ function TemplateEditor({
                         onMouseDown={onMouseDown}
                       >
                         <Move className="h-4 w-4 text-primary" />
-                        <span 
-                          className="text-primary whitespace-nowrap" 
-                          style={{ 
+                        <span
+                          className="text-primary whitespace-nowrap"
+                          style={{
                             fontSize: `max(10px, ${(certType.fontSize || 24) * 0.0625}cqi)`,
                             fontFamily: certType.fontFamily || 'Arial',
                             fontWeight: certType.fontBold ? 'bold' : 'normal',
@@ -1255,9 +1256,9 @@ function TemplateEditor({
                       </div>
                     </div>
                   ) : (
-                    <span 
-                      className="text-black whitespace-nowrap" 
-                      style={{ 
+                    <span
+                      className="text-black whitespace-nowrap"
+                      style={{
                         fontSize: `max(10px, ${(certType.fontSize || 24) * 0.0625}cqi)`,
                         fontFamily: certType.fontFamily || 'Arial',
                         fontWeight: certType.fontBold ? 'bold' : 'normal',
@@ -1267,113 +1268,116 @@ function TemplateEditor({
                   )}
                 </div>
               )}
-              
+
               {/* Custom Fields */}
               {certType.customFields?.map((field) => {
                 const pos = localFieldPositions[field.id] || field.position
                 return (
-                <div
-                  key={field.id}
-                  className="absolute transition-none"
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: "translate(-50%, -50%)" }}
-                >
-                  {!showPreview ? (
-                    <div 
-                      className={cn(
-                        "border-2 border-dashed rounded-lg px-2 py-1 flex items-center gap-1 cursor-grab transition-all",
-                        draggingFieldId === field.id 
-                          ? "border-amber-500 bg-amber-500/20 scale-105" 
-                          : "border-amber-500/50 bg-amber-500/5 hover:border-amber-500 hover:bg-amber-500/10"
-                      )}
-                      onMouseDown={(e) => onFieldMouseDown(e, field.id)}
-                    >
-                      <Move className="h-3 w-3 text-amber-600" />
-                      <span 
-                        className="text-amber-600 whitespace-nowrap text-xs"
-                        style={{ 
+                  <div
+                    key={field.id}
+                    className="absolute transition-none"
+                    style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: "translate(-50%, -50%)" }}
+                  >
+                    {!showPreview ? (
+                      <div
+                        className={cn(
+                          "border-2 border-dashed rounded-lg px-2 py-1 flex items-center gap-1 cursor-grab transition-all",
+                          draggingFieldId === field.id
+                            ? "border-amber-500 bg-amber-500/20 scale-105"
+                            : "border-amber-500/50 bg-amber-500/5 hover:border-amber-500 hover:bg-amber-500/10"
+                        )}
+                        onMouseDown={(e) => onFieldMouseDown(e, field.id)}
+                      >
+                        <Move className="h-3 w-3 text-amber-600" />
+                        <span
+                          className="text-amber-600 whitespace-nowrap text-xs"
+                          style={{
+                            fontFamily: field.fontFamily || 'Arial',
+                            fontWeight: field.fontBold ? 'bold' : 'normal',
+                            fontStyle: field.fontItalic ? 'italic' : 'normal'
+                          }}
+                        >{`{{${field.variable}}}`}</span>
+                        <button
+                          className="ml-1 h-4 w-4 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center"
+                          onClick={(e) => { e.stopPropagation(); onRemoveCustomField(field.id) }}
+                        >
+                          <X className="h-2.5 w-2.5 text-white" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span
+                        className="text-black whitespace-nowrap"
+                        style={{
+                          fontSize: `max(8px, ${(field.fontSize || 24) * 0.0625}cqi)`,
                           fontFamily: field.fontFamily || 'Arial',
                           fontWeight: field.fontBold ? 'bold' : 'normal',
                           fontStyle: field.fontItalic ? 'italic' : 'normal'
                         }}
-                      >{`{{${field.variable}}}`}</span>
-                      <button
-                        className="ml-1 h-4 w-4 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center"
-                        onClick={(e) => { e.stopPropagation(); onRemoveCustomField(field.id) }}
                       >
-                        <X className="h-2.5 w-2.5 text-white" />
-                      </button>
-                    </div>
-                  ) : (
-                    <span 
-                      className="text-black whitespace-nowrap"
-                      style={{ 
-                        fontSize: `max(8px, ${(field.fontSize || 24) * 0.0625}cqi)`,
-                        fontFamily: field.fontFamily || 'Arial',
-                        fontWeight: field.fontBold ? 'bold' : 'normal',
-                        fontStyle: field.fontItalic ? 'italic' : 'normal'
-                      }}
-                    >
-                      {field.variable === 'EMAIL' ? 'john@example.com' : 
-                       field.variable === 'MOBILE' ? '+91 98765 43210' :
-                       field.variable === 'REG_NO' ? 'REG-2024-001' : field.variable}
-                    </span>
-                  )}
-                </div>
-              )})}
+                        {field.variable === 'EMAIL' ? 'john@example.com' :
+                          field.variable === 'MOBILE' ? '+91 98765 43210' :
+                            field.variable === 'REG_NO' ? 'REG-2024-001' :
+                              field.variable === 'PREFIX' ? 'Dr.' : field.variable}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
 
               {/* Signatures */}
               {certType.signatures?.map((sig) => {
                 const pos = localSignaturePositions[sig.id] || sig.position
                 return (
-                <div
-                  key={sig.id}
-                  className="absolute transition-none"
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: "translate(-50%, -50%)" }}
-                >
-                  {!showPreview ? (
-                    <div 
-                      className={cn(
-                        "border-2 border-dashed rounded-lg p-1 cursor-grab transition-all relative group",
-                        draggingSignatureId === sig.id || resizingSignatureId === sig.id
-                          ? "border-purple-500 bg-purple-500/20 scale-105" 
-                          : "border-purple-500/50 bg-purple-500/5 hover:border-purple-500 hover:bg-purple-500/10"
-                      )}
-                      onMouseDown={(e) => onSignatureMouseDown(e, sig.id)}
-                    >
-                      <div className="flex items-center gap-1">
-                        <Move className="h-3 w-3 text-purple-600" />
-                        <img 
-                          src={sig.image} 
-                          alt="Signature" 
-                          className="object-contain opacity-70"
-                          style={{ width: `${(localSignatureWidths[sig.id] ?? sig.width) * 2}px`, maxWidth: '200px' }}
-                          draggable={false}
-                        />
-                      </div>
-                      {/* Resize handle - right edge */}
+                  <div
+                    key={sig.id}
+                    className="absolute transition-none"
+                    style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: "translate(-50%, -50%)" }}
+                  >
+                    {!showPreview ? (
                       <div
-                        className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-6 bg-purple-500 rounded cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity"
-                        onMouseDown={(e) => onSignatureResizeStart(e, sig.id, localSignatureWidths[sig.id] ?? sig.width)}
-                        title="Drag to resize"
-                      />
-                      <button
-                        className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center"
-                        onClick={(e) => { e.stopPropagation(); onRemoveSignature(sig.id) }}
+                        className={cn(
+                          "border-2 border-dashed rounded-lg p-1 cursor-grab transition-all relative group",
+                          draggingSignatureId === sig.id || resizingSignatureId === sig.id
+                            ? "border-purple-500 bg-purple-500/20 scale-105"
+                            : "border-purple-500/50 bg-purple-500/5 hover:border-purple-500 hover:bg-purple-500/10"
+                        )}
+                        onMouseDown={(e) => onSignatureMouseDown(e, sig.id)}
                       >
-                        <X className="h-2.5 w-2.5 text-white" />
-                      </button>
-                    </div>
-                  ) : (
-                    <img 
-                      src={sig.image} 
-                      alt="Signature" 
-                      className="h-auto object-contain"
-                      style={{ width: `${localSignatureWidths[sig.id] ?? sig.width}%`, maxWidth: '150px' }}
-                      draggable={false}
-                    />
-                  )}
-                </div>
-              )})}
+                        <div className="flex items-center gap-1">
+                          <Move className="h-3 w-3 text-purple-600" />
+                          <img
+                            src={sig.image}
+                            alt="Signature"
+                            className="object-contain opacity-70"
+                            style={{ width: `${(localSignatureWidths[sig.id] ?? sig.width) * 2}px`, maxWidth: '200px' }}
+                            draggable={false}
+                          />
+                        </div>
+                        {/* Resize handle - right edge */}
+                        <div
+                          className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-6 bg-purple-500 rounded cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity"
+                          onMouseDown={(e) => onSignatureResizeStart(e, sig.id, localSignatureWidths[sig.id] ?? sig.width)}
+                          title="Drag to resize"
+                        />
+                        <button
+                          className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center"
+                          onClick={(e) => { e.stopPropagation(); onRemoveSignature(sig.id) }}
+                        >
+                          <X className="h-2.5 w-2.5 text-white" />
+                        </button>
+                      </div>
+                    ) : (
+                      <img
+                        src={sig.image}
+                        alt="Signature"
+                        className="h-auto object-contain"
+                        style={{ width: `${localSignatureWidths[sig.id] ?? sig.width}%`, maxWidth: '150px' }}
+                        draggable={false}
+                      />
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </CardContent>
         </Card>
@@ -1404,21 +1408,21 @@ function TemplateEditor({
                 .filter(v => v.key !== 'NAME') // NAME is handled separately
                 .filter(v => !certType.customFields?.find(f => f.variable === v.key)) // Hide already added
                 .map((v) => (
-                <Button
-                  key={v.key}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => onAddCustomField(v.key)}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  {`{{${v.key}}}`}
-                </Button>
-              ))}
-              {certType.showNameField !== false && 
-               AVAILABLE_VARIABLES.filter(v => v.key !== 'NAME').every(v => certType.customFields?.find(f => f.variable === v.key)) && (
-                <p className="text-xs text-muted-foreground">All variables added</p>
-              )}
+                  <Button
+                    key={v.key}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => onAddCustomField(v.key)}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    {`{{${v.key}}}`}
+                  </Button>
+                ))}
+              {certType.showNameField !== false &&
+                AVAILABLE_VARIABLES.filter(v => v.key !== 'NAME').every(v => certType.customFields?.find(f => f.variable === v.key)) && (
+                  <p className="text-xs text-muted-foreground">All variables added</p>
+                )}
             </div>
           </CardContent>
         </Card>
@@ -1428,7 +1432,7 @@ function TemplateEditor({
           <CardContent className="space-y-4">
             <div>
               <Label className="text-xs mb-2 block">Font Family</Label>
-              <select 
+              <select
                 value={certType.fontFamily || "Arial"}
                 onChange={(e) => {
                   onFontChange({ fontFamily: e.target.value })
@@ -1459,18 +1463,18 @@ function TemplateEditor({
               <Slider value={[certType.fontSize]} onValueChange={([v]) => onFontChange({ fontSize: v })} min={12} max={72} step={1} className="mt-2" />
             </div>
             <div className="flex gap-2">
-              <Button 
-                variant={certType.fontBold ? "default" : "outline"} 
-                size="sm" 
+              <Button
+                variant={certType.fontBold ? "default" : "outline"}
+                size="sm"
                 className="flex-1"
                 onClick={() => onFontChange({ fontBold: !certType.fontBold })}
               >
                 <Bold className="h-4 w-4 mr-1" />
                 Bold
               </Button>
-              <Button 
-                variant={certType.fontItalic ? "default" : "outline"} 
-                size="sm" 
+              <Button
+                variant={certType.fontItalic ? "default" : "outline"}
+                size="sm"
                 className="flex-1"
                 onClick={() => onFontChange({ fontItalic: !certType.fontItalic })}
               >
@@ -1497,8 +1501,8 @@ function TemplateEditor({
             <div
               className={cn(
                 "border-2 border-dashed rounded-lg p-4 text-center transition-colors",
-                getCurrentPlanFeatures().canDigitalSignature 
-                  ? "cursor-pointer hover:border-primary/50" 
+                getCurrentPlanFeatures().canDigitalSignature
+                  ? "cursor-pointer hover:border-primary/50"
                   : "opacity-50 cursor-not-allowed"
               )}
               onClick={() => {
@@ -1520,12 +1524,12 @@ function TemplateEditor({
               />
               <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
               <p className="text-xs text-muted-foreground">
-                {getCurrentPlanFeatures().canDigitalSignature 
-                  ? "Click to upload signature" 
+                {getCurrentPlanFeatures().canDigitalSignature
+                  ? "Click to upload signature"
                   : "Upgrade to add signatures"}
               </p>
             </div>
-            
+
             {/* Existing Signatures */}
             {certType.signatures && certType.signatures.length > 0 && (
               <div className="space-y-3">
@@ -1546,12 +1550,12 @@ function TemplateEditor({
                     </div>
                     <div className="flex items-center gap-2">
                       <Label className="text-xs whitespace-nowrap">Size: {Math.round(localSignatureWidths[sig.id] ?? sig.width)}%</Label>
-                      <Slider 
-                        value={[localSignatureWidths[sig.id] ?? sig.width]} 
-                        onValueChange={([v]) => onSignatureWidthChange(sig.id, v)} 
-                        min={3} 
-                        max={80} 
-                        step={1} 
+                      <Slider
+                        value={[localSignatureWidths[sig.id] ?? sig.width]}
+                        onValueChange={([v]) => onSignatureWidthChange(sig.id, v)}
+                        min={3}
+                        max={80}
+                        step={1}
                         className="flex-1"
                       />
                     </div>
@@ -1590,7 +1594,7 @@ function LinksTab({ certType, eventId }: { certType: CertificateType; eventId: s
     toast.success("All links copied!")
   }
 
-  const filteredRecipients = certType.recipients.filter(r => 
+  const filteredRecipients = certType.recipients.filter(r =>
     r.name?.toLowerCase().includes(searchQuery.toLowerCase()) || r.certificateId?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
