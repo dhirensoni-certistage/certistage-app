@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PLAN_PRICES, generateReceipt, type PlanId } from "@/lib/razorpay"
+import { calculateProRataUpgrade } from "@/lib/pro-rata"
 import connectDB from "@/lib/mongodb"
 import Settings from "@/models/Settings"
+import User from "@/models/User"
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,10 +14,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid plan selected" }, { status: 400 })
     }
 
-    const amount = PLAN_PRICES[plan as PlanId]
+    let amount = PLAN_PRICES[plan as PlanId]
+    let proRataDetails = null
     
     if (amount === 0) {
       return NextResponse.json({ error: "Free plan does not require payment" }, { status: 400 })
+    }
+
+    // Calculate pro-rata pricing if user is upgrading from a paid plan
+    await connectDB()
+    
+    if (userId) {
+      const user = await User.findById(userId)
+      if (user && user.plan !== "free" && user.planStartDate && user.planExpiresAt) {
+        const proRata = calculateProRataUpgrade(
+          user.plan as PlanId,
+          plan as PlanId,
+          user.planStartDate,
+          user.planExpiresAt
+        )
+        
+        if (proRata.unusedCredit > 0) {
+          amount = proRata.finalAmount
+          proRataDetails = {
+            originalPrice: proRata.originalPrice,
+            unusedCredit: proRata.unusedCredit,
+            finalAmount: proRata.finalAmount,
+            daysRemaining: proRata.daysRemaining,
+            savings: proRata.savings,
+            savingsPercent: proRata.savingsPercent
+          }
+        }
+      }
     }
 
     // Try to get credentials from database first
@@ -83,7 +113,8 @@ export async function POST(request: NextRequest) {
         currency: order.currency,
         receipt: order.receipt
       },
-      razorpayKeyId: razorpayKeyId
+      razorpayKeyId: razorpayKeyId,
+      proRata: proRataDetails
     })
   } catch (error) {
     console.error("Error creating Razorpay order:", error)

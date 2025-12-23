@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
         organization: user.organization,
         plan: user.plan,
         pendingPlan: user.pendingPlan || null,
+        planStartDate: user.planStartDate,
         planExpiresAt: user.planExpiresAt,
         planStatus
       },

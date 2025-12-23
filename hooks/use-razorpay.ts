@@ -58,8 +58,14 @@ export function useRazorpay(options: UseRazorpayOptions = {}) {
         throw new Error(orderData.error || "Failed to create order")
       }
 
-      const { order, razorpayKeyId } = orderData
+      const { order, razorpayKeyId, proRata } = orderData
       const planDetails = PLAN_DETAILS[plan]
+      
+      // Build description with pro-rata info if applicable
+      let description = `${planDetails.name} Plan - Annual Subscription`
+      if (proRata && proRata.unusedCredit > 0) {
+        description = `${planDetails.name} Plan Upgrade (₹${(proRata.savings / 100).toLocaleString("en-IN")} credit applied)`
+      }
 
       // Open Razorpay checkout
       const razorpayOptions = {
@@ -67,7 +73,7 @@ export function useRazorpay(options: UseRazorpayOptions = {}) {
         amount: order.amount,
         currency: order.currency,
         name: "CertiStage",
-        description: `${planDetails.name} Plan - Annual Subscription`,
+        description: description,
         order_id: order.id,
         prefill: {
           name: user.name,

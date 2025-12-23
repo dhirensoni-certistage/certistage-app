@@ -8,6 +8,7 @@ export interface IUser extends Document {
   organization?: string
   plan: "free" | "professional" | "enterprise" | "premium"
   pendingPlan?: "professional" | "enterprise" | "premium" | null
+  planStartDate?: Date
   planExpiresAt?: Date
   isActive: boolean
   isEmailVerified: boolean
@@ -32,6 +33,7 @@ const UserSchema = new Schema<IUser>(
       enum: ["professional", "enterprise", "premium", null],
       default: null
     },
+    planStartDate: { type: Date },
     planExpiresAt: { type: Date },
     isActive: { type: Boolean, default: true },
     isEmailVerified: { type: Boolean, default: false }

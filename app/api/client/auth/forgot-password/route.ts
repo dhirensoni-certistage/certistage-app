@@ -56,7 +56,13 @@ export async function POST(request: NextRequest) {
       await sendEmail({
         to: user.email,
         subject: resetTemplate.subject,
-        html: resetTemplate.html
+        html: resetTemplate.html,
+        template: "passwordReset",
+        metadata: {
+          userId: user._id.toString(),
+          userName: user.name,
+          type: "password_reset"
+        }
       })
     } catch (emailError) {
       console.error('Failed to send password reset email:', emailError)

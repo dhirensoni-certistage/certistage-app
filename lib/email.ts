@@ -25,10 +25,61 @@ export interface EmailTemplate {
   html: string
 }
 
-export async function sendEmail({ to, subject, html }: EmailTemplate): Promise<{ success: boolean; error?: any; data?: any }> {
+export interface SendEmailOptions extends EmailTemplate {
+  template?: string
+  metadata?: {
+    userId?: string
+    userName?: string
+    type?: string
+    [key: string]: any
+  }
+}
+
+// Log email to database
+async function logEmail(options: {
+  to: string
+  subject: string
+  template: string
+  htmlContent: string
+  status: "initiated" | "sent" | "failed"
+  errorMessage?: string
+  metadata?: any
+}) {
+  try {
+    // Dynamic import to avoid circular dependencies
+    const connectDB = (await import('@/lib/mongodb')).default
+    const EmailLog = (await import('@/models/EmailLog')).default
+    
+    await connectDB()
+    
+    await EmailLog.create({
+      to: options.to,
+      subject: options.subject,
+      template: options.template,
+      htmlContent: options.htmlContent,
+      status: options.status,
+      errorMessage: options.errorMessage,
+      metadata: options.metadata,
+      sentAt: options.status === "sent" ? new Date() : undefined
+    })
+  } catch (error) {
+    console.error('Failed to log email:', error)
+  }
+}
+
+export async function sendEmail({ to, subject, html, template = "custom", metadata }: SendEmailOptions): Promise<{ success: boolean; error?: any; data?: any }> {
   // Check if SMTP is configured
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.warn('SMTP not configured, skipping email')
+    await logEmail({
+      to,
+      subject,
+      template,
+      htmlContent: html,
+      status: "failed",
+      errorMessage: "SMTP not configured",
+      metadata
+    })
     return { success: false, error: 'SMTP not configured' }
   }
 
@@ -44,12 +95,34 @@ export async function sendEmail({ to, subject, html }: EmailTemplate): Promise<{
     
     console.log('Email sent successfully:', info.messageId)
     
+    // Log successful email
+    await logEmail({
+      to,
+      subject,
+      template,
+      htmlContent: html,
+      status: "sent",
+      metadata
+    })
+    
     // Close connection
     transporter.close()
     
     return { success: true, data: info }
   } catch (error: any) {
     console.error('Email sending failed:', error.message || error)
+    
+    // Log failed email
+    await logEmail({
+      to,
+      subject,
+      template,
+      htmlContent: html,
+      status: "failed",
+      errorMessage: error.message || 'Email sending failed',
+      metadata
+    })
+    
     return { success: false, error: error.message || 'Email sending failed' }
   }
 }

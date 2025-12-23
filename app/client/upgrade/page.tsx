@@ -4,12 +4,22 @@ import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Check, Crown, Building2, ArrowLeft, Sparkles, Zap, AlertCircle, Loader2 } from "lucide-react"
+import { Check, Crown, Building2, ArrowLeft, Sparkles, Zap, AlertCircle, Loader2, TrendingDown, Calendar } from "lucide-react"
 import { getClientSession, PLAN_FEATURES, type PlanType } from "@/lib/auth"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useRazorpay } from "@/hooks/use-razorpay"
+import { PLAN_PRICES, type PlanId } from "@/lib/razorpay"
+
+interface ProRataInfo {
+  originalPrice: number
+  unusedCredit: number
+  finalAmount: number
+  daysRemaining: number
+  savings: number
+  savingsPercent: number
+}
 
 const plans: { id: PlanType; icon: any; popular?: boolean; badge?: string; price: string; description: string }[] = [
   { 
@@ -79,6 +89,10 @@ function UpgradePageContent() {
   const [userName, setUserName] = useState<string>("")
   const [userEmail, setUserEmail] = useState<string>("")
   const [userPhone, setUserPhone] = useState<string>("")
+  const [planStartDate, setPlanStartDate] = useState<Date | null>(null)
+  const [planExpiresAt, setPlanExpiresAt] = useState<Date | null>(null)
+  const [proRataInfo, setProRataInfo] = useState<Record<string, ProRataInfo>>({})
+  const [loadingProRata, setLoadingProRata] = useState(false)
 
   const { initiatePayment, isLoading, isProcessing } = useRazorpay({
     onSuccess: async (data) => {
@@ -111,8 +125,46 @@ function UpgradePageContent() {
       setUserName(session.userName || "")
       setUserEmail(session.userEmail || "")
       setUserPhone(session.userPhone || "")
+      setPlanStartDate(session.planStartDate ? new Date(session.planStartDate) : null)
+      setPlanExpiresAt(session.planExpiresAt ? new Date(session.planExpiresAt) : null)
     }
   }, [pendingPlanParam])
+
+  // Fetch pro-rata pricing for paid plan users
+  useEffect(() => {
+    const fetchProRataPricing = async () => {
+      if (currentPlan === "free" || !userId) return
+      
+      setLoadingProRata(true)
+      const proRataData: Record<string, ProRataInfo> = {}
+      
+      for (const plan of plans) {
+        if (plan.id === currentPlan) continue
+        
+        try {
+          const response = await fetch("/api/razorpay/calculate-pro-rata", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ plan: plan.id, userId })
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            if (data.proRata) {
+              proRataData[plan.id] = data.proRata
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to fetch pro-rata for ${plan.id}:`, error)
+        }
+      }
+      
+      setProRataInfo(proRataData)
+      setLoadingProRata(false)
+    }
+    
+    fetchProRataPricing()
+  }, [currentPlan, userId])
 
   const handleUpgrade = async (planId: PlanType) => {
     if (!userId) {
@@ -188,6 +240,24 @@ function UpgradePageContent() {
           <span className="text-sm font-semibold text-primary">{PLAN_FEATURES[currentPlan]?.displayName || "Free"}</span>
         </div>
       </div>
+
+      {/* Pro-rata upgrade info for paid plan users */}
+      {currentPlan !== "free" && planExpiresAt && (
+        <div className="mb-6 rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 p-4">
+          <div className="flex items-start gap-3">
+            <TrendingDown className="h-5 w-5 text-emerald-600 mt-0.5" />
+            <div>
+              <p className="font-semibold text-emerald-900 dark:text-emerald-100">
+                Pro-rata Upgrade Available
+              </p>
+              <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">
+                Your current plan expires on {new Date(planExpiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}. 
+                Upgrade now and get credit for your unused days - pay only the difference!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Free Plan */}
@@ -287,10 +357,33 @@ function UpgradePageContent() {
                   </CardTitle>
                 </div>
                 <CardDescription>{plan.description}</CardDescription>
-                <div className="mt-4">
-                  <span className="text-4xl font-bold">{plan.price}</span>
-                  <span className="text-muted-foreground">/year</span>
-                </div>
+                
+                {/* Pro-rata pricing display */}
+                {proRataInfo[plan.id] && proRataInfo[plan.id].unusedCredit > 0 ? (
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold text-emerald-600">
+                        ₹{(proRataInfo[plan.id].finalAmount / 100).toLocaleString("en-IN")}
+                      </span>
+                      <span className="text-sm text-muted-foreground line-through">
+                        {plan.price}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-1 rounded-md">
+                      <TrendingDown className="h-3 w-3" />
+                      <span>Save ₹{(proRataInfo[plan.id].savings / 100).toLocaleString("en-IN")} ({proRataInfo[plan.id].savingsPercent}%)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      <span>{proRataInfo[plan.id].daysRemaining} days credit applied</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4">
+                    <span className="text-4xl font-bold">{plan.price}</span>
+                    <span className="text-muted-foreground">/year</span>
+                  </div>
+                )}
               </CardHeader>
               
               <CardContent className="flex flex-col flex-1">

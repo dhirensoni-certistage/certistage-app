@@ -72,7 +72,13 @@ export async function POST(request: NextRequest) {
       await sendEmail({
         to: user.email,
         subject: welcomeTemplate.subject,
-        html: welcomeTemplate.html
+        html: welcomeTemplate.html,
+        template: "welcome",
+        metadata: {
+          userId: user._id.toString(),
+          userName: user.name,
+          type: "signup_welcome"
+        }
       })
       
       // Admin notification
@@ -86,7 +92,13 @@ export async function POST(request: NextRequest) {
         await sendEmail({
           to: process.env.ADMIN_EMAIL,
           subject: adminTemplate.subject,
-          html: adminTemplate.html
+          html: adminTemplate.html,
+          template: "adminNotification",
+          metadata: {
+            userId: user._id.toString(),
+            userName: user.name,
+            type: "new_signup_notification"
+          }
         })
       }
     } catch (emailError) {

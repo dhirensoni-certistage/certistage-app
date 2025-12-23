@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate plan expiry (1 year from now)
+    const planStartDate = new Date()
     const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
 
     // Update user's plan in database and clear pendingPlan
@@ -97,6 +98,7 @@ export async function POST(request: NextRequest) {
       {
         plan: plan,
         pendingPlan: null,
+        planStartDate: planStartDate,
         planExpiresAt: planExpiresAt
       },
       { new: true }
@@ -162,7 +164,16 @@ export async function POST(request: NextRequest) {
       await sendEmail({
         to: user.email,
         subject: invoiceTemplate.subject,
-        html: invoiceTemplate.html
+        html: invoiceTemplate.html,
+        template: "invoice",
+        metadata: {
+          userId: userId,
+          userName: user.name,
+          type: "payment_invoice",
+          plan: planDisplayName,
+          amount: amount,
+          paymentId: razorpay_payment_id
+        }
       })
       
       // Send admin notification
@@ -177,7 +188,15 @@ export async function POST(request: NextRequest) {
         await sendEmail({
           to: process.env.ADMIN_EMAIL,
           subject: adminTemplate.subject,
-          html: adminTemplate.html
+          html: adminTemplate.html,
+          template: "adminNotification",
+          metadata: {
+            userId: userId,
+            userName: user.name,
+            type: "payment_notification",
+            plan: planDisplayName,
+            amount: amount
+          }
         })
       }
     } catch (emailError) {

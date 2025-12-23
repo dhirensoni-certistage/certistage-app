@@ -60,7 +60,12 @@ export async function POST(request: NextRequest) {
       const result = await sendEmail({
         to: email,
         subject: verificationTemplate.subject,
-        html: verificationTemplate.html
+        html: verificationTemplate.html,
+        template: "emailVerification",
+        metadata: {
+          userName: name,
+          type: "signup_verification"
+        }
       })
       emailSent = result.success
       if (!result.success) {

@@ -90,6 +90,8 @@ export interface ClientSession {
   userPhone?: string
   userPlan?: PlanType
   pendingPlan?: PlanType | null
+  planStartDate?: string
+  planExpiresAt?: string
   loginType: "user" | "event"
   loggedInAt: string
 }

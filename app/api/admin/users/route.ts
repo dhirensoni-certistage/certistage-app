@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import Event from "@/models/Event"
+import bcrypt from "bcryptjs"
 
 export async function GET(request: NextRequest) {
   try {
@@ -74,6 +75,100 @@ export async function GET(request: NextRequest) {
     console.error("Users API error:", error)
     return NextResponse.json(
       { error: "Failed to fetch users", details: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
+    )
+  }
+}
+
+// POST - Create new user (admin only)
+export async function POST(request: NextRequest) {
+  try {
+    await connectDB()
+
+    const body = await request.json()
+    const { name, email, phone, organization, password, plan, planDuration } = body
+
+    // Validate required fields
+    if (!name || !email || !phone || !password) {
+      return NextResponse.json(
+        { error: "Name, email, phone and password are required" },
+        { status: 400 }
+      )
+    }
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email: email.toLowerCase().trim() })
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "Email already registered" },
+        { status: 400 }
+      )
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    // Calculate plan dates if paid plan
+    let planStartDate = null
+    let planExpiresAt = null
+    
+    if (plan && plan !== "free") {
+      planStartDate = new Date()
+      const durationMonths = planDuration || 12 // Default 12 months
+      planExpiresAt = new Date()
+      planExpiresAt.setMonth(planExpiresAt.getMonth() + durationMonths)
+    }
+
+    // Create user
+    const user = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      phone: phone.trim(),
+      organization: organization?.trim() || "",
+      password: hashedPassword,
+      plan: plan || "free",
+      planStartDate,
+      planExpiresAt,
+      isActive: true,
+      isEmailVerified: true // Admin created users are auto-verified
+    })
+
+    // Send welcome email
+    try {
+      const { sendEmail, emailTemplates } = await import("@/lib/email")
+      const welcomeEmail = emailTemplates.welcome(user.name, user.email)
+      await sendEmail({
+        to: user.email,
+        subject: welcomeEmail.subject,
+        html: welcomeEmail.html,
+        template: "welcome",
+        metadata: {
+          userId: user._id.toString(),
+          userName: user.name,
+          type: "admin_created"
+        }
+      })
+    } catch (emailError) {
+      console.error("Failed to send welcome email:", emailError)
+    }
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        organization: user.organization,
+        plan: user.plan,
+        planExpiresAt: user.planExpiresAt,
+        isActive: user.isActive
+      }
+    })
+  } catch (error) {
+    console.error("Create user error:", error)
+    return NextResponse.json(
+      { error: "Failed to create user" },
       { status: 500 }
     )
   }

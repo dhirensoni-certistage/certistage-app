@@ -63,6 +63,7 @@ export default function ClientLoginPage() {
         userPhone: data.user.phone,
         userPlan: data.user.plan,
         pendingPlan: data.user.pendingPlan || null,
+        planStartDate: data.user.planStartDate,
         planExpiresAt: data.user.planExpiresAt,
         loginType: "user",
         loggedInAt: new Date().toISOString()
