@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell, Search, HelpCircle, Command, ChevronDown, User, CreditCard, Calendar, Check } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Bell, Search, HelpCircle, Command, ChevronDown, User, CreditCard, Calendar, Check, Activity, Settings, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -17,6 +18,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
+import { toast } from "sonner"
 
 interface Notification {
   _id: string
@@ -33,6 +35,7 @@ interface AdminHeaderProps {
 }
 
 export function AdminHeader({ title, description }: AdminHeaderProps) {
+  const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -187,10 +190,32 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel>Admin Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile Settings</DropdownMenuItem>
-            <DropdownMenuItem>Activity Log</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/admin/profile")} className="cursor-pointer">
+              <Settings className="h-4 w-4 mr-2" />
+              Profile Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/admin/activity")} className="cursor-pointer">
+              <Activity className="h-4 w-4 mr-2" />
+              Activity Log
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">Logout</DropdownMenuItem>
+            <DropdownMenuItem 
+              className="text-destructive cursor-pointer"
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/admin/logout", { method: "POST" })
+                  if (res.ok) {
+                    toast.success("Logged out successfully")
+                    router.push("/admin/login")
+                  }
+                } catch (error) {
+                  toast.error("Logout failed")
+                }
+              }}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
