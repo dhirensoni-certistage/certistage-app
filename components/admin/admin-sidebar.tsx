@@ -14,7 +14,9 @@ import {
   Sun, 
   ChevronLeft,
   LogOut,
-  Command
+  Command,
+  User,
+  Activity
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -38,6 +40,8 @@ const navigationItems = [
   { name: 'Events', href: '/admin/events', icon: Calendar, shortcut: 'G E' },
   { name: 'Revenue', href: '/admin/revenue', icon: IndianRupee, shortcut: 'G R', countKey: 'pendingPayments' as const },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3, shortcut: 'G A' },
+  { name: 'Activity', href: '/admin/activity', icon: Activity, shortcut: 'G L' },
+  { name: 'Profile', href: '/admin/profile', icon: User, shortcut: 'G P' },
   { name: 'Settings', href: '/admin/settings', icon: Settings, shortcut: 'G S' },
 ]
 
