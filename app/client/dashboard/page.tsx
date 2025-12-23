@@ -212,7 +212,7 @@ export default function ClientDashboard() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-popover border rounded-lg shadow-lg p-3 text-sm">
+        <div className="bg-popover/95 backdrop-blur-sm border rounded-lg shadow-xl p-3 text-sm z-50 relative">
           <p className="font-medium mb-1">{label || payload[0]?.name}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} style={{ color: entry.color || entry.fill }}>
@@ -387,9 +387,9 @@ export default function ClientDashboard() {
                       <Pie
                         data={registrationData}
                         cx="50%"
-                        cy="45%"
-                        innerRadius={65}
-                        outerRadius={90}
+                        cy="50%"
+                        innerRadius={70}
+                        outerRadius={95}
                         paddingAngle={2}
                         dataKey="value"
                         strokeWidth={0}
@@ -401,13 +401,13 @@ export default function ClientDashboard() {
                       <Tooltip content={<CustomTooltip />} />
                       <Legend
                         verticalAlign="bottom"
-                        height={50}
+                        height={36}
                         formatter={(value) => <span className="text-xs text-foreground">{value}</span>}
                       />
                     </PieChart>
                   </ResponsiveContainer>
-                  <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                    <p className="text-3xl font-bold">{registrationTotal}</p>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-10">
+                    <p className="text-3xl font-bold leading-none">{registrationTotal}</p>
                     <p className="text-xs text-muted-foreground">{registrationView === "registered" ? "Total" : "Downloaded"}</p>
                   </div>
                 </div>
@@ -429,9 +429,9 @@ export default function ClientDashboard() {
                     <Pie
                       data={donutData}
                       cx="50%"
-                      cy="45%"
-                      innerRadius={65}
-                      outerRadius={90}
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={95}
                       paddingAngle={3}
                       dataKey="value"
                       strokeWidth={0}
@@ -443,13 +443,13 @@ export default function ClientDashboard() {
                     <Tooltip content={<CustomTooltip />} />
                     <Legend
                       verticalAlign="bottom"
-                      height={50}
+                      height={36}
                       formatter={(value) => <span className="text-xs text-foreground">{value}</span>}
                     />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                  <p className="text-3xl font-bold">{completionRate}%</p>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-10">
+                  <p className="text-3xl font-bold leading-none">{completionRate}%</p>
                   <p className="text-xs text-muted-foreground">Complete</p>
                 </div>
               </div>
