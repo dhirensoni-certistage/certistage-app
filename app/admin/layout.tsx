@@ -28,20 +28,25 @@ export default function AdminLayout({
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
-  
+
   // Set page title
   useEffect(() => {
     const title = pageTitles[pathname] || "CertiStage Admin"
     document.title = title
   }, [pathname])
-  
+
   useEffect(() => {
     // Don't check auth on login page
     if (pathname === "/admin/login") {
       setLoading(false)
       return
     }
-    checkAuth()
+    // Only check auth if not already authenticated
+    if (!isAuthenticated) {
+      checkAuth()
+    } else {
+      setLoading(false)
+    }
   }, [pathname])
 
   const checkAuth = async () => {

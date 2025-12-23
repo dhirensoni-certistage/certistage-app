@@ -9,6 +9,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { PageTransition } from "@/components/ui/page-transition"
 
 // Page title mapping
 const pageTitles: Record<string, string> = {
@@ -44,7 +45,7 @@ export default function ClientLayout({
   // Sync session with server to get latest plan
   const syncSessionWithServer = async (session: ReturnType<typeof getClientSession>) => {
     if (!session || session.loginType !== "user") return
-    
+
     try {
       const res = await fetch("/api/client/profile")
       if (res.ok) {
@@ -76,7 +77,7 @@ export default function ClientLayout({
       setIsAuthenticated(false)
       return
     }
-    
+
     const session = getClientSession()
 
     if (!session) {
@@ -91,13 +92,16 @@ export default function ClientLayout({
       const eventSelected = !!(session.eventId && session.loginType === "user")
       setHasEventSelected(eventSelected)
       setIsLoading(false)
-      
-      // Sync with server to get latest plan (in background) - only for logged in users
-      if (session.loginType === "user" && session.userId) {
-        syncSessionWithServer(session)
-      }
     }
   }, [pathname, router])
+
+  // Sync session with server only once on mount
+  useEffect(() => {
+    const session = getClientSession()
+    if (session?.loginType === "user" && session.userId && !isStandalonePage) {
+      syncSessionWithServer(session)
+    }
+  }, [])
 
   const handleLogout = () => {
     clearClientSession()
@@ -150,9 +154,9 @@ export default function ClientLayout({
                   {PLAN_FEATURES[userPlan as keyof typeof PLAN_FEATURES]?.displayName || "Free"}
                 </span>
               </div>
-              
-              <Button 
-                variant="ghost" 
+
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={handleLogout}
                 className="gap-2 text-muted-foreground hover:text-foreground"
@@ -177,7 +181,9 @@ export default function ClientLayout({
     <div className="flex h-screen bg-background overflow-hidden">
       <ClientSidebar />
       <main className="flex-1 overflow-y-auto">
-        {children}
+        <PageTransition>
+          {children}
+        </PageTransition>
       </main>
     </div>
   )

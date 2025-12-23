@@ -1,14 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { 
-  Mail, 
-  MessageSquare, 
+import {
+  Mail,
+  MessageSquare,
   HelpCircle,
   Send,
   CheckCircle2,
@@ -41,14 +41,14 @@ export default function SupportPage() {
     const sess = getClientSession()
     setSession(sess)
     setPlanFeatures(getCurrentPlanFeatures())
-    
+
     if (sess?.userName) setName(sess.userName)
     if (sess?.userEmail) setEmail(sess.userEmail)
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!name || !email || !subject || !message) {
       toast.error("Please fill in all fields")
       return
@@ -65,7 +65,7 @@ export default function SupportPage() {
     setSubmitted(true)
     setIsSubmitting(false)
     toast.success("Support request submitted successfully!")
-    
+
     // Reset form after 3 seconds
     setTimeout(() => {
       setSubject("")
@@ -74,10 +74,13 @@ export default function SupportPage() {
     }, 3000)
   }
 
-  const isProfessionalOrHigher = planFeatures && 
-    (planFeatures.displayName === "Professional" || 
-     planFeatures.displayName === "Enterprise Gold" || 
-     planFeatures.displayName === "Premium Plus")
+  const isProfessionalOrHigher = useMemo(() =>
+    planFeatures &&
+    (planFeatures.displayName === "Professional" ||
+      planFeatures.displayName === "Enterprise Gold" ||
+      planFeatures.displayName === "Premium Plus"),
+    [planFeatures]
+  )
 
   return (
     <div className="p-8 space-y-6 max-w-5xl mx-auto">
@@ -102,8 +105,8 @@ export default function SupportPage() {
                 <Mail className="h-4 w-4 mt-0.5 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">Email</p>
-                  <a 
-                    href="mailto:support@certistage.com" 
+                  <a
+                    href="mailto:support@certistage.com"
                     className="text-xs text-primary hover:underline"
                   >
                     support@certistage.com
@@ -127,9 +130,9 @@ export default function SupportPage() {
                   <p className="text-xs text-muted-foreground">
                     Upgrade to Professional or higher for priority support and faster response times.
                   </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full mt-2"
                     onClick={() => window.location.href = "/client/upgrade"}
                   >
@@ -148,25 +151,25 @@ export default function SupportPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-sm" 
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-sm"
                 size="sm"
                 onClick={() => setResourceModal("docs")}
               >
                 Documentation
               </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-sm" 
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-sm"
                 size="sm"
                 onClick={() => setResourceModal("faqs")}
               >
                 FAQs
               </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-sm" 
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-sm"
                 size="sm"
                 onClick={() => setResourceModal("videos")}
               >
@@ -253,8 +256,8 @@ export default function SupportPage() {
 
                 <div className="flex items-center justify-between pt-2">
                   <p className="text-xs text-muted-foreground">
-                    {isProfessionalOrHigher 
-                      ? "Priority support - 24 hour response" 
+                    {isProfessionalOrHigher
+                      ? "Priority support - 24 hour response"
                       : "Standard support - 48 hour response"}
                   </p>
                   <Button type="submit" disabled={isSubmitting}>

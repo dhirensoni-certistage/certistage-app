@@ -5,10 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getClientSession, PLAN_FEATURES } from "@/lib/auth"
-import { 
-  Users, 
-  Download, 
-  Clock, 
+import {
+  Users,
+  Download,
+  Clock,
   TrendingUp,
   Award,
   Crown,
@@ -30,6 +30,7 @@ import {
   Tooltip,
   Legend
 } from "recharts"
+import { DashboardCardSkeleton, ChartSkeleton } from "@/components/ui/skeletons"
 
 const COLORS = {
   downloaded: "#10b981",
@@ -89,22 +90,13 @@ export default function ClientDashboard() {
   useEffect(() => {
     const currentSession = getClientSession()
     setSession(currentSession)
-    
+
     // Fetch event data from API
     if (currentSession?.eventId) {
       fetchEventData(currentSession.eventId)
     } else {
       setIsLoading(false)
     }
-    
-    // Refresh data periodically
-    const interval = setInterval(() => {
-      const currentSession = getClientSession()
-      if (currentSession?.eventId) {
-        fetchEventData(currentSession.eventId)
-      }
-    }, 10000) // Refresh every 10 seconds
-    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -128,11 +120,31 @@ export default function ClientDashboard() {
     setShowUpgradeBanner(false)
   }
 
-  // Show loading state
+  // Show loading state with skeletons
   if (isLoading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="p-8 space-y-8 max-w-7xl mx-auto">
+        <div className="space-y-2">
+          <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+          <div className="h-4 w-64 bg-muted animate-pulse rounded" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <DashboardCardSkeleton key={i} />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+              </CardHeader>
+              <CardContent>
+                <ChartSkeleton />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     )
   }
@@ -162,8 +174,8 @@ export default function ClientDashboard() {
   const certUsed = event.stats.total
   const usagePercent = hasCertificateLimit ? Math.min(100, Math.round((certUsed / certLimit) * 100)) : 0
 
-  const completionRate = event.stats.total > 0 
-    ? Math.round((event.stats.downloaded / event.stats.total) * 100) 
+  const completionRate = event.stats.total > 0
+    ? Math.round((event.stats.downloaded / event.stats.total) * 100)
     : 0
 
   const downloadStats = event.certificateTypes.reduce((acc, ct) => {
@@ -385,7 +397,7 @@ export default function ClientDashboard() {
                         ))}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend 
+                      <Legend
                         verticalAlign="bottom"
                         height={50}
                         formatter={(value) => <span className="text-xs text-foreground">{value}</span>}
@@ -426,7 +438,7 @@ export default function ClientDashboard() {
                       ))}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
-                    <Legend 
+                    <Legend
                       verticalAlign="bottom"
                       height={50}
                       formatter={(value) => <span className="text-xs text-foreground">{value}</span>}
@@ -451,14 +463,14 @@ export default function ClientDashboard() {
               <CardContent className="pt-4">
                 <div className="h-[280px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart 
-                      data={barData} 
+                    <BarChart
+                      data={barData}
                       margin={{ top: 10, right: 10, left: -15, bottom: 40 }}
                       barCategoryGap="20%"
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis 
-                        dataKey="name" 
+                      <XAxis
+                        dataKey="name"
                         tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
                         angle={-35}
                         textAnchor="end"
@@ -466,14 +478,14 @@ export default function ClientDashboard() {
                         axisLine={{ stroke: 'hsl(var(--border))' }}
                         tickLine={false}
                       />
-                      <YAxis 
+                      <YAxis
                         tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
                         axisLine={false}
                         tickLine={false}
                         allowDecimals={false}
                       />
                       <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }} />
-                      <Legend 
+                      <Legend
                         verticalAlign="top"
                         height={36}
                         formatter={(value) => <span className="text-xs">{value}</span>}
@@ -524,7 +536,7 @@ export default function ClientDashboard() {
                     </div>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="h-full bg-emerald-500 rounded-full transition-all duration-500"
                       style={{ width: `${rate}%` }}
                     />
