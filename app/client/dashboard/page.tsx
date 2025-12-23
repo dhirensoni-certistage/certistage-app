@@ -198,6 +198,7 @@ export default function ClientDashboard() {
   const CERT_COLORS = ["#6366f1", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#06b6d4", "#84cc16", "#ef4444"]
   const registrationData = event.certificateTypes.map((ct, index) => ({
     name: ct.name.length > 18 ? ct.name.substring(0, 18) + "..." : ct.name,
+    fullName: ct.name, // Keep full name for tooltip
     value: registrationView === "registered" ? ct.stats.total : ct.stats.downloaded,
     color: CERT_COLORS[index % CERT_COLORS.length]
   }))
@@ -211,6 +212,23 @@ export default function ClientDashboard() {
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const data = payload[0].payload
+      const entry = payload[0]
+
+      // For pie charts (both certificate type and download status)
+      // Pie charts have payload with name and value directly
+      if (entry.name && entry.value !== undefined && !label) {
+        return (
+          <div className="bg-popover/95 backdrop-blur-sm border rounded-lg shadow-xl p-3 text-sm z-50 relative">
+            <p className="font-medium mb-1">{data.fullName || entry.name}</p>
+            <p style={{ color: data.color || entry.fill }}>
+              {entry.value}
+            </p>
+          </div>
+        )
+      }
+
+      // For bar charts and other charts with labels
       return (
         <div className="bg-popover/95 backdrop-blur-sm border rounded-lg shadow-xl p-3 text-sm z-50 relative">
           <p className="font-medium mb-1">{label || payload[0]?.name}</p>
