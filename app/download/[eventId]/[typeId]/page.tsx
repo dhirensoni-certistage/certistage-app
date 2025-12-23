@@ -159,9 +159,9 @@ export default function CertTypeDownloadPage() {
         return
       }
 
-      // Limit to max 5 matches for security
-      setMatchedRecipients(matches.slice(0, 5))
-      
+      // Show all matches for same email/mobile
+      setMatchedRecipients(matches)
+
       if (matches.length === 1) {
         setSelectedRecipient(matches[0])
         setStep("preview")
