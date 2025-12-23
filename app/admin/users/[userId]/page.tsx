@@ -10,7 +10,18 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { UserStatusToggle } from "@/components/admin/users/user-status-toggle"
 import { Breadcrumbs } from "@/components/admin/breadcrumbs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Mail, Phone, Building, Calendar, CreditCard, ExternalLink, Award, Users, FileText } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Mail, Phone, Building, Calendar, CreditCard, ExternalLink, Users, FileText, Trash2, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 
 interface UserDetails {
@@ -58,6 +69,7 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
   const router = useRouter()
   const [data, setData] = useState<UserDetails | null>(null)
   const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     fetchUserDetails()
@@ -98,6 +110,27 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
       }
     } catch (error) {
       toast.error("Failed to update plan")
+    }
+  }
+
+  const handleDeleteUser = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: "DELETE"
+      })
+      if (res.ok) {
+        const result = await res.json()
+        toast.success(`User deleted successfully. Removed ${result.deletedEvents} events, ${result.deletedCertTypes} certificate types, ${result.deletedRecipients} recipients.`)
+        router.push("/admin/users")
+      } else {
+        const error = await res.json()
+        toast.error(error.error || "Failed to delete user")
+      }
+    } catch (error) {
+      toast.error("Failed to delete user")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -195,6 +228,56 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
                       day: "numeric", month: "short", year: "numeric" 
                     })}
                   </span>
+                </div>
+              </div>
+
+              {/* Delete User Section */}
+              <div className="mt-6 pt-6 border-t">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-destructive">Danger Zone</p>
+                    <p className="text-sm text-muted-foreground">
+                      Delete this user and all their data permanently
+                    </p>
+                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete User
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                          <AlertTriangle className="h-5 w-5 text-destructive" />
+                          Delete User Account
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-2">
+                          <p>Are you sure you want to delete <strong>{user.name}</strong>?</p>
+                          <p>This will permanently delete:</p>
+                          <ul className="list-disc list-inside text-sm space-y-1 mt-2">
+                            <li>User account and profile</li>
+                            <li>{stats.totalEvents} event(s)</li>
+                            <li>{stats.totalCertificates} certificate type(s)</li>
+                            <li>{stats.totalRecipients} recipient(s)</li>
+                            <li>{payments.length} payment record(s)</li>
+                          </ul>
+                          <p className="text-destructive font-medium mt-3">This action cannot be undone!</p>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeleteUser}
+                          disabled={deleting}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {deleting ? "Deleting..." : "Delete Permanently"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             </CardContent>

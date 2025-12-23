@@ -127,3 +127,67 @@ export async function PATCH(
     )
   }
 }
+
+// DELETE - Delete user and all their data
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  try {
+    await connectDB()
+    const { userId } = await params
+
+    const user = await User.findById(userId)
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Get all user's events
+    const events = await Event.find({ ownerId: userId })
+    const eventIds = events.map(e => e._id)
+
+    // Delete all recipients for user's events
+    const deletedRecipients = await Recipient.deleteMany({ eventId: { $in: eventIds } })
+
+    // Delete all certificate types for user's events
+    const deletedCertTypes = await CertificateType.deleteMany({ eventId: { $in: eventIds } })
+
+    // Delete all events
+    const deletedEvents = await Event.deleteMany({ ownerId: userId })
+
+    // Delete all payments
+    await Payment.deleteMany({ userId })
+
+    // Delete email verification tokens if any
+    try {
+      const EmailVerificationToken = (await import("@/models/EmailVerificationToken")).default
+      await EmailVerificationToken.deleteMany({ userId })
+    } catch (e) {
+      // Token model might not exist, ignore
+    }
+
+    // Delete password reset tokens if any
+    try {
+      const PasswordResetToken = (await import("@/models/PasswordResetToken")).default
+      await PasswordResetToken.deleteMany({ userId })
+    } catch (e) {
+      // Token model might not exist, ignore
+    }
+
+    // Finally delete the user
+    await User.findByIdAndDelete(userId)
+
+    return NextResponse.json({
+      success: true,
+      deletedEvents: deletedEvents.deletedCount,
+      deletedCertTypes: deletedCertTypes.deletedCount,
+      deletedRecipients: deletedRecipients.deletedCount
+    })
+  } catch (error) {
+    console.error("User delete API error:", error)
+    return NextResponse.json(
+      { error: "Failed to delete user" },
+      { status: 500 }
+    )
+  }
+}
