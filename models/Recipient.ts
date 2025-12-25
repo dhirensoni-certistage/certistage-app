@@ -1,7 +1,10 @@
 import mongoose, { Schema, Document } from "mongoose"
 
 export interface IRecipient extends Document {
-  name: string
+  prefix?: string
+  firstName: string
+  lastName?: string
+  name: string // Computed: prefix + firstName + lastName
   email?: string
   mobile?: string
   regNo?: string
@@ -16,7 +19,10 @@ export interface IRecipient extends Document {
 
 const RecipientSchema = new Schema<IRecipient>(
   {
-    name: { type: String, required: true },
+    prefix: { type: String, default: "" },
+    firstName: { type: String, required: true },
+    lastName: { type: String, default: "" },
+    name: { type: String, required: true }, // Full name for display/search
     email: { type: String, default: "" },
     mobile: { type: String, default: "" },
     regNo: { type: String },

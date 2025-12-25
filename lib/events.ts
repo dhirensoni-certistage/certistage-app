@@ -61,11 +61,14 @@ export interface CertificateEvent {
 
 export interface EventRecipient {
   id: string
-  name: string
+  prefix?: string // e.g., "Dr.", "Mr.", "Ms."
+  firstName?: string
+  lastName?: string
+  name: string // Full name (prefix + firstName + lastName)
   email: string
   mobile: string
-  prefix?: string // e.g., "Dr.", "Mr.", "Ms."
   certificateId: string
+  regNo?: string // Alias for certificateId
   status: "pending" | "downloaded"
   downloadedAt?: string
   downloadCount: number
@@ -258,7 +261,17 @@ export function deleteCertificateType(eventId: string, typeId: string): boolean 
 export function addRecipientsToCertType(
   eventId: string,
   typeId: string,
-  recipients: Omit<EventRecipient, "id" | "status" | "downloadCount">[]
+  recipients: Array<{
+    prefix?: string
+    firstName?: string
+    lastName?: string
+    name?: string
+    email?: string
+    mobile?: string
+    certificateId?: string
+    registrationNo?: string
+    regNo?: string
+  }>
 ): CertificateType | null {
   const events = getEvents()
   const eventIndex = events.findIndex((e) => e.id === eventId)
@@ -267,12 +280,28 @@ export function addRecipientsToCertType(
   const typeIndex = events[eventIndex].certificateTypes.findIndex(t => t.id === typeId)
   if (typeIndex === -1) return null
 
-  const newRecipients: EventRecipient[] = recipients.map((r) => ({
-    ...r,
-    id: generateRecipientId(),
-    status: "pending",
-    downloadCount: 0,
-  }))
+  const newRecipients: EventRecipient[] = recipients.map((r) => {
+    // Build full name from prefix + firstName + lastName
+    const prefix = (r.prefix || "").trim()
+    const firstName = (r.firstName || "").trim()
+    const lastName = (r.lastName || "").trim()
+    const fullName = r.name || [prefix, firstName, lastName].filter(Boolean).join(" ")
+    const certId = r.certificateId || r.registrationNo || r.regNo || generateRecipientId()
+    
+    return {
+      id: generateRecipientId(),
+      prefix,
+      firstName,
+      lastName,
+      name: fullName,
+      email: r.email || "",
+      mobile: r.mobile || "",
+      certificateId: certId,
+      regNo: certId,
+      status: "pending" as const,
+      downloadCount: 0,
+    }
+  })
 
   events[eventIndex].certificateTypes[typeIndex].recipients.push(...newRecipients)
   events[eventIndex].certificateTypes[typeIndex].stats = calculateTypeStats(

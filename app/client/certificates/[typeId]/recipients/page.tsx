@@ -35,11 +35,12 @@ export default function CertTypeRecipientsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Form fields for adding single recipient
-  const [formName, setFormName] = useState("")
+  const [formPrefix, setFormPrefix] = useState("")
+  const [formFirstName, setFormFirstName] = useState("")
+  const [formLastName, setFormLastName] = useState("")
   const [formEmail, setFormEmail] = useState("")
   const [formMobile, setFormMobile] = useState("")
-  const [formPrefix, setFormPrefix] = useState("")
-  const [formCertId, setFormCertId] = useState("")
+  const [formRegNo, setFormRegNo] = useState("")
 
   // Get plan features for limits
   const planFeatures = getCurrentPlanFeatures()
@@ -74,17 +75,18 @@ export default function CertTypeRecipientsPage() {
 
   // Reset form
   const resetForm = () => {
-    setFormName("")
+    setFormPrefix("")
+    setFormFirstName("")
+    setFormLastName("")
     setFormEmail("")
     setFormMobile("")
-    setFormPrefix("")
-    setFormCertId("")
+    setFormRegNo("")
   }
 
   // Open add dialog
   const openAddDialog = () => {
     resetForm()
-    setFormCertId(generateRegNo()) // Auto-generate registration number
+    setFormRegNo(generateRegNo()) // Auto-generate registration number
     setIsAddDialogOpen(true)
   }
 
@@ -98,8 +100,8 @@ export default function CertTypeRecipientsPage() {
       return
     }
 
-    if (!formName.trim()) {
-      toast.error("Name is required")
+    if (!formFirstName.trim()) {
+      toast.error("First Name is required")
       return
     }
 
@@ -111,18 +113,19 @@ export default function CertTypeRecipientsPage() {
     if (!eventId) return
 
     const recipient = {
-      name: formName.trim(),
+      prefix: formPrefix.trim(),
+      firstName: formFirstName.trim(),
+      lastName: formLastName.trim(),
       email: formEmail.trim(),
       mobile: formMobile.trim(),
-      prefix: formPrefix.trim(),
-      certificateId: formCertId.trim() || generateRegNo()
+      registrationNo: formRegNo.trim() || generateRegNo()
     }
 
     addRecipientsToCertType(eventId, typeId, [recipient])
     refreshData()
     setIsAddDialogOpen(false)
     resetForm()
-    toast.success(`${recipient.name} added successfully!`)
+    toast.success(`${recipient.firstName} ${recipient.lastName} added successfully!`)
   }
 
   // Handle Excel upload
@@ -150,13 +153,15 @@ export default function CertTypeRecipientsPage() {
         const recipients = []
         for (let i = 1; i < jsonData.length; i++) {
           const row = jsonData[i]
-          if (row && row[0]) {
+          if (row && (row[0] || row[1])) {
+            // Excel columns: Prefix, FirstName, LastName, Email, Mobile, RegistrationNo
             recipients.push({
-              name: String(row[0] || "").trim(),
-              email: String(row[1] || "").trim(),
-              mobile: String(row[2] || "").trim(),
-              certificateId: String(row[3] || generateRegNo()).trim(),
-              prefix: String(row[4] || "").trim() // Support prefix in 5th column
+              prefix: String(row[0] || "").trim(),
+              firstName: String(row[1] || "").trim(),
+              lastName: String(row[2] || "").trim(),
+              email: String(row[3] || "").trim(),
+              mobile: String(row[4] || "").trim(),
+              registrationNo: String(row[5] || generateRegNo()).trim()
             })
           }
         }
@@ -206,20 +211,21 @@ export default function CertTypeRecipientsPage() {
   // Download sample Excel
   const downloadSampleExcel = () => {
     const sampleData = [
-      ["Name", "Email", "Mobile", "Registration No", "Prefix (Optional)"],
-      ["John Doe", "john@example.com", "+91-9876543210", "REG-001", "Mr."],
-      ["Jane Smith", "jane@example.com", "+91-9876543211", "REG-002", "Ms."],
-      ["Bob Wilson", "bob@example.com", "+91-9876543212", "REG-003", "Dr."],
+      ["Prefix", "First Name", "Last Name", "Email", "Mobile", "Registration No"],
+      ["Mr.", "John", "Doe", "john@example.com", "+91-9876543210", "REG-001"],
+      ["Ms.", "Jane", "Smith", "jane@example.com", "+91-9876543211", "REG-002"],
+      ["Dr.", "Bob", "Wilson", "bob@example.com", "+91-9876543212", "REG-003"],
     ]
     const ws = XLSX.utils.aoa_to_sheet(sampleData)
 
     // Set column widths
     ws['!cols'] = [
-      { wch: 20 }, // Name
+      { wch: 8 },  // Prefix
+      { wch: 15 }, // First Name
+      { wch: 15 }, // Last Name
       { wch: 25 }, // Email
       { wch: 18 }, // Mobile
-      { wch: 15 }, // Certificate ID
-      { wch: 10 }, // Prefix
+      { wch: 15 }, // Registration No
     ]
 
     const wb = XLSX.utils.book_new()
@@ -347,7 +353,8 @@ export default function CertTypeRecipientsPage() {
                     <TableRow>
                       <TableHead className="w-12">#</TableHead>
                       <TableHead className="w-16">Prefix</TableHead>
-                      <TableHead>Name</TableHead>
+                      <TableHead>First Name</TableHead>
+                      <TableHead>Last Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Mobile</TableHead>
                       <TableHead>Registration No</TableHead>
@@ -360,12 +367,13 @@ export default function CertTypeRecipientsPage() {
                       <TableRow key={r.id}>
                         <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                         <TableCell className="text-muted-foreground">{r.prefix || "-"}</TableCell>
-                        <TableCell className="font-medium">{r.name}</TableCell>
+                        <TableCell className="font-medium">{r.firstName || r.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{r.lastName || "-"}</TableCell>
                         <TableCell className="text-muted-foreground">{r.email || "-"}</TableCell>
                         <TableCell className="text-muted-foreground">{r.mobile || "-"}</TableCell>
                         <TableCell>
                           <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
-                            {r.certificateId}
+                            {r.certificateId || r.regNo}
                           </code>
                         </TableCell>
                         <TableCell>
@@ -402,19 +410,6 @@ export default function CertTypeRecipientsPage() {
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">
-                Full Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="name"
-                placeholder="Enter full name"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                autoFocus
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="prefix">Prefix (Optional)</Label>
               <select
                 id="prefix"
@@ -430,6 +425,30 @@ export default function CertTypeRecipientsPage() {
                 <option value="Prof.">Prof.</option>
                 <option value="Er.">Er.</option>
               </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">
+                  First Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="firstName"
+                  placeholder="First name"
+                  value={formFirstName}
+                  onChange={(e) => setFormFirstName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  placeholder="Last name"
+                  value={formLastName}
+                  onChange={(e) => setFormLastName(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -459,8 +478,8 @@ export default function CertTypeRecipientsPage() {
               <Input
                 id="regNo"
                 placeholder="Enter registration number"
-                value={formCertId}
-                onChange={(e) => setFormCertId(e.target.value)}
+                value={formRegNo}
+                onChange={(e) => setFormRegNo(e.target.value)}
                 className="font-mono"
               />
               <p className="text-xs text-muted-foreground">

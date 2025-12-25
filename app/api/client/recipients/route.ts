@@ -119,16 +119,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Create recipients
-    const recipientDocs = recipients.map((r: any) => ({
-      name: r.name,
-      email: r.email || "",
-      mobile: r.mobile || "",
-      regNo: r.regNo || r.certificateId || "",
-      certificateTypeId,
-      eventId,
-      downloadCount: 0,
-      customFields: r.customFields || {}
-    }))
+    const recipientDocs = recipients.map((r: any) => {
+      // Build full name from prefix + firstName + lastName
+      const prefix = (r.prefix || "").trim()
+      const firstName = (r.firstName || r.name || "").trim()
+      const lastName = (r.lastName || "").trim()
+      const fullName = [prefix, firstName, lastName].filter(Boolean).join(" ")
+      
+      return {
+        prefix,
+        firstName,
+        lastName,
+        name: fullName,
+        email: r.email || "",
+        mobile: r.mobile || "",
+        regNo: r.regNo || r.registrationNo || r.certificateId || "",
+        certificateTypeId,
+        eventId,
+        downloadCount: 0,
+        customFields: r.customFields || {}
+      }
+    })
 
     const created = await Recipient.insertMany(recipientDocs)
 

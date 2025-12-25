@@ -61,7 +61,6 @@ const AVAILABLE_VARIABLES = [
   { key: "EMAIL", label: "Email Address", field: "email" },
   { key: "MOBILE", label: "Mobile Number", field: "mobile" },
   { key: "REG_NO", label: "Registration No", field: "certificateId" },
-  { key: "PREFIX", label: "Title/Prefix (Dr/Mr/Ms)", field: "prefix" },
 ]
 import {
   Plus, FileText, Trash2, Image, Upload, Move, Eye, Check, ArrowLeft,
@@ -1316,8 +1315,7 @@ function TemplateEditor({
                       >
                         {field.variable === 'EMAIL' ? 'john@example.com' :
                           field.variable === 'MOBILE' ? '+91 98765 43210' :
-                            field.variable === 'REG_NO' ? 'REG-2024-001' :
-                              field.variable === 'PREFIX' ? 'Dr.' : field.variable}
+                            field.variable === 'REG_NO' ? 'REG-2024-001' : field.variable}
                       </span>
                     )}
                   </div>
