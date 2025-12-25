@@ -10,11 +10,71 @@ export async function GET(request: NextRequest) {
     await connectDB()
 
     const { searchParams } = new URL(request.url)
-    const eventId = searchParams.get("eventId")
+    const eventId = searchParams.get("eventId") || searchParams.get("event")
     const typeId = searchParams.get("typeId")
     const recipientId = searchParams.get("recipientId")
+    const certId = searchParams.get("cert") // Individual certificate by regNo
 
-    // Get single recipient for download
+    // Get single recipient by regNo (individual download link)
+    if (eventId && certId) {
+      // Find recipient by regNo in this event
+      const recipient = await Recipient.findOne({ 
+        eventId, 
+        regNo: certId 
+      }).lean()
+      
+      if (!recipient) {
+        return NextResponse.json({ error: "Certificate not found" }, { status: 404 })
+      }
+
+      // Parallel fetch for speed
+      const [certType, event] = await Promise.all([
+        CertificateType.findById(recipient.certificateTypeId).lean(),
+        Event.findById(eventId).lean()
+      ])
+
+      if (!event || !event.isActive) {
+        return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      }
+
+      if (!certType || !certType.isActive) {
+        return NextResponse.json({ error: "Certificate type not found" }, { status: 404 })
+      }
+
+      return NextResponse.json({
+        recipient: {
+          id: recipient._id.toString(),
+          name: recipient.name,
+          prefix: recipient.prefix,
+          firstName: recipient.firstName,
+          lastName: recipient.lastName,
+          email: recipient.email,
+          mobile: recipient.mobile,
+          certificateId: recipient.regNo,
+          downloadCount: recipient.downloadCount || 0
+        },
+        certificateType: {
+          id: certType._id.toString(),
+          name: certType.name,
+          templateImage: certType.templateImage,
+          textPosition: certType.textPosition || { x: 50, y: 60 },
+          fontSize: certType.fontSize || 24,
+          fontFamily: certType.fontFamily || "Arial",
+          fontBold: certType.fontBold || false,
+          fontItalic: certType.fontItalic || false,
+          showNameField: certType.showNameField !== false,
+          customFields: certType.customFields || [],
+          signatures: certType.signatures || []
+        },
+        event: {
+          id: event._id.toString(),
+          name: event.name,
+          ownerId: event.ownerId?.toString()
+        }
+      })
+    }
+
+    // Get single recipient by ID
     if (recipientId) {
       const recipient = await Recipient.findById(recipientId).lean()
       if (!recipient) {
@@ -61,7 +121,7 @@ export async function GET(request: NextRequest) {
         Event.findById(eventId).lean(),
         CertificateType.findById(typeId).lean(),
         Recipient.find({ eventId, certificateTypeId: typeId })
-          .select("name email mobile regNo downloadCount lastDownloadAt")
+          .select("name email mobile regNo downloadCount lastDownloadAt prefix firstName lastName")
           .lean()
       ])
 
@@ -103,6 +163,9 @@ export async function GET(request: NextRequest) {
         recipients: recipients.map(r => ({
           id: r._id.toString(),
           name: r.name,
+          prefix: r.prefix,
+          firstName: r.firstName,
+          lastName: r.lastName,
           email: r.email || "",
           mobile: r.mobile || "",
           certificateId: r.regNo || r._id.toString(),

@@ -7,8 +7,39 @@ import { Award, Download, Check, AlertCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
-import { getEvent, getRecipientByCertificateId, markAsDownloaded } from "@/lib/events"
 import { jsPDF } from "jspdf"
+
+interface Recipient {
+  id: string
+  name: string
+  prefix?: string
+  firstName?: string
+  lastName?: string
+  email?: string
+  mobile?: string
+  certificateId: string
+  downloadCount: number
+}
+
+interface CertificateType {
+  id: string
+  name: string
+  templateImage?: string
+  textPosition: { x: number; y: number }
+  fontSize: number
+  fontFamily: string
+  fontBold: boolean
+  fontItalic: boolean
+  showNameField: boolean
+  customFields?: any[]
+  signatures?: any[]
+}
+
+interface EventData {
+  id: string
+  name: string
+  ownerId?: string
+}
 
 export default function DownloadPage() {
   const searchParams = useSearchParams()
@@ -17,11 +48,9 @@ export default function DownloadPage() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [recipientName, setRecipientName] = useState("")
-  const [eventName, setEventName] = useState("")
-  const [templateImage, setTemplateImage] = useState<string | null>(null)
-  const [textPosition, setTextPosition] = useState({ x: 50, y: 60 })
-  const [alignment, setAlignment] = useState<"left" | "center" | "right">("center")
+  const [recipient, setRecipient] = useState<Recipient | null>(null)
+  const [certType, setCertType] = useState<CertificateType | null>(null)
+  const [event, setEvent] = useState<EventData | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
 
@@ -54,40 +83,40 @@ export default function DownloadPage() {
       return
     }
 
-    // Load event and recipient data
-    const event = getEvent(eventId)
-    if (!event) {
-      setError("Event not found. This certificate link may be invalid or expired.")
-      setLoading(false)
-      return
+    // Fetch data from API
+    const fetchData = async () => {
+      try {
+        const res = await fetch(`/api/download?event=${eventId}&cert=${certId}`)
+        const data = await res.json()
+
+        if (!res.ok) {
+          setError(data.error || "Certificate not found. This link may be invalid or expired.")
+          setLoading(false)
+          return
+        }
+
+        if (!data.certificateType?.templateImage) {
+          setError("Certificate template not available. Please contact the administrator.")
+          setLoading(false)
+          return
+        }
+
+        setRecipient(data.recipient)
+        setCertType(data.certificateType)
+        setEvent(data.event)
+        setLoading(false)
+      } catch (err) {
+        console.error("Fetch error:", err)
+        setError("Failed to load certificate. Please try again.")
+        setLoading(false)
+      }
     }
 
-    const result = getRecipientByCertificateId(eventId, certId)
-    if (!result) {
-      setError("Certificate not found. Please verify your certificate ID.")
-      setLoading(false)
-      return
-    }
-
-    const { recipient, certType } = result
-
-    // Check template from certificate type
-    if (!certType.template) {
-      setError("Certificate template not available. Please contact the administrator.")
-      setLoading(false)
-      return
-    }
-
-    setRecipientName(recipient.name)
-    setEventName(event.name)
-    setTemplateImage(certType.template)
-    setTextPosition(certType.textPosition)
-    setAlignment(certType.alignment)
-    setLoading(false)
+    fetchData()
   }, [eventId, certId])
 
   const handleDownload = async () => {
-    if (!templateImage || !eventId || !certId) return
+    if (!certType?.templateImage || !eventId || !certId || !recipient) return
 
     setIsDownloading(true)
 
@@ -104,7 +133,7 @@ export default function DownloadPage() {
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
         img.onerror = reject
-        img.src = templateImage
+        img.src = certType.templateImage!
       })
 
       canvas.width = img.width
@@ -113,21 +142,20 @@ export default function DownloadPage() {
 
       // Draw name (if enabled)
       if (certType.showNameField !== false) {
-        const textX = (textPosition.x / 100) * canvas.width
-        const textY = (textPosition.y / 100) * canvas.height
-        // Use configured font size or default
-        const fontSize = Math.round(canvas.height * ((certType.fontSize || 24) / 400)) // approximation based on 400px height base
+        const textX = (certType.textPosition.x / 100) * canvas.width
+        const textY = (certType.textPosition.y / 100) * canvas.height
+        const fontSize = Math.round(canvas.height * ((certType.fontSize || 24) / 400))
 
         ctx.font = `${certType.fontBold ? "bold" : "normal"} ${certType.fontItalic ? "italic" : "normal"} ${fontSize}px ${certType.fontFamily || "Arial"}, sans-serif`
         ctx.fillStyle = "#000000"
-        ctx.textAlign = "center" // Name is usually centered
+        ctx.textAlign = "center"
         ctx.textBaseline = "middle"
         ctx.fillText(recipient.name, textX, textY)
       }
 
-      // Draw custom fields from certType
+      // Draw custom fields
       if (certType.customFields) {
-        certType.customFields.forEach(field => {
+        certType.customFields.forEach((field: any) => {
           const fieldX = (field.position.x / 100) * canvas.width
           const fieldY = (field.position.y / 100) * canvas.height
           const fieldFontSize = Math.round(canvas.height * ((field.fontSize || 24) / 400))
@@ -137,14 +165,12 @@ export default function DownloadPage() {
           ctx.textAlign = "center"
           ctx.textBaseline = "middle"
 
-          // Get value based on variable
           let value = ""
           switch (field.variable) {
-            case "EMAIL": value = recipient.email; break;
-            case "MOBILE": value = recipient.mobile; break;
-            case "REG_NO": value = recipient.certificateId; break;
-            case "PREFIX": value = recipient.prefix || ""; break;
-            default: value = "";
+            case "EMAIL": value = recipient.email || ""; break
+            case "MOBILE": value = recipient.mobile || ""; break
+            case "REG_NO": value = recipient.certificateId || ""; break
+            default: value = ""
           }
 
           if (value) {
@@ -161,7 +187,7 @@ export default function DownloadPage() {
             sigImg.crossOrigin = "anonymous"
             await new Promise<void>((resolve) => {
               sigImg.onload = () => resolve()
-              sigImg.onerror = () => resolve() // Skip if fails
+              sigImg.onerror = () => resolve()
               sigImg.src = sig.image
             })
 
@@ -189,8 +215,17 @@ export default function DownloadPage() {
       pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight)
       pdf.save(`certificate-${certId}.pdf`)
 
-      // Mark as downloaded
-      markAsDownloaded(eventId, certId)
+      // Track download via API
+      try {
+        await fetch("/api/download", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recipientId: recipient.id })
+        })
+      } catch (e) {
+        console.error("Failed to track download:", e)
+      }
+
       setDownloaded(true)
       toast.success("Certificate downloaded successfully!")
     } catch (error) {
@@ -240,18 +275,18 @@ export default function DownloadPage() {
         <div className="max-w-3xl w-full space-y-6">
           {/* Event Info */}
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-foreground mb-1">{eventName}</h1>
-            <p className="text-muted-foreground">Certificate for {recipientName}</p>
+            <h1 className="text-2xl font-bold text-foreground mb-1">{event?.name}</h1>
+            <p className="text-muted-foreground">Certificate for {recipient?.name}</p>
           </div>
 
           {/* Certificate Preview */}
           <Card>
             <CardContent className="p-4">
               <div className="relative rounded-lg overflow-hidden border border-border select-none">
-                {templateImage && (
+                {certType?.templateImage && (
                   <div className="relative">
                     <img
-                      src={templateImage}
+                      src={certType.templateImage}
                       alt="Certificate"
                       className="w-full h-auto pointer-events-none"
                       draggable={false}
@@ -260,16 +295,16 @@ export default function DownloadPage() {
                     <div
                       className="absolute"
                       style={{
-                        left: `${textPosition.x}%`,
-                        top: `${textPosition.y}%`,
+                        left: `${certType.textPosition.x}%`,
+                        top: `${certType.textPosition.y}%`,
                         transform: "translate(-50%, -50%)",
                       }}
                     >
                       <span
                         className="text-lg md:text-2xl font-semibold text-foreground whitespace-nowrap"
-                        style={{ textAlign: alignment }}
+                        style={{ textAlign: "center" }}
                       >
-                        {recipientName}
+                        {recipient?.name}
                       </span>
                     </div>
                     {/* Preview watermark */}
