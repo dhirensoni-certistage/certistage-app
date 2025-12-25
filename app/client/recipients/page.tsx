@@ -947,12 +947,12 @@ export default function RecipientsPage() {
 
             <div className="space-y-2">
               <Label>Prefix (Optional)</Label>
-              <Select value={formPrefix} onValueChange={setFormPrefix}>
+              <Select value={formPrefix || "none"} onValueChange={(v) => setFormPrefix(v === "none" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Prefix" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   <SelectItem value="Mr.">Mr.</SelectItem>
                   <SelectItem value="Ms.">Ms.</SelectItem>
                   <SelectItem value="Mrs.">Mrs.</SelectItem>
