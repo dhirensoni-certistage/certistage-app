@@ -4,6 +4,8 @@ import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 
+// API for fetching all certificate types in an event for cross-type search functionality
+
 // GET - Get all certificate types with recipients for an event (for cross-type search)
 export async function GET(request: NextRequest) {
   try {
