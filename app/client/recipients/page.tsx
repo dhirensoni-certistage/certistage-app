@@ -93,10 +93,12 @@ export default function RecipientsPage() {
   const [maxCertificates, setMaxCertificates] = useState<number>(-1) // -1 = unlimited
 
   // Form fields
-  const [formName, setFormName] = useState("")
+  const [formPrefix, setFormPrefix] = useState("")
+  const [formFirstName, setFormFirstName] = useState("")
+  const [formLastName, setFormLastName] = useState("")
   const [formEmail, setFormEmail] = useState("")
   const [formMobile, setFormMobile] = useState("")
-  const [formCertId, setFormCertId] = useState("")
+  const [formRegNo, setFormRegNo] = useState("")
 
   // Fetch event data from API
   const fetchEventData = async (evtId: string) => {
@@ -303,15 +305,17 @@ export default function RecipientsPage() {
   }
 
   const resetForm = () => {
-    setFormName("")
+    setFormPrefix("")
+    setFormFirstName("")
+    setFormLastName("")
     setFormEmail("")
     setFormMobile("")
-    setFormCertId("")
+    setFormRegNo("")
   }
 
   const openAddDialog = () => {
     resetForm()
-    setFormCertId(generateRegNo())
+    setFormRegNo(generateRegNo())
     // Default to first certificate type if available
     if (event && event.certificateTypes.length > 0) {
       setAddToTypeId(event.certificateTypes[0].id)
@@ -326,8 +330,8 @@ export default function RecipientsPage() {
   }
 
   const handleAddRecipient = async () => {
-    if (!formName.trim()) {
-      toast.error("Name is required")
+    if (!formFirstName.trim()) {
+      toast.error("First Name is required")
       return
     }
     if (!formEmail.trim() && !formMobile.trim()) {
@@ -363,10 +367,12 @@ export default function RecipientsPage() {
           eventId,
           certificateTypeId: addToTypeId,
           recipients: [{
-            name: formName.trim(),
+            prefix: formPrefix.trim(),
+            firstName: formFirstName.trim(),
+            lastName: formLastName.trim(),
             email: formEmail.trim(),
             mobile: formMobile.trim(),
-            certificateId: formCertId.trim() || generateRegNo()
+            registrationNo: formRegNo.trim() || generateRegNo()
           }]
         })
       })
@@ -375,7 +381,7 @@ export default function RecipientsPage() {
         if (eventId) fetchEventData(eventId)
         setIsAddDialogOpen(false)
         resetForm()
-        toast.success(`${formName} added successfully!`)
+        toast.success(`${formFirstName} ${formLastName} added successfully!`)
       } else {
         const data = await res.json()
         toast.error(data.error || "Failed to add attendee")
@@ -415,12 +421,15 @@ export default function RecipientsPage() {
           const recipients = []
           for (let i = 1; i < jsonData.length; i++) {
             const row = jsonData[i]
-            if (row && row[0]) {
+            if (row && (row[0] || row[1])) {
+              // Excel columns: Prefix, FirstName, LastName, Email, Mobile, RegistrationNo
               recipients.push({
-                name: String(row[0] || "").trim(),
-                email: String(row[1] || "").trim(),
-                mobile: String(row[2] || "").trim(),
-                certificateId: String(row[3] || generateRegNo()).trim()
+                prefix: String(row[0] || "").trim(),
+                firstName: String(row[1] || "").trim(),
+                lastName: String(row[2] || "").trim(),
+                email: String(row[3] || "").trim(),
+                mobile: String(row[4] || "").trim(),
+                registrationNo: String(row[5] || generateRegNo()).trim()
               })
             }
           }
@@ -576,12 +585,13 @@ export default function RecipientsPage() {
   const downloadSampleExcel = () => {
     import("xlsx").then((XLSX) => {
       const sampleData = [
-        ["Name", "Email", "Mobile", "Registration No"],
-        ["John Doe", "john@example.com", "+91-9876543210", "REG-001"],
-        ["Jane Smith", "jane@example.com", "+91-9876543211", "REG-002"],
+        ["Prefix", "First Name", "Last Name", "Email", "Mobile", "Registration No"],
+        ["Mr.", "John", "Doe", "john@example.com", "+91-9876543210", "REG-001"],
+        ["Ms.", "Jane", "Smith", "jane@example.com", "+91-9876543211", "REG-002"],
+        ["Dr.", "Bob", "Wilson", "bob@example.com", "+91-9876543212", "REG-003"],
       ]
       const ws = XLSX.utils.aoa_to_sheet(sampleData)
-      ws["!cols"] = [{ wch: 20 }, { wch: 25 }, { wch: 18 }, { wch: 15 }]
+      ws["!cols"] = [{ wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 15 }]
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, "Attendees")
       XLSX.writeFile(wb, "sample-attendees.xlsx")
@@ -936,13 +946,41 @@ export default function RecipientsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Full Name <span className="text-destructive">*</span></Label>
-              <Input
-                placeholder="Enter full name"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                autoFocus
-              />
+              <Label>Prefix (Optional)</Label>
+              <Select value={formPrefix} onValueChange={setFormPrefix}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Prefix" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="Mr.">Mr.</SelectItem>
+                  <SelectItem value="Ms.">Ms.</SelectItem>
+                  <SelectItem value="Mrs.">Mrs.</SelectItem>
+                  <SelectItem value="Dr.">Dr.</SelectItem>
+                  <SelectItem value="Prof.">Prof.</SelectItem>
+                  <SelectItem value="Er.">Er.</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>First Name <span className="text-destructive">*</span></Label>
+                <Input
+                  placeholder="First name"
+                  value={formFirstName}
+                  onChange={(e) => setFormFirstName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Last Name</Label>
+                <Input
+                  placeholder="Last name"
+                  value={formLastName}
+                  onChange={(e) => setFormLastName(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -969,8 +1007,8 @@ export default function RecipientsPage() {
               <Label>Registration No</Label>
               <Input
                 placeholder="Auto-generated if empty"
-                value={formCertId}
-                onChange={(e) => setFormCertId(e.target.value)}
+                value={formRegNo}
+                onChange={(e) => setFormRegNo(e.target.value)}
                 className="font-mono"
               />
             </div>
