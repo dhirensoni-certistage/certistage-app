@@ -123,6 +123,27 @@ export default function EventDownloadPage() {
     setDownloaded(false)
   }
 
+  // Detect if running in iframe/WebView (mobile app)
+  const isInIframeOrWebView = () => {
+    try {
+      // Check if in iframe
+      if (window.self !== window.top) return true
+      
+      // Check for common WebView indicators
+      const ua = navigator.userAgent.toLowerCase()
+      const isWebView = 
+        ua.includes('wv') || // Android WebView
+        ua.includes('webview') ||
+        (ua.includes('iphone') && !ua.includes('safari')) || // iOS WebView (no Safari = WebView)
+        (ua.includes('android') && ua.includes('version/')) // Android WebView
+      
+      return isWebView
+    } catch {
+      // If we can't access window.top, we're in a cross-origin iframe
+      return true
+    }
+  }
+
   const handleDownload = async () => {
     if (!selectedCertificate?.certType.template) return
 
@@ -154,7 +175,7 @@ export default function EventDownloadPage() {
       
       ctx.font = `600 ${fontSize}px sans-serif`
       ctx.fillStyle = "#000000"
-      ctx.textAlign = certType.alignment
+      ctx.textAlign = (certType as any).alignment || "center"
       ctx.textBaseline = "middle"
       ctx.fillText(recipient.name, textX, textY)
 
@@ -168,7 +189,53 @@ export default function EventDownloadPage() {
       })
 
       pdf.addImage(canvas.toDataURL("image/jpeg", 1.0), "JPEG", 0, 0, pdfWidth, pdfHeight)
-      pdf.save(`${certType.name}-${recipient.certificateId}.pdf`)
+      
+      const fileName = `${certType.name}-${recipient.certificateId}.pdf`
+      
+      // Check if in iframe/WebView - use different download method
+      if (isInIframeOrWebView()) {
+        // For WebView/iframe: Create blob and open in new tab/window
+        // This triggers the native download behavior on mobile
+        const pdfBlob = pdf.output('blob')
+        const blobUrl = URL.createObjectURL(pdfBlob)
+        
+        // Try to trigger download via anchor with download attribute
+        const link = document.createElement('a')
+        link.href = blobUrl
+        link.download = fileName
+        link.target = '_blank' // Important for WebView
+        link.rel = 'noopener noreferrer'
+        
+        // For iOS WebView - need to open blob URL directly
+        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+        const isAndroid = /android/i.test(navigator.userAgent)
+        
+        if (isIOS) {
+          // iOS: Open PDF in new window - will show native PDF viewer with share/save option
+          window.open(blobUrl, '_blank')
+        } else if (isAndroid) {
+          // Android: Try download attribute first, fallback to window.open
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          
+          // Also try window.open as backup for some WebViews
+          setTimeout(() => {
+            window.open(blobUrl, '_blank')
+          }, 100)
+        } else {
+          // Desktop iframe - standard approach
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+        }
+        
+        // Clean up blob URL after delay
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000)
+      } else {
+        // Normal browser - use standard jsPDF save
+        pdf.save(fileName)
+      }
 
       markAsDownloaded(eventId, recipient.certificateId)
       setDownloaded(true)
@@ -327,7 +394,7 @@ export default function EventDownloadPage() {
                         top: `${selectedCertificate.certType.textPosition.y}%`,
                         transform: "translate(-50%, -50%)",
                         fontSize: "clamp(10px, 2.5vw, 18px)",
-                        textAlign: selectedCertificate.certType.alignment,
+                        textAlign: (selectedCertificate.certType as any).alignment || "center",
                       }}
                     >
                       <span className="font-semibold text-black whitespace-nowrap">
