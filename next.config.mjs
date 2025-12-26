@@ -19,34 +19,26 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Apply to download pages for iframe/WebView embedding
-        source: '/download/:path*',
+        // Apply CORS to all API routes
+        source: '/api/:path*',
         headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'ALLOWALL', // Allow embedding in any iframe
-          },
-          {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors *", // Allow embedding from any origin
-          },
           {
             key: 'Access-Control-Allow-Origin',
             value: '*',
           },
           {
             key: 'Access-Control-Allow-Methods',
-            value: 'GET, POST, PUT, OPTIONS',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
           },
           {
             key: 'Access-Control-Allow-Headers',
-            value: 'Content-Type, Authorization',
+            value: 'Content-Type, Authorization, X-Requested-With',
           },
         ],
       },
       {
-        // API routes for download
-        source: '/api/download/:path*',
+        // Download pages - allow iframe embedding from anywhere
+        source: '/download/:path*',
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
@@ -54,11 +46,17 @@ const nextConfig = {
           },
           {
             key: 'Access-Control-Allow-Methods',
-            value: 'GET, POST, PUT, OPTIONS',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
           },
           {
             key: 'Access-Control-Allow-Headers',
-            value: 'Content-Type, Authorization',
+            value: 'Content-Type, Authorization, X-Requested-With',
+          },
+          // Remove X-Frame-Options by not setting it - allows iframe embedding
+          // CSP frame-ancestors allows embedding from any origin
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors *;",
           },
         ],
       },
