@@ -98,19 +98,30 @@ export async function GET(request: NextRequest) {
       $set: { lastDownloadAt: new Date() }
     })
 
-    // Create filename
-    const fileName = `${certType.name}-${recipient.regNo || recipient._id}.pdf`
+    // Create filename - sanitize for headers
+    const fileName = `${certType.name}-${recipient.regNo || recipient._id}.pdf`.replace(/[^a-zA-Z0-9.-]/g, '_')
+    
+    // Detect if iOS from request headers (User-Agent)
+    const userAgent = request.headers.get('user-agent') || ''
+    const isIOS = /iphone|ipad|ipod/i.test(userAgent)
     
     // Return PDF with proper headers for download
+    // iOS: Use inline to show PDF viewer (user can share/save from there)
+    // Others: Use attachment for direct download
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Disposition': isIOS 
+          ? `inline; filename="${fileName}"` 
+          : `attachment; filename="${fileName}"`,
         'Content-Length': pdfBuffer.length.toString(),
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
+        // Additional headers for better compatibility
+        'X-Content-Type-Options': 'nosniff',
+        'Accept-Ranges': 'bytes',
       },
     })
   } catch (error) {
