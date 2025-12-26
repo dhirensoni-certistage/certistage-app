@@ -130,75 +130,82 @@ export default function EventDownloadPage() {
     try {
       const { recipient, certType } = selectedCertificate
       
-      // Use server-side PDF generation API
-      const pdfUrl = `/api/download/pdf?recipientId=${recipient.id}`
-      
-      // Method 1: Try hidden iframe approach (works in many WebViews)
-      const downloadViaIframe = () => {
-        return new Promise<void>((resolve) => {
-          const iframe = document.createElement('iframe')
-          iframe.style.display = 'none'
-          iframe.src = pdfUrl
-          document.body.appendChild(iframe)
+      // Detect if in WebView/iframe (third-party app)
+      const isInWebView = (() => {
+        try {
+          // Check if in iframe
+          if (window.self !== window.top) return true
           
-          // Give it time to trigger download
-          setTimeout(() => {
-            document.body.removeChild(iframe)
-            resolve()
-          }, 3000)
-        })
-      }
+          // Check for WebView indicators
+          const ua = navigator.userAgent.toLowerCase()
+          return ua.includes('wv') || 
+                 ua.includes('webview') ||
+                 (ua.includes('android') && ua.includes('version/')) ||
+                 (ua.includes('iphone') && !ua.includes('safari'))
+        } catch {
+          return true // Cross-origin iframe
+        }
+      })()
       
-      // Method 2: Try anchor with target _top (escapes iframe)
-      const downloadViaAnchor = () => {
-        const link = document.createElement('a')
-        link.href = pdfUrl
-        link.download = `${certType.name}-${recipient.certificateId}.pdf`
-        link.target = '_top' // Important: escape iframe
-        link.rel = 'noopener'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-      }
-      
-      // Method 3: window.open with _top
-      const downloadViaWindowOpen = () => {
-        window.open(pdfUrl, '_top')
-      }
-      
-      // Detect environment
       const isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
-      const isInIframe = window.self !== window.top
       
-      if (isMobile || isInIframe) {
-        // Try multiple methods for WebView/iframe
-        // First try iframe method
-        await downloadViaIframe()
+      if (isInWebView || isMobile) {
+        // WebView/Mobile: Open in external browser for reliable download
+        // Create full URL to the PDF API
+        const baseUrl = window.location.origin
+        const pdfUrl = `${baseUrl}/api/download/pdf?recipientId=${recipient.id}`
         
-        // Also try anchor as backup
+        // Use intent URL for Android to force external browser
+        const isAndroid = /android/i.test(navigator.userAgent)
+        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+        
+        if (isAndroid) {
+          // Android: Try intent URL to open in Chrome/default browser
+          const intentUrl = `intent://${pdfUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`
+          
+          // First try intent, fallback to regular open
+          try {
+            window.location.href = intentUrl
+          } catch {
+            window.open(pdfUrl, '_system')
+          }
+          
+          // Also try regular window.open as backup
+          setTimeout(() => {
+            window.open(pdfUrl, '_blank')
+          }, 500)
+        } else if (isIOS) {
+          // iOS: window.open with _blank usually opens Safari
+          window.open(pdfUrl, '_blank')
+        } else {
+          // Other: Try standard approaches
+          window.open(pdfUrl, '_blank')
+        }
+        
+        // Show success after delay (we can't track external browser)
         setTimeout(() => {
-          downloadViaAnchor()
-        }, 500)
-        
-        // And window.open as last resort
-        setTimeout(() => {
-          downloadViaWindowOpen()
-        }, 1000)
-      } else {
-        // Desktop: Use fetch + blob for better UX
-        const response = await fetch(pdfUrl)
-        if (!response.ok) throw new Error('Download failed')
-        
-        const blob = await response.blob()
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `${certType.name}-${recipient.certificateId}.pdf`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(url)
+          markAsDownloaded(eventId, recipient.certificateId)
+          setDownloaded(true)
+          setIsDownloading(false)
+          toast.success("Opening in browser for download...")
+        }, 1500)
+        return
       }
+      
+      // Desktop browser: Use fetch + blob for better UX
+      const pdfUrl = `/api/download/pdf?recipientId=${recipient.id}`
+      const response = await fetch(pdfUrl)
+      if (!response.ok) throw new Error('Download failed')
+      
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${certType.name}-${recipient.certificateId}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
 
       markAsDownloaded(eventId, recipient.certificateId)
       setDownloaded(true)
