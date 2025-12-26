@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
-import { Award, Download, Check, AlertCircle, Loader2, Search, User, ArrowLeft, FileText } from "lucide-react"
+import { Award, Download, Check, AlertCircle, Loader2, Search, ArrowLeft, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { getEvent, markAsDownloaded, findRecipientsByContact, type EventRecipient, type CertificateEvent, type CertificateType } from "@/lib/events"
-import { jsPDF } from "jspdf"
 import { cn } from "@/lib/utils"
 
 type Step = "verify" | "select-profile" | "preview"
@@ -124,100 +123,36 @@ export default function EventDownloadPage() {
   }
 
   const handleDownload = async () => {
-    if (!selectedCertificate?.certType.template) return
+    if (!selectedCertificate) return
 
     setIsDownloading(true)
 
     try {
       const { recipient, certType } = selectedCertificate
       
-      const canvas = document.createElement("canvas")
-      const ctx = canvas.getContext("2d")
-      if (!ctx) throw new Error("Canvas error")
-
-      const img = new Image()
-      img.crossOrigin = "anonymous"
-
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve()
-        img.onerror = reject
-        img.src = certType.template!
-      })
-
-      canvas.width = img.width
-      canvas.height = img.height
-      ctx.drawImage(img, 0, 0)
-
-      const textX = (certType.textPosition.x / 100) * canvas.width
-      const textY = (certType.textPosition.y / 100) * canvas.height
-      const fontSize = Math.round(canvas.height * 0.04)
+      // Use server-side PDF generation API - works reliably in WebView
+      const pdfUrl = `/api/download/pdf?recipientId=${recipient.id}`
       
-      ctx.font = `600 ${fontSize}px sans-serif`
-      ctx.fillStyle = "#000000"
-      ctx.textAlign = (certType as any).alignment || "center"
-      ctx.textBaseline = "middle"
-      ctx.fillText(recipient.name, textX, textY)
-
-      const pdfWidth = 297
-      const pdfHeight = (canvas.height / canvas.width) * pdfWidth
-
-      const pdf = new jsPDF({
-        orientation: pdfWidth > pdfHeight ? "landscape" : "portrait",
-        unit: "mm",
-        format: [pdfWidth, pdfHeight],
-      })
-
-      pdf.addImage(canvas.toDataURL("image/jpeg", 1.0), "JPEG", 0, 0, pdfWidth, pdfHeight)
-      
-      const fileName = `${certType.name}-${recipient.certificateId}.pdf`
-      
-      // Get PDF as base64 data URI - works better in WebView
-      const pdfDataUri = pdf.output('datauristring')
-      
-      // Detect mobile device
+      // Detect if mobile
       const isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
-      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
       
       if (isMobile) {
-        // Mobile: Create a download link with data URI
-        const link = document.createElement('a')
-        link.href = pdfDataUri
-        link.download = fileName
-        
-        // For iOS - try opening in new tab (will show PDF with share option)
-        if (isIOS) {
-          // Convert to blob for iOS
-          const pdfBlob = pdf.output('blob')
-          const blobUrl = URL.createObjectURL(pdfBlob)
-          
-          // Try multiple approaches for iOS
-          const newWindow = window.open(blobUrl, '_blank')
-          if (!newWindow) {
-            // Fallback: use location.href
-            window.location.href = pdfDataUri
-          }
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 30000)
-        } else {
-          // Android: Use anchor click with data URI
-          link.style.display = 'none'
-          document.body.appendChild(link)
-          
-          // Try click
-          link.click()
-          
-          // Fallback: Also try opening data URI directly
-          setTimeout(() => {
-            const pdfBlob = pdf.output('blob')
-            const blobUrl = URL.createObjectURL(pdfBlob)
-            window.open(blobUrl, '_system') // _system hint for WebView
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 30000)
-          }, 500)
-          
-          document.body.removeChild(link)
-        }
+        // Mobile/WebView: Direct navigation to PDF URL triggers native download
+        window.location.href = pdfUrl
       } else {
-        // Desktop browser - standard save
-        pdf.save(fileName)
+        // Desktop: Use fetch + blob for better UX
+        const response = await fetch(pdfUrl)
+        if (!response.ok) throw new Error('Download failed')
+        
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `${certType.name}-${recipient.certificateId}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
       }
 
       markAsDownloaded(eventId, recipient.certificateId)
