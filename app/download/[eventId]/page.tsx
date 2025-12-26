@@ -171,40 +171,52 @@ export default function EventDownloadPage() {
       
       const fileName = `${certType.name}-${recipient.certificateId}.pdf`
       
-      // Detect if in WebView/iframe for mobile app compatibility
-      const isWebViewOrIframe = (() => {
-        try {
-          if (window.self !== window.top) return true
-          const ua = navigator.userAgent.toLowerCase()
-          return ua.includes('wv') || ua.includes('webview') || 
-                 (ua.includes('iphone') && !ua.includes('safari')) ||
-                 (ua.includes('android') && ua.includes('version/'))
-        } catch { return true }
-      })()
+      // Get PDF as base64 data URI - works better in WebView
+      const pdfDataUri = pdf.output('datauristring')
       
-      if (isWebViewOrIframe) {
-        // WebView/iframe: Use blob URL approach
-        const pdfBlob = pdf.output('blob')
-        const blobUrl = URL.createObjectURL(pdfBlob)
-        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+      // Detect mobile device
+      const isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+      
+      if (isMobile) {
+        // Mobile: Create a download link with data URI
+        const link = document.createElement('a')
+        link.href = pdfDataUri
+        link.download = fileName
         
+        // For iOS - try opening in new tab (will show PDF with share option)
         if (isIOS) {
-          // iOS: Open in new window for native share sheet
-          window.open(blobUrl, '_blank')
+          // Convert to blob for iOS
+          const pdfBlob = pdf.output('blob')
+          const blobUrl = URL.createObjectURL(pdfBlob)
+          
+          // Try multiple approaches for iOS
+          const newWindow = window.open(blobUrl, '_blank')
+          if (!newWindow) {
+            // Fallback: use location.href
+            window.location.href = pdfDataUri
+          }
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 30000)
         } else {
-          // Android/other: Try anchor download then window.open
-          const link = document.createElement('a')
-          link.href = blobUrl
-          link.download = fileName
-          link.target = '_blank'
+          // Android: Use anchor click with data URI
+          link.style.display = 'none'
           document.body.appendChild(link)
+          
+          // Try click
           link.click()
+          
+          // Fallback: Also try opening data URI directly
+          setTimeout(() => {
+            const pdfBlob = pdf.output('blob')
+            const blobUrl = URL.createObjectURL(pdfBlob)
+            window.open(blobUrl, '_system') // _system hint for WebView
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 30000)
+          }, 500)
+          
           document.body.removeChild(link)
-          setTimeout(() => window.open(blobUrl, '_blank'), 100)
         }
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000)
       } else {
-        // Normal browser
+        // Desktop browser - standard save
         pdf.save(fileName)
       }
 
