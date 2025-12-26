@@ -123,27 +123,6 @@ export default function EventDownloadPage() {
     setDownloaded(false)
   }
 
-  // Detect if running in iframe/WebView (mobile app)
-  const isInIframeOrWebView = () => {
-    try {
-      // Check if in iframe
-      if (window.self !== window.top) return true
-      
-      // Check for common WebView indicators
-      const ua = navigator.userAgent.toLowerCase()
-      const isWebView = 
-        ua.includes('wv') || // Android WebView
-        ua.includes('webview') ||
-        (ua.includes('iphone') && !ua.includes('safari')) || // iOS WebView (no Safari = WebView)
-        (ua.includes('android') && ua.includes('version/')) // Android WebView
-      
-      return isWebView
-    } catch {
-      // If we can't access window.top, we're in a cross-origin iframe
-      return true
-    }
-  }
-
   const handleDownload = async () => {
     if (!selectedCertificate?.certType.template) return
 
@@ -192,48 +171,40 @@ export default function EventDownloadPage() {
       
       const fileName = `${certType.name}-${recipient.certificateId}.pdf`
       
-      // Check if in iframe/WebView - use different download method
-      if (isInIframeOrWebView()) {
-        // For WebView/iframe: Create blob and open in new tab/window
-        // This triggers the native download behavior on mobile
+      // Detect if in WebView/iframe for mobile app compatibility
+      const isWebViewOrIframe = (() => {
+        try {
+          if (window.self !== window.top) return true
+          const ua = navigator.userAgent.toLowerCase()
+          return ua.includes('wv') || ua.includes('webview') || 
+                 (ua.includes('iphone') && !ua.includes('safari')) ||
+                 (ua.includes('android') && ua.includes('version/'))
+        } catch { return true }
+      })()
+      
+      if (isWebViewOrIframe) {
+        // WebView/iframe: Use blob URL approach
         const pdfBlob = pdf.output('blob')
         const blobUrl = URL.createObjectURL(pdfBlob)
-        
-        // Try to trigger download via anchor with download attribute
-        const link = document.createElement('a')
-        link.href = blobUrl
-        link.download = fileName
-        link.target = '_blank' // Important for WebView
-        link.rel = 'noopener noreferrer'
-        
-        // For iOS WebView - need to open blob URL directly
         const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
-        const isAndroid = /android/i.test(navigator.userAgent)
         
         if (isIOS) {
-          // iOS: Open PDF in new window - will show native PDF viewer with share/save option
+          // iOS: Open in new window for native share sheet
           window.open(blobUrl, '_blank')
-        } else if (isAndroid) {
-          // Android: Try download attribute first, fallback to window.open
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          
-          // Also try window.open as backup for some WebViews
-          setTimeout(() => {
-            window.open(blobUrl, '_blank')
-          }, 100)
         } else {
-          // Desktop iframe - standard approach
+          // Android/other: Try anchor download then window.open
+          const link = document.createElement('a')
+          link.href = blobUrl
+          link.download = fileName
+          link.target = '_blank'
           document.body.appendChild(link)
           link.click()
           document.body.removeChild(link)
+          setTimeout(() => window.open(blobUrl, '_blank'), 100)
         }
-        
-        // Clean up blob URL after delay
         setTimeout(() => URL.revokeObjectURL(blobUrl), 10000)
       } else {
-        // Normal browser - use standard jsPDF save
+        // Normal browser
         pdf.save(fileName)
       }
 
