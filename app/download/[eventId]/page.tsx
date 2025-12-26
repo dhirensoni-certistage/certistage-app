@@ -130,15 +130,60 @@ export default function EventDownloadPage() {
     try {
       const { recipient, certType } = selectedCertificate
       
-      // Use server-side PDF generation API - works reliably in WebView
+      // Use server-side PDF generation API
       const pdfUrl = `/api/download/pdf?recipientId=${recipient.id}`
       
-      // Detect if mobile
-      const isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
+      // Method 1: Try hidden iframe approach (works in many WebViews)
+      const downloadViaIframe = () => {
+        return new Promise<void>((resolve) => {
+          const iframe = document.createElement('iframe')
+          iframe.style.display = 'none'
+          iframe.src = pdfUrl
+          document.body.appendChild(iframe)
+          
+          // Give it time to trigger download
+          setTimeout(() => {
+            document.body.removeChild(iframe)
+            resolve()
+          }, 3000)
+        })
+      }
       
-      if (isMobile) {
-        // Mobile/WebView: Direct navigation to PDF URL triggers native download
-        window.location.href = pdfUrl
+      // Method 2: Try anchor with target _top (escapes iframe)
+      const downloadViaAnchor = () => {
+        const link = document.createElement('a')
+        link.href = pdfUrl
+        link.download = `${certType.name}-${recipient.certificateId}.pdf`
+        link.target = '_top' // Important: escape iframe
+        link.rel = 'noopener'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+      
+      // Method 3: window.open with _top
+      const downloadViaWindowOpen = () => {
+        window.open(pdfUrl, '_top')
+      }
+      
+      // Detect environment
+      const isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
+      const isInIframe = window.self !== window.top
+      
+      if (isMobile || isInIframe) {
+        // Try multiple methods for WebView/iframe
+        // First try iframe method
+        await downloadViaIframe()
+        
+        // Also try anchor as backup
+        setTimeout(() => {
+          downloadViaAnchor()
+        }, 500)
+        
+        // And window.open as last resort
+        setTimeout(() => {
+          downloadViaWindowOpen()
+        }, 1000)
       } else {
         // Desktop: Use fetch + blob for better UX
         const response = await fetch(pdfUrl)
