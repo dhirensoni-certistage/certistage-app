@@ -212,3 +212,58 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Failed to delete recipient" }, { status: 500 })
   }
 }
+
+// PUT - Update recipient
+export async function PUT(request: NextRequest) {
+  try {
+    await connectDB()
+    
+    const body = await request.json()
+    const { recipientId, userId, updates } = body
+    
+    if (!recipientId || !userId || !updates) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    // Get recipient
+    const recipient = await Recipient.findById(recipientId)
+    if (!recipient) {
+      return NextResponse.json({ error: "Recipient not found" }, { status: 404 })
+    }
+
+    // Verify ownership through event
+    const event = await Event.findById(recipient.eventId)
+    if (!event || event.ownerId.toString() !== userId) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    }
+
+    // Build full name from prefix + firstName + lastName
+    const prefix = (updates.prefix || recipient.prefix || "").trim()
+    const firstName = (updates.firstName || recipient.firstName || "").trim()
+    const lastName = (updates.lastName || recipient.lastName || "").trim()
+    const fullName = [prefix, firstName, lastName].filter(Boolean).join(" ")
+
+    // Update recipient
+    const updatedRecipient = await Recipient.findByIdAndUpdate(
+      recipientId,
+      {
+        prefix,
+        firstName,
+        lastName,
+        name: fullName,
+        email: updates.email !== undefined ? updates.email.trim() : recipient.email,
+        mobile: updates.mobile !== undefined ? updates.mobile.trim() : recipient.mobile,
+        regNo: updates.regNo !== undefined ? updates.regNo.trim() : recipient.regNo,
+      },
+      { new: true }
+    )
+
+    return NextResponse.json({
+      success: true,
+      recipient: updatedRecipient
+    })
+  } catch (error) {
+    console.error("Recipients PUT error:", error)
+    return NextResponse.json({ error: "Failed to update recipient" }, { status: 500 })
+  }
+}

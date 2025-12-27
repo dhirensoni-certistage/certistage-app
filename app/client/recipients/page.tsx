@@ -24,7 +24,7 @@ import {
 import { getClientSession, getTrialStatus, getCurrentPlanFeatures } from "@/lib/auth"
 import {
   Users, FileSpreadsheet, Search, Trash2, Download, Plus, Lock,
-  UserPlus, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle
+  UserPlus, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Pencil, MoreHorizontal
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -79,6 +79,8 @@ export default function RecipientsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingRecipient, setEditingRecipient] = useState<(EventRecipient & { certTypeId: string }) | null>(null)
   const [addToTypeId, setAddToTypeId] = useState<string>("")
   const [isLoading, setIsLoading] = useState(true)
   const [rowsPerPage, setRowsPerPage] = useState(10)
@@ -295,7 +297,68 @@ export default function RecipientsPage() {
     setDeleteTarget(null)
   }
 
+  // Open edit dialog
+  const openEditDialog = (recipient: EventRecipient & { certTypeId: string }) => {
+    setEditingRecipient(recipient)
+    // Parse name into parts if possible
+    const nameParts = recipient.name?.split(' ') || []
+    const prefix = ['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Prof.', 'Er.'].find(p => nameParts[0] === p) || ''
+    const firstName = prefix ? nameParts.slice(1, -1).join(' ') || nameParts[1] || '' : nameParts.slice(0, -1).join(' ') || nameParts[0] || ''
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : ''
+    
+    setFormPrefix(prefix)
+    setFormFirstName(firstName)
+    setFormLastName(lastName)
+    setFormEmail(recipient.email || '')
+    setFormMobile(recipient.mobile || '')
+    setFormRegNo(recipient.certificateId || '')
+    setIsEditDialogOpen(true)
+  }
 
+  // Handle update recipient
+  const handleUpdateRecipient = async () => {
+    if (!formFirstName.trim()) {
+      toast.error("First Name is required")
+      return
+    }
+    if (!formEmail.trim() && !formMobile.trim()) {
+      toast.error("Please enter email or mobile number")
+      return
+    }
+    if (!editingRecipient || !userId) return
+
+    try {
+      const res = await fetch('/api/client/recipients', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientId: editingRecipient.id,
+          userId,
+          updates: {
+            prefix: formPrefix.trim(),
+            firstName: formFirstName.trim(),
+            lastName: formLastName.trim(),
+            email: formEmail.trim(),
+            mobile: formMobile.trim(),
+            regNo: formRegNo.trim()
+          }
+        })
+      })
+
+      if (res.ok) {
+        if (eventId) fetchEventData(eventId)
+        setIsEditDialogOpen(false)
+        setEditingRecipient(null)
+        resetForm()
+        toast.success("Attendee updated successfully!")
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Failed to update attendee")
+      }
+    } catch (error) {
+      toast.error("Failed to update attendee")
+    }
+  }
 
   const generateRegNo = () => {
     const prefix = "REG"
@@ -808,14 +871,26 @@ export default function RecipientsPage() {
                       </td>
                       <td className="p-3 text-center">{r.downloadCount}</td>
                       <td className="p-3 text-center">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => openDeleteDialog(r)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDialog(r)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => openDeleteDialog(r)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))
@@ -1021,6 +1096,100 @@ export default function RecipientsPage() {
             <Button onClick={handleAddRecipient}>
               <Plus className="h-4 w-4 mr-2" />
               Add Attendee
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Recipient Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5" />
+              Edit Attendee
+            </DialogTitle>
+            <DialogDescription>
+              Update the attendee details
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Prefix (Optional)</Label>
+              <Select value={formPrefix || "none"} onValueChange={(v) => setFormPrefix(v === "none" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Prefix" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="Mr.">Mr.</SelectItem>
+                  <SelectItem value="Ms.">Ms.</SelectItem>
+                  <SelectItem value="Mrs.">Mrs.</SelectItem>
+                  <SelectItem value="Dr.">Dr.</SelectItem>
+                  <SelectItem value="Prof.">Prof.</SelectItem>
+                  <SelectItem value="Er.">Er.</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>First Name <span className="text-destructive">*</span></Label>
+                <Input
+                  placeholder="First name"
+                  value={formFirstName}
+                  onChange={(e) => setFormFirstName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Last Name</Label>
+                <Input
+                  placeholder="Last name"
+                  value={formLastName}
+                  onChange={(e) => setFormLastName(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Email Address</Label>
+              <Input
+                type="email"
+                placeholder="Enter email address"
+                value={formEmail}
+                onChange={(e) => setFormEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Mobile Number</Label>
+              <Input
+                type="tel"
+                placeholder="Enter mobile number"
+                value={formMobile}
+                onChange={(e) => setFormMobile(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Registration No</Label>
+              <Input
+                placeholder="Registration number"
+                value={formRegNo}
+                onChange={(e) => setFormRegNo(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setEditingRecipient(null); resetForm(); }}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateRecipient}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Update Attendee
             </Button>
           </DialogFooter>
         </DialogContent>
