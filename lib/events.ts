@@ -351,6 +351,56 @@ export function deleteRecipient(eventId: string, typeId: string, recipientId: st
   return true
 }
 
+// Update single recipient in certificate type
+export function updateRecipient(
+  eventId: string,
+  typeId: string,
+  recipientId: string,
+  updates: {
+    prefix?: string
+    firstName?: string
+    lastName?: string
+    email?: string
+    mobile?: string
+    regNo?: string
+  }
+): EventRecipient | null {
+  const events = getEvents()
+  const eventIndex = events.findIndex((e) => e.id === eventId)
+  if (eventIndex === -1) return null
+
+  const typeIndex = events[eventIndex].certificateTypes.findIndex(t => t.id === typeId)
+  if (typeIndex === -1) return null
+
+  const recipientIndex = events[eventIndex].certificateTypes[typeIndex].recipients.findIndex(
+    r => r.id === recipientId
+  )
+  if (recipientIndex === -1) return null
+
+  const recipient = events[eventIndex].certificateTypes[typeIndex].recipients[recipientIndex]
+  
+  // Update fields
+  const prefix = updates.prefix !== undefined ? updates.prefix.trim() : recipient.prefix
+  const firstName = updates.firstName !== undefined ? updates.firstName.trim() : recipient.firstName
+  const lastName = updates.lastName !== undefined ? updates.lastName.trim() : recipient.lastName
+  const fullName = [prefix, firstName, lastName].filter(Boolean).join(" ")
+  
+  events[eventIndex].certificateTypes[typeIndex].recipients[recipientIndex] = {
+    ...recipient,
+    prefix,
+    firstName,
+    lastName,
+    name: fullName,
+    email: updates.email !== undefined ? updates.email.trim() : recipient.email,
+    mobile: updates.mobile !== undefined ? updates.mobile.trim() : recipient.mobile,
+    regNo: updates.regNo !== undefined ? updates.regNo.trim() : recipient.regNo,
+    certificateId: updates.regNo !== undefined ? updates.regNo.trim() : recipient.certificateId,
+  }
+
+  localStorage.setItem(EVENTS_KEY, JSON.stringify(events))
+  return events[eventIndex].certificateTypes[typeIndex].recipients[recipientIndex]
+}
+
 // Get recipient by certificate ID
 export function getRecipientByCertificateId(
   eventId: string,

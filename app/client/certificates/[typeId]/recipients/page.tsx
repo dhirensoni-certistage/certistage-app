@@ -15,12 +15,18 @@ import {
 } from "@/components/ui/dialog"
 import { getClientSession, getCurrentPlanFeatures } from "@/lib/auth"
 import {
-  getEvent, addRecipientsToCertType, clearCertTypeRecipients,
+  getEvent, addRecipientsToCertType, clearCertTypeRecipients, updateRecipient, deleteRecipient,
   type CertificateType
 } from "@/lib/events"
-import { ArrowLeft, Users, FileSpreadsheet, Plus, Search, Trash2, Download, UserPlus, Lock } from "lucide-react"
+import { ArrowLeft, Users, FileSpreadsheet, Plus, Search, Trash2, Download, UserPlus, Lock, Pencil, MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
 import * as XLSX from "xlsx"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function CertTypeRecipientsPage() {
   const params = useParams()
@@ -32,9 +38,11 @@ export default function CertTypeRecipientsPage() {
   const [eventName, setEventName] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingRecipient, setEditingRecipient] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Form fields for adding single recipient
+  // Form fields for adding/editing recipient
   const [formPrefix, setFormPrefix] = useState("")
   const [formFirstName, setFormFirstName] = useState("")
   const [formLastName, setFormLastName] = useState("")
@@ -126,6 +134,67 @@ export default function CertTypeRecipientsPage() {
     setIsAddDialogOpen(false)
     resetForm()
     toast.success(`${recipient.firstName} ${recipient.lastName} added successfully!`)
+  }
+
+  // Open edit dialog with recipient data
+  const openEditDialog = (recipient: any) => {
+    setEditingRecipient(recipient)
+    setFormPrefix(recipient.prefix || "")
+    setFormFirstName(recipient.firstName || recipient.name || "")
+    setFormLastName(recipient.lastName || "")
+    setFormEmail(recipient.email || "")
+    setFormMobile(recipient.mobile || "")
+    setFormRegNo(recipient.certificateId || recipient.regNo || "")
+    setIsEditDialogOpen(true)
+  }
+
+  // Handle update recipient
+  const handleUpdateRecipient = () => {
+    if (!formFirstName.trim()) {
+      toast.error("First Name is required")
+      return
+    }
+
+    if (!formEmail.trim() && !formMobile.trim()) {
+      toast.error("Please enter email or mobile number")
+      return
+    }
+
+    if (!eventId || !editingRecipient) return
+
+    const result = updateRecipient(eventId, typeId, editingRecipient.id, {
+      prefix: formPrefix.trim(),
+      firstName: formFirstName.trim(),
+      lastName: formLastName.trim(),
+      email: formEmail.trim(),
+      mobile: formMobile.trim(),
+      regNo: formRegNo.trim()
+    })
+
+    if (result) {
+      refreshData()
+      setIsEditDialogOpen(false)
+      setEditingRecipient(null)
+      resetForm()
+      toast.success("Attendee updated successfully!")
+    } else {
+      toast.error("Failed to update attendee")
+    }
+  }
+
+  // Handle delete recipient
+  const handleDeleteRecipient = (recipientId: string, recipientName: string) => {
+    if (!eventId) return
+    
+    if (confirm(`Are you sure you want to delete "${recipientName}"?`)) {
+      const result = deleteRecipient(eventId, typeId, recipientId)
+      if (result) {
+        refreshData()
+        toast.success("Attendee deleted successfully!")
+      } else {
+        toast.error("Failed to delete attendee")
+      }
+    }
   }
 
   // Handle Excel upload
@@ -360,6 +429,7 @@ export default function CertTypeRecipientsPage() {
                       <TableHead>Registration No</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Downloads</TableHead>
+                      <TableHead className="w-16">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -385,6 +455,28 @@ export default function CertTypeRecipientsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">{r.downloadCount}</TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditDialog(r)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteRecipient(r.id, r.name)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -495,6 +587,107 @@ export default function CertTypeRecipientsPage() {
             <Button onClick={handleAddRecipient}>
               <Plus className="h-4 w-4 mr-2" />
               Add Attendee
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Recipient Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5" />
+              Edit Attendee
+            </DialogTitle>
+            <DialogDescription>
+              Update the attendee details
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-prefix">Prefix (Optional)</Label>
+              <select
+                id="edit-prefix"
+                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
+                value={formPrefix}
+                onChange={(e) => setFormPrefix(e.target.value)}
+              >
+                <option value="">Select Prefix</option>
+                <option value="Mr.">Mr.</option>
+                <option value="Ms.">Ms.</option>
+                <option value="Mrs.">Mrs.</option>
+                <option value="Dr.">Dr.</option>
+                <option value="Prof.">Prof.</option>
+                <option value="Er.">Er.</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-firstName">
+                  First Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="edit-firstName"
+                  placeholder="First name"
+                  value={formFirstName}
+                  onChange={(e) => setFormFirstName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-lastName">Last Name</Label>
+                <Input
+                  id="edit-lastName"
+                  placeholder="Last name"
+                  value={formLastName}
+                  onChange={(e) => setFormLastName(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email Address</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                placeholder="Enter email address"
+                value={formEmail}
+                onChange={(e) => setFormEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-mobile">Mobile Number</Label>
+              <Input
+                id="edit-mobile"
+                type="tel"
+                placeholder="Enter mobile number (e.g., +91-9876543210)"
+                value={formMobile}
+                onChange={(e) => setFormMobile(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-regNo">Registration No</Label>
+              <Input
+                id="edit-regNo"
+                placeholder="Enter registration number"
+                value={formRegNo}
+                onChange={(e) => setFormRegNo(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setEditingRecipient(null); resetForm(); }}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateRecipient}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Update Attendee
             </Button>
           </DialogFooter>
         </DialogContent>
