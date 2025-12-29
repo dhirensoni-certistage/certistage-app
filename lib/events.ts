@@ -36,6 +36,7 @@ export interface CertificateType {
   fontFamily: string // font family name
   fontBold: boolean
   fontItalic: boolean
+  textCase?: "none" | "uppercase" | "lowercase" | "capitalize" // text transformation
   showNameField?: boolean // whether to show the NAME field (default true)
   customFields?: TextField[] // custom variables
   signatures?: SignatureField[] // digital signatures

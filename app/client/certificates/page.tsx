@@ -237,6 +237,7 @@ export default function CertificatesPage() {
               fontFamily: ct.fontFamily || "Arial",
               fontBold: ct.fontBold || false,
               fontItalic: ct.fontItalic || false,
+              textCase: ct.textCase || "none",
               showNameField: ct.showNameField !== false,
               customFields: ct.customFields || [],
               signatures: ct.signatures || [],
@@ -1162,7 +1163,7 @@ function TemplateEditor({
   onRemoveTemplate: () => void
   onTogglePreview: () => void
   onPositionChange: (axis: "x" | "y", value: number) => void
-  onFontChange: (updates: { fontSize?: number; fontFamily?: string; fontBold?: boolean; fontItalic?: boolean }) => void
+  onFontChange: (updates: { fontSize?: number; fontFamily?: string; fontBold?: boolean; fontItalic?: boolean; textCase?: string }) => void
   onAddCustomField: (variable: string) => void
   onRemoveCustomField: (fieldId: string) => void
   onAddSignature: (file: File) => void
@@ -1279,7 +1280,8 @@ function TemplateEditor({
                         fontSize: `max(10px, ${(certType.fontSize || 24) * 0.0625}cqi)`,
                         fontFamily: certType.fontFamily || 'Arial',
                         fontWeight: certType.fontBold ? 'bold' : 'normal',
-                        fontStyle: certType.fontItalic ? 'italic' : 'normal'
+                        fontStyle: certType.fontItalic ? 'italic' : 'normal',
+                        textTransform: certType.textCase === 'uppercase' ? 'uppercase' : certType.textCase === 'lowercase' ? 'lowercase' : certType.textCase === 'capitalize' ? 'capitalize' : 'none'
                       }}
                     >John Anderson</span>
                   )}
@@ -1497,6 +1499,19 @@ function TemplateEditor({
                 <Italic className="h-4 w-4 mr-1" />
                 Italic
               </Button>
+            </div>
+            <div>
+              <Label className="text-xs mb-2 block">Text Case</Label>
+              <select
+                value={certType.textCase || "none"}
+                onChange={(e) => onFontChange({ textCase: e.target.value })}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
+              >
+                <option value="none">As Entered</option>
+                <option value="uppercase">UPPERCASE</option>
+                <option value="lowercase">lowercase</option>
+                <option value="capitalize">Capitalize Each Word</option>
+              </select>
             </div>
           </CardContent>
         </Card>
