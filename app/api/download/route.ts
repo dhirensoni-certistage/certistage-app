@@ -209,8 +209,18 @@ export async function POST(request: NextRequest) {
     } else if (searchType === "regNo") {
       query.regNo = { $regex: searchQuery, $options: "i" }
     } else {
-      // Default: search by name
-      query.name = { $regex: searchQuery, $options: "i" }
+      // Default: search by name - split into words for partial matching
+      // This allows "komal patel" to match "Ms Komal Patel" or "Dr. Komal Patel"
+      const searchWords = searchQuery.trim().split(/\s+/).filter((w: string) => w.length > 0)
+      if (searchWords.length > 1) {
+        // Multiple words: all words must be present (in any order)
+        query.$and = searchWords.map((word: string) => ({
+          name: { $regex: word, $options: "i" }
+        }))
+      } else {
+        // Single word: simple regex match
+        query.name = { $regex: searchQuery, $options: "i" }
+      }
     }
     
     const recipients = await Recipient.find(query)
