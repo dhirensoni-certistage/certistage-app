@@ -8,14 +8,22 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import { getClientSession } from "@/lib/auth"
 import { 
   ArrowLeft, Upload, Trash2, Move, AlignLeft, AlignCenter, AlignRight, Eye, Check, Loader2,
-  Users, Link as LinkIcon, Settings
+  Users, Link as LinkIcon, Settings, Search
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+
+interface SearchFields {
+  name: boolean
+  email: boolean
+  mobile: boolean
+  regNo: boolean
+}
 
 interface CertificateType {
   id: string
@@ -28,6 +36,7 @@ interface CertificateType {
   fontItalic?: boolean
   alignment?: "left" | "center" | "right"
   stats: { total: number; downloaded: number; pending: number }
+  searchFields?: SearchFields
 }
 
 export default function CertificateTemplatePage() {
@@ -46,6 +55,12 @@ export default function CertificateTemplatePage() {
   const [textPosition, setTextPosition] = useState({ x: 50, y: 60 })
   const [fontSize, setFontSize] = useState(24)
   const [isDragging, setIsDragging] = useState(false)
+  const [searchFields, setSearchFields] = useState<SearchFields>({
+    name: true,
+    email: false,
+    mobile: false,
+    regNo: false
+  })
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -73,6 +88,9 @@ export default function CertificateTemplatePage() {
           }
           if (data.certificateType?.fontSize) {
             setFontSize(data.certificateType.fontSize)
+          }
+          if (data.certificateType?.searchFields) {
+            setSearchFields(data.certificateType.searchFields)
           }
         }
       } catch (error) {
@@ -128,11 +146,17 @@ export default function CertificateTemplatePage() {
           userId,
           typeId,
           textPosition,
-          fontSize
+          fontSize,
+          searchFields
         })
       })
       
       if (res.ok) {
+        const data = await res.json()
+        // Update local state with saved data
+        if (data.certificateType) {
+          setCertType(prev => prev ? { ...prev, ...data.certificateType } : null)
+        }
         toast.success("Settings saved!")
       } else {
         toast.error("Failed to save")
@@ -351,6 +375,64 @@ export default function CertificateTemplatePage() {
                 {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
                 Save Settings
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* Search Fields Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                Search Fields
+              </CardTitle>
+              <CardDescription>
+                Select which fields users can search by on download page
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="search-name"
+                  checked={searchFields.name}
+                  onCheckedChange={(checked) => 
+                    setSearchFields(prev => ({ ...prev, name: checked as boolean }))
+                  }
+                />
+                <Label htmlFor="search-name" className="cursor-pointer">Name</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="search-email"
+                  checked={searchFields.email}
+                  onCheckedChange={(checked) => 
+                    setSearchFields(prev => ({ ...prev, email: checked as boolean }))
+                  }
+                />
+                <Label htmlFor="search-email" className="cursor-pointer">Email</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="search-mobile"
+                  checked={searchFields.mobile}
+                  onCheckedChange={(checked) => 
+                    setSearchFields(prev => ({ ...prev, mobile: checked as boolean }))
+                  }
+                />
+                <Label htmlFor="search-mobile" className="cursor-pointer">Mobile</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="search-regNo"
+                  checked={searchFields.regNo}
+                  onCheckedChange={(checked) => 
+                    setSearchFields(prev => ({ ...prev, regNo: checked as boolean }))
+                  }
+                />
+                <Label htmlFor="search-regNo" className="cursor-pointer">Registration No</Label>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                At least one field must be selected for search
+              </p>
             </CardContent>
           </Card>
         </div>

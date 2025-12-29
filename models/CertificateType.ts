@@ -32,6 +32,13 @@ export interface ICustomField {
   fontItalic: boolean
 }
 
+export interface ISearchFields {
+  name: boolean
+  email: boolean
+  mobile: boolean
+  regNo: boolean
+}
+
 export interface ICertificateType extends Document {
   name: string
   eventId: mongoose.Types.ObjectId
@@ -48,6 +55,8 @@ export interface ICertificateType extends Document {
   signatures: ISignatureField[]
   isActive: boolean
   shortCode?: string
+  // Search configuration for download page
+  searchFields: ISearchFields
   createdAt: Date
   updatedAt: Date
 }
@@ -105,9 +114,15 @@ const CertificateTypeSchema = new Schema<ICertificateType>(
     showNameField: { type: Boolean, default: true },
     customFields: [CustomFieldSchema],
     signatures: [SignatureFieldSchema],
-    signatures: [SignatureFieldSchema],
     isActive: { type: Boolean, default: true },
-    shortCode: { type: String, unique: true, sparse: true }
+    shortCode: { type: String, unique: true, sparse: true },
+    // Search configuration for download page
+    searchFields: {
+      name: { type: Boolean, default: true },
+      email: { type: Boolean, default: false },
+      mobile: { type: Boolean, default: false },
+      regNo: { type: Boolean, default: false }
+    }
   },
   { timestamps: true }
 )

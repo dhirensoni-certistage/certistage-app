@@ -17,6 +17,13 @@ export interface SignatureField {
   width: number // percentage of template width
 }
 
+export interface SearchFields {
+  name: boolean
+  email: boolean
+  mobile: boolean
+  regNo: boolean
+}
+
 export interface CertificateType {
   id: string
   name: string // e.g., "Participation", "Winner", "Appreciation"
@@ -32,6 +39,7 @@ export interface CertificateType {
   showNameField?: boolean // whether to show the NAME field (default true)
   customFields?: TextField[] // custom variables
   signatures?: SignatureField[] // digital signatures
+  searchFields?: SearchFields // which fields can be searched on download page
   recipients: EventRecipient[]
   stats: {
     total: number

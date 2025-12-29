@@ -198,6 +198,12 @@ export async function PUT(request: NextRequest) {
         name: updated.name,
         templateImage: updated.templateImage,
         textFields: updated.textFields,
+        textPosition: updated.textPosition,
+        fontSize: updated.fontSize,
+        fontFamily: updated.fontFamily,
+        fontBold: updated.fontBold,
+        fontItalic: updated.fontItalic,
+        searchFields: updated.searchFields,
         updatedAt: updated.updatedAt
       }
     })
