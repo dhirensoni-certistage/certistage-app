@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -64,7 +65,7 @@ const AVAILABLE_VARIABLES = [
 ]
 import {
   Plus, FileText, Trash2, Image, Upload, Move, Eye, Check, ArrowLeft,
-  Bold, Italic, Link as LinkIcon, Copy, Users, Download, Settings, PenTool, X, Crown, Award, Lock
+  Bold, Italic, Link as LinkIcon, Copy, Users, Download, Settings, PenTool, X, Crown, Award, Lock, Search
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -239,6 +240,7 @@ export default function CertificatesPage() {
               showNameField: ct.showNameField !== false,
               customFields: ct.customFields || [],
               signatures: ct.signatures || [],
+              searchFields: ct.searchFields || { name: true, email: false, mobile: false, regNo: false },
               recipients: ct.recipients || [],
               stats: ct.stats,
               createdAt: ct.createdAt || new Date().toISOString()
@@ -879,6 +881,14 @@ export default function CertificatesPage() {
                   toast.success("NAME field restored")
                 }
               }}
+              onSearchFieldsChange={(searchFields) => {
+                if (eventId && selectedTypeId) {
+                  // Optimistic UI update
+                  updateLocalCertType({ searchFields })
+                  // Sync to API in background
+                  syncToAPI(selectedTypeId, { searchFields })
+                }
+              }}
             />
           </TabsContent>
 
@@ -1120,7 +1130,7 @@ function TemplateEditor({
   certType, localPosition, localFieldPositions, localSignaturePositions, localSignatureWidths, isDragging, isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, showPreview, containerRef,
   onDragOver, onDragLeave, onDrop, onFileInput, onMouseDown, onFieldMouseDown, onSignatureMouseDown, onSignatureResizeStart,
   onRemoveTemplate, onTogglePreview, onPositionChange, onFontChange, onAddCustomField, onRemoveCustomField,
-  onAddSignature, onRemoveSignature, onSignatureWidthChange, onRemoveNameField, onRestoreNameField,
+  onAddSignature, onRemoveSignature, onSignatureWidthChange, onRemoveNameField, onRestoreNameField, onSearchFieldsChange,
 }: {
   certType: CertificateType
   localPosition: { x: number; y: number }
@@ -1153,6 +1163,7 @@ function TemplateEditor({
   onSignatureWidthChange: (id: string, width: number) => void
   onRemoveNameField: () => void
   onRestoreNameField: () => void
+  onSearchFieldsChange: (searchFields: { name: boolean; email: boolean; mobile: boolean; regNo: boolean }) => void
 }) {
   if (!certType.template) {
     return (
@@ -1561,6 +1572,76 @@ function TemplateEditor({
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Search Fields Configuration */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Search Fields
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Select which fields users can search by on download page
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="search-name"
+                checked={certType.searchFields?.name ?? true}
+                onCheckedChange={(checked) => 
+                  onSearchFieldsChange({ 
+                    ...certType.searchFields || { name: true, email: false, mobile: false, regNo: false },
+                    name: checked as boolean 
+                  })
+                }
+              />
+              <Label htmlFor="search-name" className="text-sm cursor-pointer">Name</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="search-email"
+                checked={certType.searchFields?.email ?? false}
+                onCheckedChange={(checked) => 
+                  onSearchFieldsChange({ 
+                    ...certType.searchFields || { name: true, email: false, mobile: false, regNo: false },
+                    email: checked as boolean 
+                  })
+                }
+              />
+              <Label htmlFor="search-email" className="text-sm cursor-pointer">Email</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="search-mobile"
+                checked={certType.searchFields?.mobile ?? false}
+                onCheckedChange={(checked) => 
+                  onSearchFieldsChange({ 
+                    ...certType.searchFields || { name: true, email: false, mobile: false, regNo: false },
+                    mobile: checked as boolean 
+                  })
+                }
+              />
+              <Label htmlFor="search-mobile" className="text-sm cursor-pointer">Mobile</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="search-regNo"
+                checked={certType.searchFields?.regNo ?? false}
+                onCheckedChange={(checked) => 
+                  onSearchFieldsChange({ 
+                    ...certType.searchFields || { name: true, email: false, mobile: false, regNo: false },
+                    regNo: checked as boolean 
+                  })
+                }
+              />
+              <Label htmlFor="search-regNo" className="text-sm cursor-pointer">Registration No</Label>
+            </div>
+            <p className="text-xs text-muted-foreground pt-1">
+              Users will search by selected fields on download page
+            </p>
           </CardContent>
         </Card>
       </div>

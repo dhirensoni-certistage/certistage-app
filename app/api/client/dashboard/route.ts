@@ -102,6 +102,7 @@ export async function GET(request: NextRequest) {
           showNameField: ctAny.showNameField !== false,
           customFields: ctAny.customFields || [],
           signatures: ctAny.signatures || [],
+          searchFields: ctAny.searchFields || { name: true, email: false, mobile: false, regNo: false },
           createdAt: ctAny.createdAt,
           shortCode: ctAny.shortCode,
           recipients: typeData.recipients.map((r: any) => ({
@@ -152,6 +153,7 @@ export async function GET(request: NextRequest) {
           showNameField: ctAny.showNameField !== false,
           customFields: ctAny.customFields || [],
           signatures: ctAny.signatures || [],
+          searchFields: ctAny.searchFields || { name: true, email: false, mobile: false, regNo: false },
           createdAt: ctAny.createdAt,
           shortCode: ctAny.shortCode,
           recipients: [],
