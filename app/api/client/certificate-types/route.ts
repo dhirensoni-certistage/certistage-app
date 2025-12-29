@@ -44,7 +44,9 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         certificateType: {
+          id: (certType as any)._id,
           ...certType,
+          searchFields: (certType as any).searchFields || { name: true, email: false, mobile: false, regNo: false },
           stats: { total, downloaded, pending: total - downloaded }
         }
       })
@@ -73,6 +75,7 @@ export async function GET(request: NextRequest) {
 
       return {
         ...type,
+        searchFields: (type as any).searchFields || { name: true, email: false, mobile: false, regNo: false },
         stats: {
           total,
           downloaded,
@@ -121,7 +124,6 @@ export async function POST(request: NextRequest) {
       name,
       eventId,
       templateImage: templateImage || "",
-      textFields: textFields || [],
       textFields: textFields || [],
       isActive: true,
       shortCode: generateShortCode()
@@ -181,6 +183,7 @@ export async function PUT(request: NextRequest) {
     if (body.showNameField !== undefined) updateData.showNameField = body.showNameField
     if (body.customFields !== undefined) updateData.customFields = body.customFields
     if (body.signatures !== undefined) updateData.signatures = body.signatures
+    if (body.searchFields !== undefined) updateData.searchFields = body.searchFields
 
     const updated = await CertificateType.findByIdAndUpdate(
       typeId,
