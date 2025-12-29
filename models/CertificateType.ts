@@ -39,6 +39,8 @@ export interface ISearchFields {
   regNo: boolean
 }
 
+export type TextCase = "none" | "uppercase" | "lowercase" | "capitalize"
+
 export interface ICertificateType extends Document {
   name: string
   eventId: mongoose.Types.ObjectId
@@ -50,6 +52,7 @@ export interface ICertificateType extends Document {
   fontBold: boolean
   fontItalic: boolean
   textPosition: { x: number; y: number }
+  textCase: TextCase
   showNameField: boolean
   customFields: ICustomField[]
   signatures: ISignatureField[]
@@ -111,6 +114,7 @@ const CertificateTypeSchema = new Schema<ICertificateType>(
       x: { type: Number, default: 50 },
       y: { type: Number, default: 60 }
     },
+    textCase: { type: String, enum: ["none", "uppercase", "lowercase", "capitalize"], default: "none" },
     showNameField: { type: Boolean, default: true },
     customFields: [CustomFieldSchema],
     signatures: [SignatureFieldSchema],

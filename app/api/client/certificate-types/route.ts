@@ -181,6 +181,7 @@ export async function PUT(request: NextRequest) {
     if (body.fontItalic !== undefined) updateData.fontItalic = body.fontItalic
     if (body.textPosition !== undefined) updateData.textPosition = body.textPosition
     if (body.showNameField !== undefined) updateData.showNameField = body.showNameField
+    if (body.textCase !== undefined) updateData.textCase = body.textCase
     if (body.customFields !== undefined) updateData.customFields = body.customFields
     if (body.signatures !== undefined) updateData.signatures = body.signatures
     if (body.searchFields !== undefined) updateData.searchFields = body.searchFields
@@ -203,6 +204,7 @@ export async function PUT(request: NextRequest) {
         fontFamily: updated.fontFamily,
         fontBold: updated.fontBold,
         fontItalic: updated.fontItalic,
+        textCase: updated.textCase,
         searchFields: updated.searchFields,
         updatedAt: updated.updatedAt
       }

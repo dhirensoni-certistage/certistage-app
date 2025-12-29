@@ -86,8 +86,25 @@ export async function GET(request: NextRequest) {
     pdf.setFont('helvetica', certType.fontBold ? 'bold' : 'normal')
     pdf.setTextColor(0, 0, 0)
     
+    // Apply text case transformation
+    let displayName = recipient.name
+    const textCase = certType.textCase || 'none'
+    switch (textCase) {
+      case 'uppercase':
+        displayName = displayName.toUpperCase()
+        break
+      case 'lowercase':
+        displayName = displayName.toLowerCase()
+        break
+      case 'capitalize':
+        displayName = displayName.split(' ').map((word: string) => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(' ')
+        break
+    }
+    
     // Center align text
-    pdf.text(recipient.name, textX, textY, { align: 'center' })
+    pdf.text(displayName, textX, textY, { align: 'center' })
 
     // Generate PDF buffer
     const pdfBuffer = Buffer.from(pdf.output('arraybuffer'))

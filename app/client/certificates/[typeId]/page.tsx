@@ -12,11 +12,18 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { getClientSession } from "@/lib/auth"
 import { 
   ArrowLeft, Upload, Trash2, Move, AlignLeft, AlignCenter, AlignRight, Eye, Check, Loader2,
-  Users, Link as LinkIcon, Settings, Search
+  Users, Link as LinkIcon, Settings, Search, Type
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface SearchFields {
   name: boolean
@@ -24,6 +31,8 @@ interface SearchFields {
   mobile: boolean
   regNo: boolean
 }
+
+type TextCase = "none" | "uppercase" | "lowercase" | "capitalize"
 
 interface CertificateType {
   id: string
@@ -34,6 +43,7 @@ interface CertificateType {
   fontFamily?: string
   fontBold?: boolean
   fontItalic?: boolean
+  textCase?: TextCase
   alignment?: "left" | "center" | "right"
   stats: { total: number; downloaded: number; pending: number }
   searchFields?: SearchFields
@@ -54,6 +64,7 @@ export default function CertificateTemplatePage() {
   // Template editing state
   const [textPosition, setTextPosition] = useState({ x: 50, y: 60 })
   const [fontSize, setFontSize] = useState(24)
+  const [textCase, setTextCase] = useState<TextCase>("none")
   const [isDragging, setIsDragging] = useState(false)
   const [searchFields, setSearchFields] = useState<SearchFields>({
     name: true,
@@ -91,6 +102,9 @@ export default function CertificateTemplatePage() {
           }
           if (data.certificateType?.searchFields) {
             setSearchFields(data.certificateType.searchFields)
+          }
+          if (data.certificateType?.textCase) {
+            setTextCase(data.certificateType.textCase)
           }
         }
       } catch (error) {
@@ -147,6 +161,7 @@ export default function CertificateTemplatePage() {
           typeId,
           textPosition,
           fontSize,
+          textCase,
           searchFields
         })
       })
@@ -183,6 +198,22 @@ export default function CertificateTemplatePage() {
       x: Math.max(0, Math.min(100, x)),
       y: Math.max(0, Math.min(100, y))
     })
+  }
+
+  // Transform text based on textCase setting
+  const transformText = (text: string): string => {
+    switch (textCase) {
+      case "uppercase":
+        return text.toUpperCase()
+      case "lowercase":
+        return text.toLowerCase()
+      case "capitalize":
+        return text.split(" ").map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(" ")
+      default:
+        return text
+    }
   }
 
   if (isLoading) {
@@ -281,7 +312,7 @@ export default function CertificateTemplatePage() {
                       }}
                       onMouseDown={handleMouseDown}
                     >
-                      <span className="text-primary font-semibold">Recipient Name</span>
+                      <span className="text-primary font-semibold">{transformText("Recipient Name")}</span>
                     </div>
                   </>
                 ) : (
@@ -369,6 +400,24 @@ export default function CertificateTemplatePage() {
                   max={72}
                   step={1}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Type className="h-4 w-4" />
+                  Text Case
+                </Label>
+                <Select value={textCase} onValueChange={(value: TextCase) => setTextCase(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select text case" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">As Entered</SelectItem>
+                    <SelectItem value="uppercase">UPPERCASE</SelectItem>
+                    <SelectItem value="lowercase">lowercase</SelectItem>
+                    <SelectItem value="capitalize">Capitalize Each Word</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <Button onClick={savePosition} disabled={isSaving} className="w-full">
