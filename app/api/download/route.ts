@@ -153,6 +153,7 @@ export async function GET(request: NextRequest) {
           showNameField: certType.showNameField !== false,
           customFields: certType.customFields || [],
           signatures: certType.signatures || [],
+          searchFields: certType.searchFields || { name: true, email: false, mobile: false, regNo: false },
           stats: {
             total: recipients.length,
             downloaded,

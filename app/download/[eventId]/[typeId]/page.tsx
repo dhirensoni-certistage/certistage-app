@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
-import { Award, Download, Check, AlertCircle, Loader2, Search, User, ArrowLeft } from "lucide-react"
+import { Award, Download, Check, AlertCircle, Loader2, Search, User, ArrowLeft, Mail, Phone, Hash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { type EventRecipient, type CertificateType, type CertificateEvent } from "@/lib/events"
 import { jsPDF } from "jspdf"
@@ -29,6 +30,7 @@ export default function CertTypeDownloadPage() {
   
   const [step, setStep] = useState<Step>("verify")
   const [searchValue, setSearchValue] = useState("")
+  const [searchField, setSearchField] = useState<string>("name")
   const [isVerifying, setIsVerifying] = useState(false)
   
   const [matchedRecipients, setMatchedRecipients] = useState<EventRecipient[]>([])
@@ -105,6 +107,7 @@ export default function CertTypeDownloadPage() {
           showNameField: data.certificateType.showNameField !== false,
           customFields: data.certificateType.customFields || [],
           signatures: data.certificateType.signatures || [],
+          searchFields: data.certificateType.searchFields || { name: true, email: false, mobile: false, regNo: false },
           recipients: data.recipients || [],
           stats: data.certificateType.stats || { total: 0, downloaded: 0, pending: 0 },
           createdAt: data.certificateType.createdAt || new Date().toISOString()
@@ -123,9 +126,89 @@ export default function CertTypeDownloadPage() {
     fetchData()
   }, [eventId, typeId])
 
+  // Update searchField when certType changes
+  useEffect(() => {
+    if (certType?.searchFields) {
+      if (certType.searchFields.name) setSearchField("name")
+      else if (certType.searchFields.email) setSearchField("email")
+      else if (certType.searchFields.mobile) setSearchField("mobile")
+      else if (certType.searchFields.regNo) setSearchField("regNo")
+    }
+  }, [certType])
+
+  const getSearchFieldLabel = (field: string) => {
+    switch (field) {
+      case "name": return "Name"
+      case "email": return "Email"
+      case "mobile": return "Mobile Number"
+      case "regNo": return "Registration No"
+      default: return field
+    }
+  }
+
+  const getSearchFieldIcon = (field: string) => {
+    switch (field) {
+      case "name": return <User className="h-4 w-4" />
+      case "email": return <Mail className="h-4 w-4" />
+      case "mobile": return <Phone className="h-4 w-4" />
+      case "regNo": return <Hash className="h-4 w-4" />
+      default: return <Search className="h-4 w-4" />
+    }
+  }
+
+  const getSearchFieldPlaceholder = (field: string) => {
+    switch (field) {
+      case "name": return "Enter your full name"
+      case "email": return "Enter your email address"
+      case "mobile": return "Enter your mobile number"
+      case "regNo": return "Enter your registration number"
+      default: return "Enter search value"
+    }
+  }
+
+  const getEnabledSearchFields = () => {
+    if (!certType?.searchFields) return ["name", "email", "mobile"]
+    const fields: string[] = []
+    if (certType.searchFields.name) fields.push("name")
+    if (certType.searchFields.email) fields.push("email")
+    if (certType.searchFields.mobile) fields.push("mobile")
+    if (certType.searchFields.regNo) fields.push("regNo")
+    return fields.length > 0 ? fields : ["name", "email", "mobile"]
+  }
+
+  const getSearchDescription = () => {
+    if (!certType?.searchFields) {
+      return "Enter your registered email or mobile number"
+    }
+    
+    const enabledFields = getEnabledSearchFields()
+    if (enabledFields.length === 0) {
+      return "Enter your registered email or mobile number"
+    }
+    
+    if (enabledFields.length === 1) {
+      const field = enabledFields[0]
+      return `Enter your registered ${getSearchFieldLabel(field).toLowerCase()}`
+    }
+    
+    // Multiple fields enabled
+    const fieldLabels = enabledFields.map(f => getSearchFieldLabel(f).toLowerCase())
+    if (fieldLabels.length === 2) {
+      return `Enter your registered ${fieldLabels.join(" or ")}`
+    }
+    
+    const lastField = fieldLabels.pop()
+    return `Enter your registered ${fieldLabels.join(", ")} or ${lastField}`
+  }
+
   const handleVerify = () => {
     if (!searchValue.trim() || !certType) {
-      toast.error("Please enter your email or mobile number")
+      const enabledFields = getEnabledSearchFields()
+      if (enabledFields.length === 2) {
+        toast.error(`Please enter your ${enabledFields.map(f => getSearchFieldLabel(f).toLowerCase()).join(" or ")}`)
+      } else {
+        toast.error(`Please enter your ${getSearchFieldLabel(searchField).toLowerCase()}`)
+      }
       return
     }
 
@@ -134,32 +217,70 @@ export default function CertTypeDownloadPage() {
     setTimeout(() => {
       const searchLower = searchValue.toLowerCase().trim()
       const searchDigits = searchValue.replace(/[^0-9]/g, "")
+      const enabledFields = getEnabledSearchFields()
       
-      // Strict matching - exact email or mobile (last 10 digits)
+      // If 2 fields enabled, search in both fields
       const matches = certType.recipients.filter(r => {
-        // Exact email match
-        if (r.email && r.email.toLowerCase() === searchLower) {
-          return true
-        }
-        // Mobile match - compare last 10 digits for exact match
-        if (searchDigits.length >= 10) {
-          const recipientDigits = r.mobile.replace(/[^0-9]/g, "")
-          const searchLast10 = searchDigits.slice(-10)
-          const recipientLast10 = recipientDigits.slice(-10)
-          if (searchLast10 === recipientLast10 && recipientLast10.length === 10) {
-            return true
+        if (enabledFields.length === 2) {
+          // Search in both enabled fields
+          const field1 = enabledFields[0]
+          const field2 = enabledFields[1]
+          
+          const match1 = field1 === "name" 
+            ? r.name.toLowerCase().includes(searchLower)
+            : field1 === "email"
+            ? r.email && r.email.toLowerCase() === searchLower
+            : field1 === "mobile"
+            ? searchDigits.length >= 10 && r.mobile.replace(/[^0-9]/g, "").slice(-10) === searchDigits.slice(-10)
+            : field1 === "regNo"
+            ? (r.regNo || r.certificateId || "").toLowerCase().includes(searchLower)
+            : false
+            
+          const match2 = field2 === "name"
+            ? r.name.toLowerCase().includes(searchLower)
+            : field2 === "email"
+            ? r.email && r.email.toLowerCase() === searchLower
+            : field2 === "mobile"
+            ? searchDigits.length >= 10 && r.mobile.replace(/[^0-9]/g, "").slice(-10) === searchDigits.slice(-10)
+            : field2 === "regNo"
+            ? (r.regNo || r.certificateId || "").toLowerCase().includes(searchLower)
+            : false
+            
+          return match1 || match2
+        } else {
+          // Single field search
+          if (searchField === "name") {
+            return r.name.toLowerCase().includes(searchLower)
+          } else if (searchField === "email") {
+            return r.email && r.email.toLowerCase() === searchLower
+          } else if (searchField === "mobile") {
+            if (searchDigits.length >= 10) {
+              const recipientDigits = r.mobile.replace(/[^0-9]/g, "")
+              const searchLast10 = searchDigits.slice(-10)
+              const recipientLast10 = recipientDigits.slice(-10)
+              return searchLast10 === recipientLast10 && recipientLast10.length === 10
+            }
+            return false
+          } else if (searchField === "regNo") {
+            const regNo = r.regNo || r.certificateId || ""
+            return regNo.toLowerCase().includes(searchLower)
           }
+          return false
         }
-        return false
       })
 
       if (matches.length === 0) {
-        toast.error("No certificate found. Please check your email or mobile number.")
+        const enabledFields = getEnabledSearchFields()
+        if (enabledFields.length === 2) {
+          toast.error(`No certificate found. Please check your ${enabledFields.map(f => getSearchFieldLabel(f).toLowerCase()).join(" or ")} and try again.`)
+        } else {
+          toast.error(`No certificate found. Please check your ${getSearchFieldLabel(searchField).toLowerCase()}.`)
+        }
         setIsVerifying(false)
         return
       }
 
-      // Show all matches for same email/mobile
+      // Show all matches
       setMatchedRecipients(matches)
 
       if (matches.length === 1) {
@@ -357,13 +478,55 @@ export default function CertTypeDownloadPage() {
               <CardContent className="p-6 space-y-5">
                 <div className="text-center space-y-1">
                   <h2 className="text-xl font-semibold">Download Certificate</h2>
-                  <p className="text-sm text-muted-foreground">Enter your registered email or mobile number</p>
+                  <p className="text-sm text-muted-foreground">{getSearchDescription()}</p>
                 </div>
+                {/* Search Field Selector (only if 3+ fields enabled) */}
+                {getEnabledSearchFields().length > 2 && (
+                  <div className="space-y-2">
+                    <Label>Search By</Label>
+                    <Select value={searchField} onValueChange={setSearchField}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getEnabledSearchFields().map((field) => (
+                          <SelectItem key={field} value={field}>
+                            <div className="flex items-center gap-2">
+                              {getSearchFieldIcon(field)}
+                              {getSearchFieldLabel(field)}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Email or Mobile Number</Label>
+                  {getEnabledSearchFields().length === 2 ? (
+                    // If 2 fields enabled, show combined label
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Search className="h-4 w-4" />
+                      {getEnabledSearchFields().map((f, idx) => (
+                        <span key={f}>
+                          {getSearchFieldLabel(f)}
+                          {idx < getEnabledSearchFields().length - 1 && " or "}
+                        </span>
+                      ))}
+                    </Label>
+                  ) : (
+                    // Single field or 3+ fields (with dropdown)
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      {getSearchFieldIcon(searchField)}
+                      {getSearchFieldLabel(searchField)}
+                    </Label>
+                  )}
                   <Input
-                    type="text"
-                    placeholder="Enter email or mobile"
+                    type={searchField === "email" ? "email" : "text"}
+                    placeholder={
+                      getEnabledSearchFields().length === 2
+                        ? `Enter your ${getEnabledSearchFields().map(f => getSearchFieldLabel(f).toLowerCase()).join(" or ")}`
+                        : getSearchFieldPlaceholder(searchField)
+                    }
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleVerify()}

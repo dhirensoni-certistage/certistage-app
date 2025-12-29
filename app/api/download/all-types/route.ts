@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
       id: ct._id.toString(),
       name: ct.name,
       template: ct.templateImage,
+      templateImage: ct.templateImage,
       textPosition: ct.textPosition || { x: 50, y: 60 },
       fontSize: ct.fontSize || 24,
       fontFamily: ct.fontFamily || "Arial",
@@ -67,6 +68,7 @@ export async function GET(request: NextRequest) {
       showNameField: ct.showNameField !== false,
       customFields: ct.customFields || [],
       signatures: ct.signatures || [],
+      searchFields: ct.searchFields || { name: true, email: false, mobile: false, regNo: false },
       recipients: recipientsByType[ct._id.toString()] || []
     }))
 

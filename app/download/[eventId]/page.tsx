@@ -2,41 +2,77 @@
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
-import { Award, Download, Check, AlertCircle, Loader2, Search, ArrowLeft, FileText } from "lucide-react"
+import { Award, Download, Check, AlertCircle, Loader2, Search, ArrowLeft, FileText, User, Mail, Phone, Hash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { getEvent, markAsDownloaded, findRecipientsByContact, type EventRecipient, type CertificateEvent, type CertificateType } from "@/lib/events"
 import { cn } from "@/lib/utils"
 
-type Step = "verify" | "select-profile" | "preview"
-
-interface MatchedCertificate {
-  recipient: EventRecipient
-  certType: CertificateType
+interface SearchFields {
+  name: boolean
+  email: boolean
+  mobile: boolean
+  regNo: boolean
 }
+
+interface CertificateType {
+  id: string
+  name: string
+  templateImage: string
+  textPosition: { x: number; y: number }
+  fontSize: number
+  fontFamily: string
+  fontBold: boolean
+  fontItalic: boolean
+  searchFields: SearchFields
+}
+
+interface EventData {
+  id: string
+  name: string
+  description?: string
+}
+
+interface Recipient {
+  id: string
+  name: string
+  email: string
+  mobile: string
+  certificateId: string
+  regNo?: string
+  downloadCount: number
+  certTypeId: string
+  certTypeName: string
+}
+
+type Step = "select-type" | "search" | "select" | "preview"
 
 export default function EventDownloadPage() {
   const params = useParams()
   const eventId = params.eventId as string
 
   const [loading, setLoading] = useState(true)
-  const [event, setEvent] = useState<CertificateEvent | null>(null)
+  const [event, setEvent] = useState<EventData | null>(null)
+  const [certTypes, setCertTypes] = useState<CertificateType[]>([])
   const [error, setError] = useState<string | null>(null)
-  
-  const [step, setStep] = useState<Step>("verify")
+
+  const [step, setStep] = useState<Step>("select-type")
+  const [selectedType, setSelectedType] = useState<CertificateType | null>(null)
+  const [searchField, setSearchField] = useState<string>("name")
   const [searchValue, setSearchValue] = useState("")
-  const [isVerifying, setIsVerifying] = useState(false)
-  
-  const [matchedCertificates, setMatchedCertificates] = useState<MatchedCertificate[]>([])
-  const [selectedCertificate, setSelectedCertificate] = useState<MatchedCertificate | null>(null)
-  
+  const [isSearching, setIsSearching] = useState(false)
+
+  const [matchedRecipients, setMatchedRecipients] = useState<Recipient[]>([])
+  const [selectedRecipient, setSelectedRecipient] = useState<Recipient | null>(null)
+
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
 
+  // Disable right-click and shortcuts
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault()
     document.addEventListener("contextmenu", handleContextMenu)
@@ -52,166 +88,307 @@ export default function EventDownloadPage() {
     }
   }, [])
 
+  // Load event and certificate types
   useEffect(() => {
-    if (!eventId) {
-      setError("Invalid event link.")
-      setLoading(false)
-      return
+    const loadData = async () => {
+      try {
+        const res = await fetch(`/api/download?eventId=${eventId}`)
+        if (!res.ok) {
+          const data = await res.json()
+          setError(data.error || "Event not found")
+          setLoading(false)
+          return
+        }
+
+        const data = await res.json()
+        setEvent(data.event)
+        
+        // Fetch all certificate types with their searchFields
+        const typesRes = await fetch(`/api/download/all-types?eventId=${eventId}`)
+        if (typesRes.ok) {
+          const typesData = await typesRes.json()
+          setCertTypes(typesData.certificateTypes || [])
+          
+          // If only one type, auto-select it
+          if (typesData.certificateTypes?.length === 1) {
+            const type = typesData.certificateTypes[0]
+            setSelectedType(type)
+            setDefaultSearchField(type.searchFields)
+            setStep("search")
+          }
+        }
+      } catch (err) {
+        setError("Failed to load event data")
+      } finally {
+        setLoading(false)
+      }
     }
 
-    const loadedEvent = getEvent(eventId)
-    if (!loadedEvent) {
-      setError("Event not found. This link may be invalid or expired.")
-      setLoading(false)
-      return
+    if (eventId) {
+      loadData()
     }
-
-    if (loadedEvent.certificateTypes.length === 0) {
-      setError("No certificates available yet. Please contact the administrator.")
-      setLoading(false)
-      return
-    }
-
-    setEvent(loadedEvent)
-    setLoading(false)
   }, [eventId])
 
-  const handleVerify = () => {
-    if (!searchValue.trim() || !event) {
-      toast.error("Please enter your email or mobile number")
+  // Update searchField when selectedType changes
+  useEffect(() => {
+    if (selectedType?.searchFields) {
+      setDefaultSearchField(selectedType.searchFields)
+    }
+  }, [selectedType])
+
+  const setDefaultSearchField = (sf: SearchFields) => {
+    if (sf.name) setSearchField("name")
+    else if (sf.email) setSearchField("email")
+    else if (sf.mobile) setSearchField("mobile")
+    else if (sf.regNo) setSearchField("regNo")
+  }
+
+  const getSearchFieldLabel = (field: string) => {
+    switch (field) {
+      case "name": return "Name"
+      case "email": return "Email"
+      case "mobile": return "Mobile Number"
+      case "regNo": return "Registration No"
+      default: return field
+    }
+  }
+
+  const getSearchFieldIcon = (field: string) => {
+    switch (field) {
+      case "name": return <User className="h-4 w-4" />
+      case "email": return <Mail className="h-4 w-4" />
+      case "mobile": return <Phone className="h-4 w-4" />
+      case "regNo": return <Hash className="h-4 w-4" />
+      default: return <Search className="h-4 w-4" />
+    }
+  }
+
+  const getSearchFieldPlaceholder = (field: string) => {
+    switch (field) {
+      case "name": return "Enter your full name"
+      case "email": return "Enter your email address"
+      case "mobile": return "Enter your mobile number"
+      case "regNo": return "Enter your registration number"
+      default: return "Enter search value"
+    }
+  }
+
+  const getEnabledSearchFields = () => {
+    if (!selectedType?.searchFields) return ["name", "email", "mobile"]
+    const fields: string[] = []
+    if (selectedType.searchFields.name) fields.push("name")
+    if (selectedType.searchFields.email) fields.push("email")
+    if (selectedType.searchFields.mobile) fields.push("mobile")
+    if (selectedType.searchFields.regNo) fields.push("regNo")
+    return fields.length > 0 ? fields : ["name", "email", "mobile"]
+  }
+
+  const getSearchDescription = () => {
+    if (!selectedType?.searchFields) {
+      return "Search using your registered details"
+    }
+    
+    const enabledFields = getEnabledSearchFields()
+    if (enabledFields.length === 0) {
+      return "Search using your registered details"
+    }
+    
+    if (enabledFields.length === 1) {
+      const field = enabledFields[0]
+      return `Enter your registered ${getSearchFieldLabel(field).toLowerCase()} to find your certificate`
+    }
+    
+    // Multiple fields enabled
+    const fieldLabels = enabledFields.map(f => getSearchFieldLabel(f).toLowerCase())
+    if (fieldLabels.length === 2) {
+      return `Enter your registered ${fieldLabels.join(" or ")} to find your certificate`
+    }
+    
+    const lastField = fieldLabels.pop()
+    return `Enter your registered ${fieldLabels.join(", ")} or ${lastField} to find your certificate`
+  }
+
+  const handleSelectType = (type: CertificateType) => {
+    setSelectedType(type)
+    setDefaultSearchField(type.searchFields)
+    setStep("search")
+  }
+
+  const handleSearch = async () => {
+    if (!searchValue.trim() || !selectedType) {
+      const enabledFields = getEnabledSearchFields()
+      if (enabledFields.length === 2) {
+        toast.error(`Please enter your ${enabledFields.map(f => getSearchFieldLabel(f).toLowerCase()).join(" or ")}`)
+      } else {
+        toast.error(`Please enter your ${getSearchFieldLabel(searchField).toLowerCase()}`)
+      }
       return
     }
 
-    setIsVerifying(true)
-    
-    setTimeout(() => {
-      const matches = findRecipientsByContact(eventId, searchValue)
+    setIsSearching(true)
 
-      if (matches.length === 0) {
-        toast.error("No certificate found. Please check and try again.")
-        setIsVerifying(false)
+    try {
+      const enabledFields = getEnabledSearchFields()
+      let searchResults: any[] = []
+      let found = false
+
+      // If 2 fields enabled, search in both fields
+      if (enabledFields.length === 2) {
+        // Try searching in both fields
+        const searchPromises = enabledFields.map(async (field) => {
+          const res = await fetch("/api/download", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              eventId,
+              typeId: selectedType.id,
+              searchQuery: searchValue.trim(),
+              searchType: field
+            })
+          })
+          return res.json()
+        })
+
+        const results = await Promise.all(searchPromises)
+        
+        // Combine results from both searches
+        const allRecipients = new Map()
+        results.forEach(result => {
+          if (result.found && result.recipients) {
+            result.recipients.forEach((r: any) => {
+              if (!allRecipients.has(r.id)) {
+                allRecipients.set(r.id, r)
+              }
+            })
+          }
+        })
+
+        searchResults = Array.from(allRecipients.values())
+        found = searchResults.length > 0
+      } else {
+        // Single field or dropdown selected
+        const res = await fetch("/api/download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventId,
+            typeId: selectedType.id,
+            searchQuery: searchValue.trim(),
+            searchType: searchField
+          })
+        })
+
+        const data = await res.json()
+        found = data.found || false
+        searchResults = data.recipients || []
+      }
+
+      if (!found || searchResults.length === 0) {
+        const enabledFields = getEnabledSearchFields()
+        if (enabledFields.length === 2) {
+          toast.error(`No certificate found. Please check your ${enabledFields.map(f => getSearchFieldLabel(f).toLowerCase()).join(" or ")} and try again.`)
+        } else {
+          toast.error("No certificate found. Please check your details and try again.")
+        }
+        setIsSearching(false)
         return
       }
 
-      setMatchedCertificates(matches)
-      
-      if (matches.length === 1) {
-        setSelectedCertificate(matches[0])
+      setMatchedRecipients(searchResults.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email || "",
+        mobile: r.mobile || "",
+        certificateId: r.regNo || r.id,
+        regNo: r.regNo,
+        downloadCount: r.downloadCount || 0,
+        certTypeId: selectedType.id,
+        certTypeName: selectedType.name
+      })))
+
+      if (searchResults.length === 1) {
+        setSelectedRecipient({
+          id: searchResults[0].id,
+          name: searchResults[0].name,
+          email: searchResults[0].email || "",
+          mobile: searchResults[0].mobile || "",
+          certificateId: searchResults[0].regNo || searchResults[0].id,
+          regNo: searchResults[0].regNo,
+          downloadCount: searchResults[0].downloadCount || 0,
+          certTypeId: selectedType.id,
+          certTypeName: selectedType.name
+        })
         setStep("preview")
       } else {
-        setStep("select-profile")
+        setStep("select")
       }
-      
-      setIsVerifying(false)
-    }, 800)
+    } catch (err) {
+      toast.error("Search failed. Please try again.")
+    } finally {
+      setIsSearching(false)
+    }
   }
 
-  const handleSelectCertificate = (cert: MatchedCertificate) => {
-    setSelectedCertificate(cert)
+  const handleSelectRecipient = (recipient: Recipient) => {
+    setSelectedRecipient(recipient)
     setStep("preview")
   }
 
   const handleBack = () => {
-    if (step === "preview" && matchedCertificates.length > 1) {
-      setStep("select-profile")
-    } else {
-      setStep("verify")
-      setSelectedCertificate(null)
-      setMatchedCertificates([])
+    if (step === "preview" && matchedRecipients.length > 1) {
+      setStep("select")
+    } else if (step === "preview" || step === "select") {
+      setStep("search")
+      setSelectedRecipient(null)
+      setMatchedRecipients([])
+    } else if (step === "search" && certTypes.length > 1) {
+      setStep("select-type")
+      setSelectedType(null)
     }
     setDownloaded(false)
   }
 
   const handleDownload = async () => {
-    if (!selectedCertificate) return
+    if (!selectedRecipient || !selectedType) return
 
     setIsDownloading(true)
 
     try {
-      const { recipient, certType } = selectedCertificate
-      
-      // Detect if in WebView/iframe (third-party app)
-      const isInWebView = (() => {
-        try {
-          // Check if in iframe
-          if (window.self !== window.top) return true
-          
-          // Check for WebView indicators
-          const ua = navigator.userAgent.toLowerCase()
-          return ua.includes('wv') || 
-                 ua.includes('webview') ||
-                 (ua.includes('android') && ua.includes('version/')) ||
-                 (ua.includes('iphone') && !ua.includes('safari'))
-        } catch {
-          return true // Cross-origin iframe
-        }
-      })()
-      
       const isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
-      
-      if (isInWebView || isMobile) {
-        // WebView/Mobile: Open in external browser for reliable download
-        // Create full URL to the PDF API
-        const baseUrl = window.location.origin
-        const pdfUrl = `${baseUrl}/api/download/pdf?recipientId=${recipient.id}`
-        
-        // Use intent URL for Android to force external browser
-        const isAndroid = /android/i.test(navigator.userAgent)
-        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
-        
-        if (isAndroid) {
-          // Android: Try intent URL to open in Chrome/default browser
-          const intentUrl = `intent://${pdfUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`
-          
-          // First try intent, fallback to regular open
-          try {
-            window.location.href = intentUrl
-          } catch {
-            window.open(pdfUrl, '_system')
-          }
-          
-          // Also try regular window.open as backup
-          setTimeout(() => {
-            window.open(pdfUrl, '_blank')
-          }, 500)
-        } else if (isIOS) {
-          // iOS: window.open with _blank usually opens Safari
-          window.open(pdfUrl, '_blank')
-        } else {
-          // Other: Try standard approaches
-          window.open(pdfUrl, '_blank')
-        }
-        
-        // Show success after delay (we can't track external browser)
+      const pdfUrl = `/api/download/pdf?recipientId=${selectedRecipient.id}`
+
+      if (isMobile) {
+        window.open(pdfUrl, "_blank")
         setTimeout(() => {
-          markAsDownloaded(eventId, recipient.certificateId)
           setDownloaded(true)
           setIsDownloading(false)
-          toast.success("Opening in browser for download...")
+          toast.success("Opening certificate...")
         }, 1500)
         return
       }
-      
-      // Desktop browser: Use fetch + blob for better UX
-      const pdfUrl = `/api/download/pdf?recipientId=${recipient.id}`
+
       const response = await fetch(pdfUrl)
-      if (!response.ok) throw new Error('Download failed')
-      
+      if (!response.ok) throw new Error("Download failed")
+
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
+      const link = document.createElement("a")
       link.href = url
-      link.download = `${certType.name}-${recipient.certificateId}.pdf`
+      link.download = `${selectedType.name}-${selectedRecipient.certificateId}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
 
-      markAsDownloaded(eventId, recipient.certificateId)
+      await fetch("/api/download", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientId: selectedRecipient.id })
+      })
+
       setDownloaded(true)
       toast.success("Certificate downloaded!")
-    } catch (error) {
-      console.error(error)
+    } catch (err) {
       toast.error("Download failed. Please try again.")
     } finally {
       setIsDownloading(false)
@@ -244,10 +421,12 @@ export default function EventDownloadPage() {
     )
   }
 
+  const enabledFields = getEnabledSearchFields()
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      
+
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="max-w-xl w-full space-y-6">
           <div className="text-center">
@@ -255,31 +434,120 @@ export default function EventDownloadPage() {
             <p className="text-muted-foreground">Download your certificate</p>
           </div>
 
-          {/* Step 1: Verify */}
-          {step === "verify" && (
+          {/* Step 0: Select Certificate Type (if multiple) */}
+          {step === "select-type" && certTypes.length > 1 && (
             <Card>
               <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Select Certificate Type
+                </CardTitle>
+                <CardDescription>
+                  Choose which certificate you want to download
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {certTypes.map((type) => (
+                    <button
+                      key={type.id}
+                      onClick={() => handleSelectType(type)}
+                      className={cn(
+                        "w-full p-4 rounded-lg border text-left transition-colors",
+                        "hover:bg-accent hover:border-primary/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Award className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-foreground">{type.name}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 1: Search */}
+          {step === "search" && selectedType && (
+            <Card>
+              <CardHeader>
+                {certTypes.length > 1 && (
+                  <Button variant="ghost" size="sm" className="w-fit -ml-2 mb-2" onClick={handleBack}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Change Certificate Type
+                  </Button>
+                )}
                 <CardTitle className="flex items-center gap-2">
                   <Search className="h-5 w-5" />
                   Find Your Certificate
                 </CardTitle>
                 <CardDescription>
-                  Enter your registered email or mobile number
+                  {selectedType.name} - {getSearchDescription()}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Search Field Selector (only if 3+ fields enabled) */}
+                {enabledFields.length > 2 && (
+                  <div className="space-y-2">
+                    <Label>Search By</Label>
+                    <Select value={searchField} onValueChange={setSearchField}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {enabledFields.map((field) => (
+                          <SelectItem key={field} value={field}>
+                            <div className="flex items-center gap-2">
+                              {getSearchFieldIcon(field)}
+                              {getSearchFieldLabel(field)}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Search Input */}
                 <div className="space-y-2">
-                  <Label>Email or Mobile Number</Label>
+                  {enabledFields.length <= 2 && enabledFields.length > 1 ? (
+                    // If 2 fields enabled, show combined label
+                    <Label className="flex items-center gap-2">
+                      <Search className="h-4 w-4" />
+                      {enabledFields.map((f, idx) => (
+                        <span key={f}>
+                          {getSearchFieldLabel(f)}
+                          {idx < enabledFields.length - 1 && " or "}
+                        </span>
+                      ))}
+                    </Label>
+                  ) : (
+                    // Single field or 3+ fields (with dropdown)
+                    <Label className="flex items-center gap-2">
+                      {getSearchFieldIcon(searchField)}
+                      {getSearchFieldLabel(searchField)}
+                    </Label>
+                  )}
                   <Input
-                    type="text"
-                    placeholder="Enter email or mobile"
+                    type={searchField === "email" ? "email" : "text"}
+                    placeholder={
+                      enabledFields.length === 2 && enabledFields.length > 1
+                        ? `Enter your ${enabledFields.map(f => getSearchFieldLabel(f).toLowerCase()).join(" or ")}`
+                        : getSearchFieldPlaceholder(searchField)
+                    }
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   />
                 </div>
-                <Button className="w-full" onClick={handleVerify} disabled={isVerifying}>
-                  {isVerifying ? (
+
+                <Button className="w-full" onClick={handleSearch} disabled={isSearching}>
+                  {isSearching ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Searching...</>
                   ) : (
                     <><Search className="h-4 w-4 mr-2" />Find Certificate</>
@@ -289,8 +557,8 @@ export default function EventDownloadPage() {
             </Card>
           )}
 
-          {/* Step 2: Select Certificate (if multiple) */}
-          {step === "select-profile" && (
+          {/* Step 2: Select (if multiple matches) */}
+          {step === "select" && (
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
@@ -298,19 +566,19 @@ export default function EventDownloadPage() {
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                   <div>
-                    <CardTitle>Select Certificate</CardTitle>
+                    <CardTitle>Select Your Certificate</CardTitle>
                     <CardDescription>
-                      {matchedCertificates.length} certificates found
+                      {matchedRecipients.length} certificates found
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {matchedCertificates.map((cert, index) => (
+                  {matchedRecipients.map((recipient) => (
                     <button
-                      key={`${cert.certType.id}-${cert.recipient.id}`}
-                      onClick={() => handleSelectCertificate(cert)}
+                      key={recipient.id}
+                      onClick={() => handleSelectRecipient(recipient)}
                       className={cn(
                         "w-full p-4 rounded-lg border text-left transition-colors",
                         "hover:bg-accent hover:border-primary/50"
@@ -321,10 +589,14 @@ export default function EventDownloadPage() {
                           <FileText className="h-5 w-5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-foreground">{cert.recipient.name}</p>
-                          <p className="text-sm text-muted-foreground">{cert.certType.name}</p>
+                          <p className="font-medium text-foreground">{recipient.name}</p>
+                          {recipient.email && (
+                            <p className="text-sm text-muted-foreground">{recipient.email}</p>
+                          )}
                         </div>
-                        <Badge variant="outline">Reg: {cert.recipient.certificateId}</Badge>
+                        {recipient.certificateId && (
+                          <Badge variant="outline">Reg: {recipient.certificateId}</Badge>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -334,25 +606,25 @@ export default function EventDownloadPage() {
           )}
 
           {/* Step 3: Preview & Download */}
-          {step === "preview" && selectedCertificate && (
+          {step === "preview" && selectedRecipient && selectedType && (
             <div className="space-y-4">
               <Button variant="ghost" size="sm" onClick={handleBack}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
-              
+
               <Card>
                 <CardHeader className="text-center pb-2">
-                  <Badge className="w-fit mx-auto mb-2">{selectedCertificate.certType.name}</Badge>
+                  <Badge className="w-fit mx-auto mb-2">{selectedType.name}</Badge>
                   <CardTitle>Certificate Preview</CardTitle>
                   <CardDescription>
-                    For <span className="font-medium text-foreground">{selectedCertificate.recipient.name}</span>
+                    For <span className="font-medium text-foreground">{selectedRecipient.name}</span>
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-4">
                   <div className="relative rounded-lg overflow-hidden border select-none">
                     <img
-                      src={selectedCertificate.certType.template}
+                      src={selectedType.templateImage}
                       alt="Certificate"
                       className="w-full h-auto pointer-events-none"
                       draggable={false}
@@ -360,15 +632,17 @@ export default function EventDownloadPage() {
                     <div
                       className="absolute"
                       style={{
-                        left: `${selectedCertificate.certType.textPosition.x}%`,
-                        top: `${selectedCertificate.certType.textPosition.y}%`,
+                        left: `${selectedType.textPosition.x}%`,
+                        top: `${selectedType.textPosition.y}%`,
                         transform: "translate(-50%, -50%)",
                         fontSize: "clamp(10px, 2.5vw, 18px)",
-                        textAlign: (selectedCertificate.certType as any).alignment || "center",
+                        fontWeight: selectedType.fontBold ? "bold" : "normal",
+                        fontStyle: selectedType.fontItalic ? "italic" : "normal",
+                        fontFamily: selectedType.fontFamily
                       }}
                     >
-                      <span className="font-semibold text-black whitespace-nowrap">
-                        {selectedCertificate.recipient.name}
+                      <span className="text-black whitespace-nowrap">
+                        {selectedRecipient.name}
                       </span>
                     </div>
                     {!downloaded && (
