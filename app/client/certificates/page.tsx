@@ -881,12 +881,19 @@ export default function CertificatesPage() {
                   toast.success("NAME field restored")
                 }
               }}
-              onSearchFieldsChange={(searchFields) => {
+              onSearchFieldsChange={async (searchFields) => {
                 if (eventId && selectedTypeId) {
                   // Optimistic UI update
                   updateLocalCertType({ searchFields })
-                  // Sync to API in background
-                  syncToAPI(selectedTypeId, { searchFields })
+                  // Immediate API call (not debounced) for critical settings
+                  const success = await updateCertTypeAPI(selectedTypeId, { searchFields })
+                  if (success) {
+                    toast.success("Search fields updated")
+                  } else {
+                    toast.error("Failed to save search fields")
+                    // Revert on failure
+                    refreshEvent()
+                  }
                 }
               }}
             />
