@@ -7,8 +7,12 @@ export interface IPayment extends Document {
   plan: "professional" | "enterprise" | "premium"
   amount: number
   currency: string
-  status: "pending" | "success" | "failed"
+  status: "pending" | "success" | "failed" | "refunded"
   razorpaySignature?: string
+  webhookVerified?: boolean
+  failureReason?: string
+  refundAmount?: number
+  refundedAt?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -27,10 +31,14 @@ const PaymentSchema = new Schema<IPayment>(
     currency: { type: String, default: "INR" },
     status: { 
       type: String, 
-      enum: ["pending", "success", "failed"],
+      enum: ["pending", "success", "failed", "refunded"],
       default: "pending"
     },
-    razorpaySignature: { type: String }
+    razorpaySignature: { type: String },
+    webhookVerified: { type: Boolean, default: false },
+    failureReason: { type: String },
+    refundAmount: { type: Number },
+    refundedAt: { type: Date }
   },
   { timestamps: true }
 )

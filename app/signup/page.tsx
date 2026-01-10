@@ -72,7 +72,10 @@ function SignupForm() {
 
   const handleGoogleSignIn = async () => {
     try {
-      // Store plan in localStorage temporarily for after OAuth
+      // Clear any previous plan selection first
+      localStorage.removeItem("selectedPlan")
+      
+      // Store plan in localStorage temporarily for after OAuth (only for paid plans)
       if (formData.plan !== "free") {
         localStorage.setItem("selectedPlan", formData.plan)
       }

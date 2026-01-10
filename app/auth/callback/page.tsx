@@ -53,7 +53,8 @@ export default function AuthCallback() {
       // Check if there was a selected plan
       const selectedPlan = localStorage.getItem("selectedPlan")
       
-      if (selectedPlan && selectedPlan !== "free") {
+      // Only redirect to payment if plan is valid paid plan
+      if (selectedPlan && ["professional", "enterprise", "premium"].includes(selectedPlan)) {
         setProcessing(true)
         
         // Store pending plan in user record and redirect to clean payment page
