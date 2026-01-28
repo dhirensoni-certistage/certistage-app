@@ -127,11 +127,36 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Create admin notification in database
+    try {
+      const Notification = (await import('@/models/Notification')).default
+      const amount = PLAN_PRICES[plan as PlanId] || 0
+      const planDisplayName = plan.charAt(0).toUpperCase() + plan.slice(1)
+      
+      await Notification.create({
+        type: "payment",
+        title: "Payment Received",
+        description: `${user.name} upgraded to ${planDisplayName} - ₹${Math.round(amount / 100)}`,
+        userId: user._id,
+        metadata: {
+          userName: user.name,
+          userEmail: user.email,
+          plan: planDisplayName,
+          amount: amount,
+          paymentId: razorpay_payment_id
+        },
+        read: false
+      })
+    } catch (notifError) {
+      console.error('Failed to create notification:', notifError)
+    }
+
     // Send invoice email to customer
     try {
       const { sendEmail, emailTemplates } = await import('@/lib/email')
       const amount = PLAN_PRICES[plan as PlanId] || 0
       const planDisplayName = plan.charAt(0).toUpperCase() + plan.slice(1)
+      const adminCCEmail = process.env.ADMIN_CC_EMAIL
       
       // Generate invoice number: INV-YYYYMMDD-XXXXX
       const now = new Date()
@@ -145,7 +170,7 @@ export async function POST(request: NextRequest) {
       const baseAmount = Math.round(amount / (1 + gatewayFeePercent / 100))
       const gatewayFee = amount - baseAmount
       
-      // Send professional invoice email
+      // Send professional invoice email with CC
       const invoiceTemplate = emailTemplates.invoice({
         invoiceNumber,
         customerName: user.name,
@@ -165,6 +190,7 @@ export async function POST(request: NextRequest) {
         to: user.email,
         subject: invoiceTemplate.subject,
         html: invoiceTemplate.html,
+        cc: adminCCEmail, // Add CC
         template: "invoice",
         metadata: {
           userId: userId,
@@ -176,7 +202,7 @@ export async function POST(request: NextRequest) {
         }
       })
       
-      // Send admin notification
+      // Send admin notification with CC
       if (process.env.ADMIN_EMAIL) {
         const adminTemplate = emailTemplates.adminNotification('payment', {
           userName: user.name,
@@ -189,6 +215,7 @@ export async function POST(request: NextRequest) {
           to: process.env.ADMIN_EMAIL,
           subject: adminTemplate.subject,
           html: adminTemplate.html,
+          cc: adminCCEmail, // Add CC
           template: "adminNotification",
           metadata: {
             userId: userId,

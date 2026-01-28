@@ -52,35 +52,15 @@ export async function POST(request: NextRequest) {
     // Create verification link
     const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`
 
-    // Send verification email
-    let emailSent = false
-    try {
-      const { sendEmail, emailTemplates } = await import('@/lib/email')
-      const verificationTemplate = emailTemplates.emailVerification(name, verificationLink)
-      const result = await sendEmail({
-        to: email,
-        subject: verificationTemplate.subject,
-        html: verificationTemplate.html,
-        template: "emailVerification",
-        metadata: {
-          userName: name,
-          type: "signup_verification"
-        }
-      })
-      emailSent = result.success
-      if (!result.success) {
-        console.error('Email sending failed:', result.error)
-      }
-    } catch (emailError) {
-      console.error('Email service error:', emailError)
-    }
+    // Send verification email asynchronously (don't wait for it)
+    sendVerificationEmailAsync(email, name, verificationLink).catch(err => {
+      console.error('Background email sending failed:', err)
+    })
 
     return NextResponse.json({
       success: true,
-      message: emailSent 
-        ? "Verification email sent! Please check your inbox and click the link to complete your registration."
-        : "Account created! Please check your email for verification link.",
-      emailSent
+      message: "Verification email sent! Please check your inbox and click the link to complete your registration.",
+      emailSent: true
     })
   } catch (error: any) {
     console.error("Signup error:", error)
@@ -93,26 +73,33 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Background email sending function
-async function sendVerificationEmail(email: string, name: string, verificationLink: string) {
+// Background email sending function (async - doesn't block signup)
+async function sendVerificationEmailAsync(email: string, name: string, verificationLink: string) {
   try {
     const { sendEmail, emailTemplates } = await import('@/lib/email')
+    const adminCCEmail = process.env.ADMIN_CC_EMAIL
     const verificationTemplate = emailTemplates.emailVerification(name, verificationLink)
     
-    // Add timeout to email sending
+    // Send with timeout
     const emailPromise = sendEmail({
       to: email,
       subject: verificationTemplate.subject,
-      html: verificationTemplate.html
+      html: verificationTemplate.html,
+      cc: adminCCEmail,
+      template: "emailVerification",
+      metadata: {
+        userName: name,
+        type: "signup_verification"
+      }
     })
     
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Email sending timeout')), 15000)
+      setTimeout(() => reject(new Error('Email sending timeout')), 10000)
     )
     
-    await Promise.race([emailPromise, timeoutPromise])
-    console.log('Verification email sent to:', email)
+    const result = await Promise.race([emailPromise, timeoutPromise])
+    console.log('Verification email sent to:', email, result)
   } catch (error) {
-    console.error('Email sending failed:', error)
+    console.error('Verification email failed:', error)
   }
 }

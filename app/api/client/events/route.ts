@@ -82,6 +82,31 @@ export async function POST(request: NextRequest) {
       isActive: true
     })
 
+    // Create admin notification in database
+    try {
+      const Notification = (await import('@/models/Notification')).default
+      const User = (await import('@/models/User')).default
+      const user = await User.findById(userId).select('name email')
+      
+      if (user) {
+        await Notification.create({
+          type: "event_created",
+          title: "New Event Created",
+          description: `${user.name} created event: ${name}`,
+          userId: userId,
+          metadata: {
+            userName: user.name,
+            userEmail: user.email,
+            eventName: name,
+            eventId: event._id.toString()
+          },
+          read: false
+        })
+      }
+    } catch (notifError) {
+      console.error('Failed to create event notification:', notifError)
+    }
+
     return NextResponse.json({
       success: true,
       event: {

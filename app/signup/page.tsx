@@ -11,12 +11,195 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+// All countries with their codes and flags
+const countryCodes = [
+  { code: "+93", country: "AF", name: "Afghanistan", flag: "🇦🇫" },
+  { code: "+355", country: "AL", name: "Albania", flag: "🇦🇱" },
+  { code: "+213", country: "DZ", name: "Algeria", flag: "🇩🇿" },
+  { code: "+376", country: "AD", name: "Andorra", flag: "🇦🇩" },
+  { code: "+244", country: "AO", name: "Angola", flag: "🇦🇴" },
+  { code: "+54", country: "AR", name: "Argentina", flag: "🇦🇷" },
+  { code: "+374", country: "AM", name: "Armenia", flag: "🇦🇲" },
+  { code: "+61", country: "AU", name: "Australia", flag: "🇦🇺" },
+  { code: "+43", country: "AT", name: "Austria", flag: "🇦🇹" },
+  { code: "+994", country: "AZ", name: "Azerbaijan", flag: "🇦🇿" },
+  { code: "+973", country: "BH", name: "Bahrain", flag: "🇧🇭" },
+  { code: "+880", country: "BD", name: "Bangladesh", flag: "🇧🇩" },
+  { code: "+375", country: "BY", name: "Belarus", flag: "🇧🇾" },
+  { code: "+32", country: "BE", name: "Belgium", flag: "🇧🇪" },
+  { code: "+501", country: "BZ", name: "Belize", flag: "🇧🇿" },
+  { code: "+229", country: "BJ", name: "Benin", flag: "🇧🇯" },
+  { code: "+975", country: "BT", name: "Bhutan", flag: "🇧🇹" },
+  { code: "+591", country: "BO", name: "Bolivia", flag: "🇧🇴" },
+  { code: "+387", country: "BA", name: "Bosnia", flag: "🇧🇦" },
+  { code: "+267", country: "BW", name: "Botswana", flag: "🇧🇼" },
+  { code: "+55", country: "BR", name: "Brazil", flag: "🇧🇷" },
+  { code: "+673", country: "BN", name: "Brunei", flag: "🇧🇳" },
+  { code: "+359", country: "BG", name: "Bulgaria", flag: "🇧🇬" },
+  { code: "+226", country: "BF", name: "Burkina Faso", flag: "🇧🇫" },
+  { code: "+257", country: "BI", name: "Burundi", flag: "🇧🇮" },
+  { code: "+855", country: "KH", name: "Cambodia", flag: "🇰🇭" },
+  { code: "+237", country: "CM", name: "Cameroon", flag: "🇨🇲" },
+  { code: "+238", country: "CV", name: "Cape Verde", flag: "🇨🇻" },
+  { code: "+236", country: "CF", name: "Central African Republic", flag: "🇨🇫" },
+  { code: "+235", country: "TD", name: "Chad", flag: "🇹🇩" },
+  { code: "+56", country: "CL", name: "Chile", flag: "🇨🇱" },
+  { code: "+86", country: "CN", name: "China", flag: "🇨🇳" },
+  { code: "+57", country: "CO", name: "Colombia", flag: "🇨🇴" },
+  { code: "+269", country: "KM", name: "Comoros", flag: "🇰🇲" },
+  { code: "+242", country: "CG", name: "Congo", flag: "🇨🇬" },
+  { code: "+506", country: "CR", name: "Costa Rica", flag: "🇨🇷" },
+  { code: "+385", country: "HR", name: "Croatia", flag: "🇭🇷" },
+  { code: "+53", country: "CU", name: "Cuba", flag: "🇨🇺" },
+  { code: "+357", country: "CY", name: "Cyprus", flag: "🇨🇾" },
+  { code: "+420", country: "CZ", name: "Czech Republic", flag: "🇨🇿" },
+  { code: "+45", country: "DK", name: "Denmark", flag: "🇩🇰" },
+  { code: "+253", country: "DJ", name: "Djibouti", flag: "🇩🇯" },
+  { code: "+593", country: "EC", name: "Ecuador", flag: "🇪🇨" },
+  { code: "+20", country: "EG", name: "Egypt", flag: "🇪🇬" },
+  { code: "+503", country: "SV", name: "El Salvador", flag: "🇸🇻" },
+  { code: "+240", country: "GQ", name: "Equatorial Guinea", flag: "🇬🇶" },
+  { code: "+291", country: "ER", name: "Eritrea", flag: "🇪🇷" },
+  { code: "+372", country: "EE", name: "Estonia", flag: "🇪🇪" },
+  { code: "+251", country: "ET", name: "Ethiopia", flag: "🇪🇹" },
+  { code: "+679", country: "FJ", name: "Fiji", flag: "🇫🇯" },
+  { code: "+358", country: "FI", name: "Finland", flag: "🇫🇮" },
+  { code: "+33", country: "FR", name: "France", flag: "🇫🇷" },
+  { code: "+241", country: "GA", name: "Gabon", flag: "🇬🇦" },
+  { code: "+220", country: "GM", name: "Gambia", flag: "🇬🇲" },
+  { code: "+995", country: "GE", name: "Georgia", flag: "🇬🇪" },
+  { code: "+49", country: "DE", name: "Germany", flag: "🇩🇪" },
+  { code: "+233", country: "GH", name: "Ghana", flag: "🇬🇭" },
+  { code: "+30", country: "GR", name: "Greece", flag: "🇬🇷" },
+  { code: "+502", country: "GT", name: "Guatemala", flag: "🇬🇹" },
+  { code: "+224", country: "GN", name: "Guinea", flag: "🇬🇳" },
+  { code: "+245", country: "GW", name: "Guinea-Bissau", flag: "🇬🇼" },
+  { code: "+592", country: "GY", name: "Guyana", flag: "🇬🇾" },
+  { code: "+509", country: "HT", name: "Haiti", flag: "🇭🇹" },
+  { code: "+504", country: "HN", name: "Honduras", flag: "🇭🇳" },
+  { code: "+852", country: "HK", name: "Hong Kong", flag: "🇭🇰" },
+  { code: "+36", country: "HU", name: "Hungary", flag: "🇭🇺" },
+  { code: "+354", country: "IS", name: "Iceland", flag: "🇮🇸" },
+  { code: "+91", country: "IN", name: "India", flag: "🇮🇳" },
+  { code: "+62", country: "ID", name: "Indonesia", flag: "🇮🇩" },
+  { code: "+98", country: "IR", name: "Iran", flag: "🇮🇷" },
+  { code: "+964", country: "IQ", name: "Iraq", flag: "🇮🇶" },
+  { code: "+353", country: "IE", name: "Ireland", flag: "🇮🇪" },
+  { code: "+972", country: "IL", name: "Israel", flag: "🇮🇱" },
+  { code: "+39", country: "IT", name: "Italy", flag: "🇮🇹" },
+  { code: "+225", country: "CI", name: "Ivory Coast", flag: "🇨🇮" },
+  { code: "+81", country: "JP", name: "Japan", flag: "🇯🇵" },
+  { code: "+962", country: "JO", name: "Jordan", flag: "🇯🇴" },
+  { code: "+7", country: "KZ", name: "Kazakhstan/Russia", flag: "🇰🇿" },
+  { code: "+254", country: "KE", name: "Kenya", flag: "🇰🇪" },
+  { code: "+965", country: "KW", name: "Kuwait", flag: "🇰🇼" },
+  { code: "+996", country: "KG", name: "Kyrgyzstan", flag: "🇰🇬" },
+  { code: "+856", country: "LA", name: "Laos", flag: "🇱🇦" },
+  { code: "+371", country: "LV", name: "Latvia", flag: "🇱🇻" },
+  { code: "+961", country: "LB", name: "Lebanon", flag: "🇱🇧" },
+  { code: "+266", country: "LS", name: "Lesotho", flag: "🇱🇸" },
+  { code: "+231", country: "LR", name: "Liberia", flag: "🇱🇷" },
+  { code: "+218", country: "LY", name: "Libya", flag: "🇱🇾" },
+  { code: "+423", country: "LI", name: "Liechtenstein", flag: "🇱🇮" },
+  { code: "+370", country: "LT", name: "Lithuania", flag: "🇱🇹" },
+  { code: "+352", country: "LU", name: "Luxembourg", flag: "🇱🇺" },
+  { code: "+853", country: "MO", name: "Macau", flag: "🇲🇴" },
+  { code: "+389", country: "MK", name: "Macedonia", flag: "🇲🇰" },
+  { code: "+261", country: "MG", name: "Madagascar", flag: "🇲🇬" },
+  { code: "+265", country: "MW", name: "Malawi", flag: "🇲🇼" },
+  { code: "+60", country: "MY", name: "Malaysia", flag: "🇲🇾" },
+  { code: "+960", country: "MV", name: "Maldives", flag: "🇲🇻" },
+  { code: "+223", country: "ML", name: "Mali", flag: "🇲🇱" },
+  { code: "+356", country: "MT", name: "Malta", flag: "🇲🇹" },
+  { code: "+222", country: "MR", name: "Mauritania", flag: "🇲🇷" },
+  { code: "+230", country: "MU", name: "Mauritius", flag: "🇲🇺" },
+  { code: "+52", country: "MX", name: "Mexico", flag: "🇲🇽" },
+  { code: "+373", country: "MD", name: "Moldova", flag: "🇲🇩" },
+  { code: "+377", country: "MC", name: "Monaco", flag: "🇲🇨" },
+  { code: "+976", country: "MN", name: "Mongolia", flag: "🇲🇳" },
+  { code: "+382", country: "ME", name: "Montenegro", flag: "🇲🇪" },
+  { code: "+212", country: "MA", name: "Morocco", flag: "🇲🇦" },
+  { code: "+258", country: "MZ", name: "Mozambique", flag: "🇲🇿" },
+  { code: "+95", country: "MM", name: "Myanmar", flag: "🇲🇲" },
+  { code: "+264", country: "NA", name: "Namibia", flag: "🇳🇦" },
+  { code: "+977", country: "NP", name: "Nepal", flag: "🇳🇵" },
+  { code: "+31", country: "NL", name: "Netherlands", flag: "🇳🇱" },
+  { code: "+64", country: "NZ", name: "New Zealand", flag: "🇳🇿" },
+  { code: "+505", country: "NI", name: "Nicaragua", flag: "🇳🇮" },
+  { code: "+227", country: "NE", name: "Niger", flag: "🇳🇪" },
+  { code: "+234", country: "NG", name: "Nigeria", flag: "🇳🇬" },
+  { code: "+850", country: "KP", name: "North Korea", flag: "🇰🇵" },
+  { code: "+47", country: "NO", name: "Norway", flag: "🇳🇴" },
+  { code: "+968", country: "OM", name: "Oman", flag: "🇴🇲" },
+  { code: "+92", country: "PK", name: "Pakistan", flag: "🇵🇰" },
+  { code: "+970", country: "PS", name: "Palestine", flag: "🇵🇸" },
+  { code: "+507", country: "PA", name: "Panama", flag: "🇵🇦" },
+  { code: "+675", country: "PG", name: "Papua New Guinea", flag: "🇵🇬" },
+  { code: "+595", country: "PY", name: "Paraguay", flag: "🇵🇾" },
+  { code: "+51", country: "PE", name: "Peru", flag: "🇵🇪" },
+  { code: "+63", country: "PH", name: "Philippines", flag: "🇵🇭" },
+  { code: "+48", country: "PL", name: "Poland", flag: "🇵🇱" },
+  { code: "+351", country: "PT", name: "Portugal", flag: "🇵🇹" },
+  { code: "+974", country: "QA", name: "Qatar", flag: "🇶🇦" },
+  { code: "+40", country: "RO", name: "Romania", flag: "🇷🇴" },
+  { code: "+250", country: "RW", name: "Rwanda", flag: "🇷🇼" },
+  { code: "+966", country: "SA", name: "Saudi Arabia", flag: "🇸🇦" },
+  { code: "+221", country: "SN", name: "Senegal", flag: "🇸🇳" },
+  { code: "+381", country: "RS", name: "Serbia", flag: "🇷🇸" },
+  { code: "+248", country: "SC", name: "Seychelles", flag: "🇸🇨" },
+  { code: "+232", country: "SL", name: "Sierra Leone", flag: "🇸🇱" },
+  { code: "+65", country: "SG", name: "Singapore", flag: "🇸🇬" },
+  { code: "+421", country: "SK", name: "Slovakia", flag: "🇸🇰" },
+  { code: "+386", country: "SI", name: "Slovenia", flag: "🇸🇮" },
+  { code: "+252", country: "SO", name: "Somalia", flag: "🇸🇴" },
+  { code: "+27", country: "ZA", name: "South Africa", flag: "🇿🇦" },
+  { code: "+82", country: "KR", name: "South Korea", flag: "🇰🇷" },
+  { code: "+211", country: "SS", name: "South Sudan", flag: "🇸🇸" },
+  { code: "+34", country: "ES", name: "Spain", flag: "🇪🇸" },
+  { code: "+94", country: "LK", name: "Sri Lanka", flag: "🇱🇰" },
+  { code: "+249", country: "SD", name: "Sudan", flag: "🇸🇩" },
+  { code: "+597", country: "SR", name: "Suriname", flag: "🇸🇷" },
+  { code: "+268", country: "SZ", name: "Swaziland", flag: "🇸🇿" },
+  { code: "+46", country: "SE", name: "Sweden", flag: "🇸🇪" },
+  { code: "+41", country: "CH", name: "Switzerland", flag: "🇨🇭" },
+  { code: "+963", country: "SY", name: "Syria", flag: "🇸🇾" },
+  { code: "+886", country: "TW", name: "Taiwan", flag: "🇹🇼" },
+  { code: "+992", country: "TJ", name: "Tajikistan", flag: "🇹🇯" },
+  { code: "+255", country: "TZ", name: "Tanzania", flag: "🇹🇿" },
+  { code: "+66", country: "TH", name: "Thailand", flag: "🇹🇭" },
+  { code: "+228", country: "TG", name: "Togo", flag: "🇹🇬" },
+  { code: "+216", country: "TN", name: "Tunisia", flag: "🇹🇳" },
+  { code: "+90", country: "TR", name: "Turkey", flag: "🇹🇷" },
+  { code: "+993", country: "TM", name: "Turkmenistan", flag: "🇹🇲" },
+  { code: "+256", country: "UG", name: "Uganda", flag: "🇺🇬" },
+  { code: "+380", country: "UA", name: "Ukraine", flag: "🇺🇦" },
+  { code: "+971", country: "AE", name: "UAE", flag: "🇦🇪" },
+  { code: "+44", country: "GB", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "+1", country: "US", name: "USA/Canada", flag: "🇺�" }, 
+  { code: "+598", country: "UY", name: "Uruguay", flag: "🇺🇾" },
+  { code: "+998", country: "UZ", name: "Uzbekistan", flag: "🇺🇿" },
+  { code: "+678", country: "VU", name: "Vanuatu", flag: "🇻🇺" },
+  { code: "+58", country: "VE", name: "Venezuela", flag: "🇻🇪" },
+  { code: "+84", country: "VN", name: "Vietnam", flag: "🇻🇳" },
+  { code: "+967", country: "YE", name: "Yemen", flag: "🇾🇪" },
+  { code: "+260", country: "ZM", name: "Zambia", flag: "🇿🇲" },
+  { code: "+263", country: "ZW", name: "Zimbabwe", flag: "🇿🇼" },
+]
 
 function SignupForm() {
   const searchParams = useSearchParams()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [verificationLink, setVerificationLink] = useState<string | null>(null)
+  const [countryCode, setCountryCode] = useState("+91") // Default to India
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -24,6 +207,26 @@ function SignupForm() {
     organization: "",
     plan: "free" // Initialize with default, update in useEffect
   })
+
+  // Auto-detect country code based on timezone/locale
+  React.useEffect(() => {
+    try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (timezone.includes("Asia/Kolkata") || timezone.includes("Asia/Calcutta")) {
+        setCountryCode("+91")
+      } else if (timezone.includes("America")) {
+        setCountryCode("+1")
+      } else if (timezone.includes("Europe/London")) {
+        setCountryCode("+44")
+      } else if (timezone.includes("Asia/Dubai")) {
+        setCountryCode("+971")
+      } else if (timezone.includes("Asia/Singapore")) {
+        setCountryCode("+65")
+      }
+    } catch (error) {
+      // Keep default +91
+    }
+  }, [])
 
   // Update plan from URL params after hydration
   React.useEffect(() => {
@@ -99,6 +302,16 @@ function SignupForm() {
       return
     }
 
+    // Validate phone number (basic validation)
+    const phoneRegex = /^[0-9]{7,15}$/
+    if (!phoneRegex.test(formData.phone)) {
+      toast.error("Please enter a valid phone number (7-15 digits)")
+      return
+    }
+
+    // Combine country code with phone number
+    const fullPhone = `${countryCode}${formData.phone}`
+
     setIsSubmitting(true)
     
     try {
@@ -108,7 +321,7 @@ function SignupForm() {
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
-          phone: formData.phone,
+          phone: fullPhone, // Send with country code
           organization: formData.organization,
           plan: formData.plan
         })
@@ -241,7 +454,7 @@ function SignupForm() {
 
             <form onSubmit={handleSubmit} className="space-y-4" suppressHydrationWarning>
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="name">Full Name *</Label>
                 <Input
                   id="name"
                   name="name"
@@ -255,13 +468,13 @@ function SignupForm() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Email *</Label>
                 <Input
                   id="email"
                   name="email"
                   type="email"
                   autoComplete="email"
-                  placeholder="Enter your email"
+                  placeholder="your.email@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
@@ -270,18 +483,44 @@ function SignupForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  autoComplete="tel"
-                  placeholder="Enter your phone number"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  required
-                  suppressHydrationWarning
-                />
+                <Label htmlFor="phone">Phone Number *</Label>
+                <div className="flex gap-2">
+                  <Select value={countryCode} onValueChange={setCountryCode}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countryCodes.map((country, index) => (
+                        <SelectItem key={`${country.code}-${country.country}-${index}`} value={country.code}>
+                          <span className="flex items-center gap-2">
+                            <span className="text-lg">{country.flag}</span>
+                            {country.code}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    placeholder="9876543210"
+                    value={formData.phone}
+                    onChange={(e) => {
+                      // Only allow numbers
+                      const value = e.target.value.replace(/\D/g, '')
+                      setFormData({ ...formData, phone: value })
+                    }}
+                    maxLength={15}
+                    required
+                    suppressHydrationWarning
+                    className="flex-1"
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  Enter your phone number without country code
+                </p>
               </div>
 
               <div className="space-y-2">

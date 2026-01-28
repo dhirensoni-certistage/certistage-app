@@ -53,14 +53,17 @@ export function ClientSidebar() {
           setHasEventSelected(true)
         } else {
           setUserName(session.userName || "")
-          setUserPlan(session.userPlan || "free")
+          // Ensure plan is valid, default to "free" if invalid
+          const validPlans: PlanType[] = ["free", "professional", "enterprise", "premium"]
+          const sessionPlan = session.userPlan || "free"
+          setUserPlan(validPlans.includes(sessionPlan) ? sessionPlan : "free")
           setIsUserLogin(true)
 
           if (session.eventId) {
             setEventName(session.eventName || "Event")
             setHasEventSelected(true)
           } else {
-            setEventName("CertiStage")
+            setEventName(session.userName || "CertiStage")
             setHasEventSelected(false)
           }
 

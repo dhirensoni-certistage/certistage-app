@@ -63,16 +63,38 @@ export async function POST(request: NextRequest) {
     verificationRecord.used = true
     await verificationRecord.save()
 
+    // Create admin notification in database
+    try {
+      const Notification = (await import('@/models/Notification')).default
+      await Notification.create({
+        type: "signup",
+        title: "New User Signup",
+        description: `${user.name} (${user.email}) joined`,
+        userId: user._id,
+        metadata: {
+          userName: user.name,
+          userEmail: user.email,
+          phone: user.phone,
+          organization: user.organization
+        },
+        read: false
+      })
+    } catch (notifError) {
+      console.error('Failed to create notification:', notifError)
+    }
+
     // Send welcome email and admin notification
     try {
       const { sendEmail, emailTemplates } = await import('@/lib/email')
+      const adminCCEmail = process.env.ADMIN_CC_EMAIL
       
-      // Welcome email
+      // Welcome email with CC
       const welcomeTemplate = emailTemplates.welcome(user.name, user.email)
       await sendEmail({
         to: user.email,
         subject: welcomeTemplate.subject,
         html: welcomeTemplate.html,
+        cc: adminCCEmail, // Add CC
         template: "welcome",
         metadata: {
           userId: user._id.toString(),
@@ -93,6 +115,7 @@ export async function POST(request: NextRequest) {
           to: process.env.ADMIN_EMAIL,
           subject: adminTemplate.subject,
           html: adminTemplate.html,
+          cc: adminCCEmail, // Add CC
           template: "adminNotification",
           metadata: {
             userId: user._id.toString(),

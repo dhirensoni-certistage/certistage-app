@@ -2,20 +2,30 @@ import nodemailer from 'nodemailer'
 
 // Create SMTP transporter with better settings for serverless
 function createTransporter() {
+  const port = parseInt(process.env.SMTP_PORT || '587')
+  const isPort465 = port === 465
+  
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: true,
+    port: port,
+    secure: isPort465, // true for 465 (SSL), false for 587 (STARTTLS)
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS
     },
-    // Better settings for serverless
+    // Optimized settings for faster email sending
     connectionTimeout: 10000, // 10 seconds
     greetingTimeout: 10000,
-    socketTimeout: 15000,
+    socketTimeout: 12000,
     pool: false, // Don't use connection pooling in serverless
-    maxConnections: 1
+    maxConnections: 1,
+    // TLS settings for port 587 (STARTTLS)
+    requireTLS: !isPort465, // Force TLS upgrade for port 587
+    tls: {
+      rejectUnauthorized: false,
+      minVersion: 'TLSv1.2',
+      ciphers: 'SSLv3'
+    }
   } as nodemailer.TransportOptions)
 }
 
@@ -27,6 +37,7 @@ export interface EmailTemplate {
 
 export interface SendEmailOptions extends EmailTemplate {
   template?: string
+  cc?: string | string[]
   metadata?: {
     userId?: string
     userName?: string
@@ -67,7 +78,31 @@ async function logEmail(options: {
   }
 }
 
-export async function sendEmail({ to, subject, html, template = "custom", metadata }: SendEmailOptions): Promise<{ success: boolean; error?: any; data?: any }> {
+export async function sendEmail({ to, subject, html, template = "custom", cc, metadata }: SendEmailOptions): Promise<{ success: boolean; error?: any; data?: any }> {
+  // Try SendGrid first (if configured), fallback to SMTP
+  if (process.env.SENDGRID_API_KEY) {
+    console.log('Using SendGrid for email delivery...')
+    const { sendEmailViaSendGrid } = await import('./email-sendgrid')
+    
+    const result = await sendEmailViaSendGrid({ to, subject, html, cc, template, metadata })
+    
+    // Log email
+    await logEmail({
+      to,
+      subject,
+      template,
+      htmlContent: html,
+      status: result.success ? "sent" : "failed",
+      errorMessage: result.success ? undefined : result.error,
+      metadata
+    })
+    
+    return result
+  }
+
+  // Fallback to SMTP (Hostinger)
+  console.log('Using SMTP for email delivery...')
+  
   // Check if SMTP is configured
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.warn('SMTP not configured, skipping email')
@@ -85,15 +120,25 @@ export async function sendEmail({ to, subject, html, template = "custom", metada
 
   try {
     const transporter = createTransporter()
+    const port = process.env.SMTP_PORT || '587'
     
-    const info = await transporter.sendMail({
+    console.log(`Attempting to send email via SMTP port ${port}...`)
+    
+    const mailOptions: any = {
       from: process.env.FROM_EMAIL || `CertiStage <${process.env.SMTP_USER}>`,
       to,
       subject,
       html
-    })
+    }
     
-    console.log('Email sent successfully:', info.messageId)
+    // Add CC if provided
+    if (cc) {
+      mailOptions.cc = cc
+    }
+    
+    const info = await transporter.sendMail(mailOptions)
+    
+    console.log('Email sent successfully:', info.messageId, `(port ${port})`)
     
     // Log successful email
     await logEmail({
@@ -112,7 +157,7 @@ export async function sendEmail({ to, subject, html, template = "custom", metada
   } catch (error: any) {
     console.error('Email sending failed:', error.message || error)
     
-    // Log failed email
+    // Log failed email with detailed error
     await logEmail({
       to,
       subject,
@@ -127,9 +172,57 @@ export async function sendEmail({ to, subject, html, template = "custom", metada
   }
 }
 
+// Email header helper function
+function getEmailHeader(type: 'simple' | 'marketing' = 'simple'): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://certistage.com'
+  const logoUrl = `${appUrl}/Certistage-logo.svg`
+  
+  if (type === 'simple') {
+    // Simple header for transactional emails (signup, payment, verification)
+    return `
+      <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td align="center">
+              <img src="${logoUrl}" alt="CertiStage" style="height: 40px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <h1 style="color: white; margin: 10px 0 5px 0; font-size: 28px; font-weight: 600; font-family: Arial, sans-serif;">CertiStage</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 14px; font-family: Arial, sans-serif;">Professional E-Certificates Made Simple</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  } else {
+    // Marketing header - you can add your fancy design here later
+    return `
+      <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 20px; text-align: center;">
+        <img src="${logoUrl}" alt="CertiStage" style="height: 50px; margin-bottom: 15px;">
+        <h1 style="color: white; font-size: 32px; margin: 0; font-family: Arial, sans-serif;">Professional E-Certificates Made Simple</h1>
+        <p style="color: rgba(255,255,255,0.95); font-size: 16px; margin: 10px 0 0 0; font-family: Arial, sans-serif;">Secure • Professional • Reliable</p>
+      </div>
+    `
+  }
+}
+
+// Email footer helper function
+function getEmailFooter(): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://certistage.com'
+  return `
+    <div style="background: #1f2937; padding: 25px 20px; text-align: center; border-radius: 0 0 12px 12px; margin-top: 30px;">
+      <p style="margin: 0 0 10px 0; color: #9ca3af; font-size: 13px; font-family: Arial, sans-serif;">This is an automated email from CertiStage. Please do not reply.</p>
+      <p style="margin: 0; color: #6b7280; font-size: 12px; font-family: Arial, sans-serif;">© 2025 CertiStage. All rights reserved.</p>
+      <p style="margin: 10px 0 0 0; font-family: Arial, sans-serif;">
+        <a href="${appUrl}" style="color: #10b981; text-decoration: none; font-size: 12px;">www.certistage.com</a>
+        <span style="color: #4b5563; margin: 0 10px;">|</span>
+        <a href="mailto:support@certistage.com" style="color: #10b981; text-decoration: none; font-size: 12px;">support@certistage.com</a>
+      </p>
+    </div>
+  `
+}
+
 // Email Templates
 export const emailTemplates = {
-  welcome: (name: string, email: string) => ({
+  welcome: (name: string) => ({
     subject: 'Welcome to CertiStage! 🎉',
     html: `
       <!DOCTYPE html>
@@ -138,29 +231,70 @@ export const emailTemplates = {
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #10b981; margin: 0;">Welcome to CertiStage!</h1>
-          </div>
-          <div style="background: #f8fafc; padding: 30px; border-radius: 10px; margin-bottom: 30px;">
-            <h2 style="color: #1f2937; margin-top: 0;">Hi ${name}! 👋</h2>
-            <p>Thank you for joining CertiStage! We're excited to help you create and manage professional certificates with ease.</p>
-            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h3 style="color: #10b981; margin-top: 0;">🚀 Get Started:</h3>
-              <ul style="padding-left: 20px;">
-                <li>Create your first event</li>
-                <li>Design certificate templates</li>
-                <li>Add recipients and generate certificates</li>
-                <li>Share and download certificates</li>
-              </ul>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 0; background-color: #f3f4f6;">
+          <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 20px;">
+            ${getEmailHeader('simple')}
+            <div style="padding: 30px 20px;">
+              <h2 style="color: #1f2937; margin-top: 0;">Hi ${name}! 👋</h2>
+              <p>Thank you for joining CertiStage! We're excited to help you create and manage professional certificates with ease.</p>
+              <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+                <h3 style="color: #10b981; margin-top: 0; font-size: 18px;">🚀 Get Started:</h3>
+                <ul style="padding-left: 20px; margin: 10px 0;">
+                  <li style="margin: 8px 0;">Create your first event</li>
+                  <li style="margin: 8px 0;">Design certificate templates</li>
+                  <li style="margin: 8px 0;">Add recipients and generate certificates</li>
+                  <li style="margin: 8px 0;">Share and download certificates</li>
+                </ul>
+              </div>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.NEXT_PUBLIC_APP_URL}/client/events" style="background: #10b981; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 15px;">Start Creating Certificates</a>
+              </div>
+              <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">Need help? Reply to this email or visit our <a href="${process.env.NEXT_PUBLIC_APP_URL}/contact" style="color: #10b981; text-decoration: none;">support page</a>.</p>
             </div>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/client/events" style="background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Start Creating Certificates</a>
-            </div>
+            ${getEmailFooter()}
           </div>
-          <div style="text-align: center; color: #6b7280; font-size: 14px;">
-            <p>Need help? Reply to this email or visit our <a href="${process.env.NEXT_PUBLIC_APP_URL}/contact" style="color: #10b981;">support page</a>.</p>
-            <p>© 2025 CertiStage. All rights reserved.</p>
+        </body>
+      </html>
+    `
+  }),
+
+  emailVerification: (name: string, verificationLink: string) => ({
+    subject: 'Verify Your Email - CertiStage ✉️',
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 0; background-color: #f3f4f6;">
+          <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 20px;">
+            ${getEmailHeader('simple')}
+            <div style="padding: 30px 20px;">
+              <h2 style="color: #1f2937; margin-top: 0;">Welcome to CertiStage! 🎉</h2>
+              <p>Hi ${name},</p>
+              <p>Thank you for signing up with CertiStage! We're excited to have you on board.</p>
+              <p>To complete your registration and start creating professional certificates, please verify your email address by clicking the button below:</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${verificationLink}" style="background: #10b981; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 15px;">Verify Email Address</a>
+              </div>
+              <div style="background: #fef3c7; padding: 15px; border-radius: 6px; border-left: 4px solid #f59e0b; margin: 20px 0;">
+                <p style="margin: 0; font-size: 14px;"><strong>Security Note:</strong> This verification link will expire in 24 hours. If you didn't create an account with CertiStage, please ignore this email.</p>
+              </div>
+              <p style="color: #6b7280; font-size: 13px; margin-top: 20px;">If the button doesn't work, copy and paste this link into your browser: <br><a href="${verificationLink}" style="color: #10b981; word-break: break-all; font-size: 12px;">${verificationLink}</a></p>
+              <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #10b981;">
+                <h3 style="color: #10b981; margin-top: 0; font-size: 18px;">🚀 What's Next?</h3>
+                <p style="margin: 10px 0; font-size: 14px;">Once verified, you'll be able to:</p>
+                <ul style="padding-left: 20px; margin: 10px 0;">
+                  <li style="margin: 8px 0;">Create and manage events</li>
+                  <li style="margin: 8px 0;">Design custom certificate templates</li>
+                  <li style="margin: 8px 0;">Generate certificates for recipients</li>
+                  <li style="margin: 8px 0;">Share and download certificates instantly</li>
+                </ul>
+              </div>
+              <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">Need help? Contact us at <a href="mailto:support@certistage.com" style="color: #10b981; text-decoration: none;">support@certistage.com</a></p>
+            </div>
+            ${getEmailFooter()}
           </div>
         </body>
       </html>
@@ -173,83 +307,22 @@ export const emailTemplates = {
       <!DOCTYPE html>
       <html>
         <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;"><h1 style="color: #10b981; margin: 0;">CertiStage</h1></div>
-          <div style="background: #f8fafc; padding: 30px; border-radius: 10px; margin-bottom: 30px;">
-            <h2 style="color: #1f2937; margin-top: 0;">Password Reset Request</h2>
-            <p>Hi ${name},</p>
-            <p>We received a request to reset your password for your CertiStage account.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetUrl}" style="background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Reset Password</a>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 0; background-color: #f3f4f6;">
+          <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 20px;">
+            ${getEmailHeader('simple')}
+            <div style="padding: 30px 20px;">
+              <h2 style="color: #1f2937; margin-top: 0;">Password Reset Request</h2>
+              <p>Hi ${name},</p>
+              <p>We received a request to reset your password for your CertiStage account.</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${resetUrl}" style="background: #10b981; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 15px;">Reset Password</a>
+              </div>
+              <div style="background: #fef3c7; padding: 15px; border-radius: 6px; border-left: 4px solid #f59e0b;">
+                <p style="margin: 0; font-size: 14px;"><strong>Security Note:</strong> This link will expire in 1 hour. If you didn't request this reset, please ignore this email.</p>
+              </div>
+              <p style="color: #6b7280; font-size: 13px; margin-top: 20px;">If the button doesn't work, copy and paste this link: <br><a href="${resetUrl}" style="color: #10b981; word-break: break-all; font-size: 12px;">${resetUrl}</a></p>
             </div>
-            <div style="background: #fef3c7; padding: 15px; border-radius: 6px; border-left: 4px solid #f59e0b;">
-              <p style="margin: 0; font-size: 14px;"><strong>Security Note:</strong> This link will expire in 1 hour. If you didn't request this reset, please ignore this email.</p>
-            </div>
-          </div>
-          <div style="text-align: center; color: #6b7280; font-size: 14px;">
-            <p>If the button doesn't work, copy and paste this link: <br><a href="${resetUrl}" style="color: #10b981; word-break: break-all;">${resetUrl}</a></p>
-            <p>© 2025 CertiStage. All rights reserved.</p>
-          </div>
-        </body>
-      </html>
-    `
-  }),
-
-  paymentSuccess: (name: string, plan: string, amount: number) => ({
-    subject: `Payment Successful - Welcome to ${plan}! 💳`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;"><h1 style="color: #10b981; margin: 0;">Payment Successful! 🎉</h1></div>
-          <div style="background: #f8fafc; padding: 30px; border-radius: 10px; margin-bottom: 30px;">
-            <h2 style="color: #1f2937; margin-top: 0;">Thank you, ${name}!</h2>
-            <p>Your payment has been processed successfully. Welcome to the ${plan} plan!</p>
-            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h3 style="color: #10b981; margin-top: 0;">📋 Payment Details:</h3>
-              <table style="width: 100%; border-collapse: collapse;">
-                <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Plan:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">${plan}</td></tr>
-                <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Amount:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">₹${amount / 100}</td></tr>
-                <tr><td style="padding: 8px 0;"><strong>Status:</strong></td><td style="padding: 8px 0; text-align: right; color: #10b981;"><strong>Paid</strong></td></tr>
-              </table>
-            </div>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/client/dashboard" style="background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Access Dashboard</a>
-            </div>
-          </div>
-          <div style="text-align: center; color: #6b7280; font-size: 14px;">
-            <p>Questions? Contact us at <a href="mailto:support@certistage.com" style="color: #10b981;">support@certistage.com</a></p>
-            <p>© 2025 CertiStage. All rights reserved.</p>
-          </div>
-        </body>
-      </html>
-    `
-  }),
-
-  emailVerification: (name: string, verificationUrl: string) => ({
-    subject: 'Verify Your Email - Complete CertiStage Registration 📧',
-    html: `
-      <!DOCTYPE html>
-      <html>
-        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;"><h1 style="color: #10b981; margin: 0;">Welcome to CertiStage! 🎉</h1></div>
-          <div style="background: #f8fafc; padding: 30px; border-radius: 10px; margin-bottom: 30px;">
-            <h2 style="color: #1f2937; margin-top: 0;">Hi ${name}! 👋</h2>
-            <p>Thank you for signing up with CertiStage! We're excited to have you on board.</p>
-            <p>To complete your registration and set up your password, please verify your email address by clicking the button below:</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verificationUrl}" style="background: #10b981; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 16px;">Verify Email & Set Password</a>
-            </div>
-            <div style="background: #fef3c7; padding: 15px; border-radius: 6px; border-left: 4px solid #f59e0b;">
-              <p style="margin: 0; font-size: 14px;"><strong>Important:</strong> This link will expire in 24 hours. If you didn't create this account, please ignore this email.</p>
-            </div>
-          </div>
-          <div style="text-align: center; color: #6b7280; font-size: 14px;">
-            <p>If the button doesn't work, copy and paste this link: <br><a href="${verificationUrl}" style="color: #10b981; word-break: break-all;">${verificationUrl}</a></p>
-            <p>Need help? Reply to this email or visit our <a href="${process.env.NEXT_PUBLIC_APP_URL}/contact" style="color: #10b981;">support page</a>.</p>
-            <p>© 2025 CertiStage. All rights reserved.</p>
+            ${getEmailFooter()}
           </div>
         </body>
       </html>
@@ -261,21 +334,26 @@ export const emailTemplates = {
     html: `
       <!DOCTYPE html>
       <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2>${type === 'signup' ? '🆕 New User Signup' : '💰 New Payment Received'}</h2>
-          <div style="background: #f8fafc; padding: 20px; border-radius: 8px;">
-            ${type === 'signup' ? `
-              <p><strong>Name:</strong> ${data.name}</p>
-              <p><strong>Email:</strong> ${data.email}</p>
-              <p><strong>Phone:</strong> ${data.phone || 'Not provided'}</p>
-              <p><strong>Organization:</strong> ${data.organization || 'Not provided'}</p>
-            ` : `
-              <p><strong>User:</strong> ${data.userName} (${data.userEmail})</p>
-              <p><strong>Plan:</strong> ${data.plan}</p>
-              <p><strong>Amount:</strong> ₹${data.amount / 100}</p>
-              <p><strong>Payment ID:</strong> ${data.paymentId}</p>
-            `}
-            <p><strong>Time:</strong> ${new Date().toLocaleString('en-IN')}</p>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 0; background-color: #f3f4f6;">
+          <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 20px; padding: 30px 20px;">
+            <h2 style="color: #1f2937; margin-top: 0;">${type === 'signup' ? '🆕 New User Signup' : '💰 New Payment Received'}</h2>
+            <div style="background: #f8fafc; padding: 20px; border-radius: 8px; border-left: 4px solid #10b981;">
+              ${type === 'signup' ? `
+                <p style="margin: 5px 0;"><strong>Name:</strong> ${data.name}</p>
+                <p style="margin: 5px 0;"><strong>Email:</strong> ${data.email}</p>
+                <p style="margin: 5px 0;"><strong>Phone:</strong> ${data.phone || 'Not provided'}</p>
+                <p style="margin: 5px 0;"><strong>Organization:</strong> ${data.organization || 'Not provided'}</p>
+              ` : `
+                <p style="margin: 5px 0;"><strong>User:</strong> ${data.userName} (${data.userEmail})</p>
+                <p style="margin: 5px 0;"><strong>Plan:</strong> ${data.plan}</p>
+                <p style="margin: 5px 0;"><strong>Amount:</strong> ₹${data.amount / 100}</p>
+                <p style="margin: 5px 0;"><strong>Payment ID:</strong> <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${data.paymentId}</code></p>
+              `}
+              <p style="margin: 5px 0;"><strong>Time:</strong> ${new Date().toLocaleString('en-IN')}</p>
+            </div>
+            <div style="text-align: center; margin-top: 25px;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/${type === 'signup' ? 'users' : 'revenue'}" style="background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 14px;">View in Admin Panel</a>
+            </div>
           </div>
         </body>
       </html>
@@ -296,8 +374,6 @@ export const emailTemplates = {
     paymentDate: Date
     validUntil: Date
   }) => {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://certistage.com'
-    const logoUrl = `${appUrl}/Certistage-logo.svg`
     const formattedDate = data.paymentDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
     const formattedValidUntil = data.validUntil.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
     
@@ -311,118 +387,120 @@ export const emailTemplates = {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Invoice #${data.invoiceNumber}</title>
           </head>
-          <body style="font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1f2937; max-width: 650px; margin: 0 auto; padding: 20px; background-color: #f3f4f6;">
-            <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <body style="font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1f2937; max-width: 650px; margin: 0 auto; padding: 0; background-color: #f3f4f6;">
+            <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 20px;">
               
-              <!-- Header with Logo -->
-              <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
-                <img src="${logoUrl}" alt="CertiStage" style="height: 40px; margin-bottom: 10px;" onerror="this.style.display='none'">
-                <h1 style="color: white; margin: 10px 0 5px 0; font-size: 28px; font-weight: 600;">INVOICE</h1>
-                <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 14px;">#${data.invoiceNumber}</p>
-              </div>
+              <!-- Header -->
+              ${getEmailHeader('simple')}
 
               <!-- Invoice Details -->
-              <div style="padding: 30px;">
+              <div style="padding: 30px 20px;">
                 
-                <!-- Company & Customer Info -->
-                <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
-                  <div style="flex: 1;">
-                    <h3 style="color: #10b981; margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">From</h3>
-                    <p style="margin: 0; font-weight: 600;">CertiStage</p>
-                    <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">Certificate Generation Platform</p>
-                    <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">support@certistage.com</p>
-                    <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">www.certistage.com</p>
-                  </div>
-                  <div style="flex: 1; text-align: right;">
-                    <h3 style="color: #10b981; margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Bill To</h3>
-                    <p style="margin: 0; font-weight: 600;">${data.customerName}</p>
-                    <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">${data.customerEmail}</p>
-                    ${data.customerPhone ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;">${data.customerPhone}</p>` : ''}
-                    ${data.customerOrganization ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;">${data.customerOrganization}</p>` : ''}
+                <!-- Invoice Number Badge -->
+                <div style="text-align: center; margin-bottom: 25px;">
+                  <div style="background: #f8fafc; display: inline-block; padding: 10px 20px; border-radius: 8px; border: 2px solid #10b981;">
+                    <p style="margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Invoice Number</p>
+                    <p style="margin: 5px 0 0 0; color: #1f2937; font-size: 18px; font-weight: 700;">#${data.invoiceNumber}</p>
                   </div>
                 </div>
 
+                <!-- Company & Customer Info -->
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 25px;">
+                  <tr>
+                    <td width="50%" style="vertical-align: top; padding-right: 10px;">
+                      <p style="color: #10b981; margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">From</p>
+                      <p style="margin: 0; font-weight: 600; font-size: 15px;">CertiStage</p>
+                      <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">Certificate Generation Platform</p>
+                      <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">support@certistage.com</p>
+                      <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">www.certistage.com</p>
+                    </td>
+                    <td width="50%" style="vertical-align: top; text-align: right; padding-left: 10px;">
+                      <p style="color: #10b981; margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Bill To</p>
+                      <p style="margin: 0; font-weight: 600; font-size: 15px;">${data.customerName}</p>
+                      <p style="margin: 5px 0; color: #6b7280; font-size: 14px;">${data.customerEmail}</p>
+                      ${data.customerPhone ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;">${data.customerPhone}</p>` : ''}
+                      ${data.customerOrganization ? `<p style="margin: 5px 0; color: #6b7280; font-size: 14px;">${data.customerOrganization}</p>` : ''}
+                    </td>
+                  </tr>
+                </table>
+
                 <!-- Invoice Meta -->
-                <div style="background: #f8fafc; padding: 15px 20px; border-radius: 8px; margin-bottom: 25px;">
-                  <table style="width: 100%; border-collapse: collapse;">
+                <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 25px;">
+                  <table width="100%" cellpadding="5" cellspacing="0" border="0">
                     <tr>
-                      <td style="padding: 5px 0;"><span style="color: #6b7280; font-size: 13px;">Invoice Date:</span></td>
-                      <td style="padding: 5px 0; text-align: right; font-weight: 500;">${formattedDate}</td>
-                      <td style="padding: 5px 0; padding-left: 30px;"><span style="color: #6b7280; font-size: 13px;">Payment ID:</span></td>
-                      <td style="padding: 5px 0; text-align: right; font-weight: 500; font-family: monospace; font-size: 12px;">${data.paymentId}</td>
+                      <td style="color: #6b7280; font-size: 13px;">Invoice Date:</td>
+                      <td style="text-align: right; font-weight: 500;">${formattedDate}</td>
                     </tr>
                     <tr>
-                      <td style="padding: 5px 0;"><span style="color: #6b7280; font-size: 13px;">Valid Until:</span></td>
-                      <td style="padding: 5px 0; text-align: right; font-weight: 500;">${formattedValidUntil}</td>
-                      <td style="padding: 5px 0; padding-left: 30px;"><span style="color: #6b7280; font-size: 13px;">Status:</span></td>
-                      <td style="padding: 5px 0; text-align: right;"><span style="background: #d1fae5; color: #059669; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">PAID</span></td>
+                      <td style="color: #6b7280; font-size: 13px;">Valid Until:</td>
+                      <td style="text-align: right; font-weight: 500;">${formattedValidUntil}</td>
+                    </tr>
+                    <tr>
+                      <td style="color: #6b7280; font-size: 13px;">Payment ID:</td>
+                      <td style="text-align: right; font-weight: 500; font-family: monospace; font-size: 11px;">${data.paymentId}</td>
+                    </tr>
+                    <tr>
+                      <td style="color: #6b7280; font-size: 13px;">Status:</td>
+                      <td style="text-align: right;"><span style="background: #d1fae5; color: #059669; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">PAID</span></td>
                     </tr>
                   </table>
                 </div>
 
                 <!-- Items Table -->
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
                   <thead>
                     <tr style="background: #f8fafc;">
-                      <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb;">Description</th>
-                      <th style="padding: 12px 15px; text-align: center; font-size: 12px; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb;">Duration</th>
-                      <th style="padding: 12px 15px; text-align: right; font-size: 12px; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb;">Amount</th>
+                      <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb;">Description</th>
+                      <th style="padding: 12px; text-align: center; font-size: 12px; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb;">Duration</th>
+                      <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb;">Amount</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td style="padding: 15px; border-bottom: 1px solid #e5e7eb;">
+                      <td style="padding: 15px 12px; border-bottom: 1px solid #e5e7eb;">
                         <p style="margin: 0; font-weight: 600;">${data.planName} Plan</p>
                         <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 13px;">Annual Subscription - CertiStage</p>
                       </td>
-                      <td style="padding: 15px; text-align: center; border-bottom: 1px solid #e5e7eb;">1 Year</td>
-                      <td style="padding: 15px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 500;">₹${(data.amount / 100).toLocaleString('en-IN')}</td>
+                      <td style="padding: 15px 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">1 Year</td>
+                      <td style="padding: 15px 12px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 500;">₹${(data.amount / 100).toLocaleString('en-IN')}</td>
                     </tr>
                   </tbody>
                 </table>
 
                 <!-- Totals -->
-                <div style="background: #f8fafc; padding: 20px; border-radius: 8px;">
-                  <table style="width: 100%; border-collapse: collapse;">
+                <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                  <table width="100%" cellpadding="8" cellspacing="0" border="0">
                     <tr>
-                      <td style="padding: 8px 0; color: #6b7280;">Plan Amount</td>
-                      <td style="padding: 8px 0; text-align: right;">₹${(data.amount / 100).toLocaleString('en-IN')}</td>
+                      <td style="color: #6b7280;">Plan Amount</td>
+                      <td style="text-align: right;">₹${(data.amount / 100).toLocaleString('en-IN')}</td>
                     </tr>
                     ${data.gatewayFee ? `
                     <tr>
-                      <td style="padding: 8px 0; color: #6b7280;">Payment Gateway Charges</td>
-                      <td style="padding: 8px 0; text-align: right;">₹${(data.gatewayFee / 100).toLocaleString('en-IN')}</td>
+                      <td style="color: #6b7280;">Payment Gateway Charges</td>
+                      <td style="text-align: right;">₹${(data.gatewayFee / 100).toLocaleString('en-IN')}</td>
                     </tr>
                     ` : ''}
                     <tr style="border-top: 2px solid #e5e7eb;">
-                      <td style="padding: 12px 0; font-size: 18px; font-weight: 700; color: #10b981;">Total Paid</td>
-                      <td style="padding: 12px 0; text-align: right; font-size: 18px; font-weight: 700; color: #10b981;">₹${(data.totalAmount / 100).toLocaleString('en-IN')}</td>
+                      <td style="padding-top: 12px; font-size: 18px; font-weight: 700; color: #10b981;">Total Paid</td>
+                      <td style="padding-top: 12px; text-align: right; font-size: 18px; font-weight: 700; color: #10b981;">₹${(data.totalAmount / 100).toLocaleString('en-IN')}</td>
                     </tr>
                   </table>
                 </div>
 
                 <!-- Thank You Note -->
-                <div style="text-align: center; margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 8px;">
+                <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 8px; margin-bottom: 20px;">
                   <p style="margin: 0; font-size: 16px; color: #059669; font-weight: 600;">🎉 Thank you for your purchase!</p>
                   <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 14px;">Your ${data.planName} plan is now active.</p>
                 </div>
 
                 <!-- CTA Button -->
-                <div style="text-align: center; margin-top: 25px;">
-                  <a href="${appUrl}/client/dashboard" style="background: #10b981; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 15px;">Go to Dashboard</a>
+                <div style="text-align: center;">
+                  <a href="${process.env.NEXT_PUBLIC_APP_URL}/client/dashboard" style="background: #10b981; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 15px;">Go to Dashboard</a>
                 </div>
               </div>
 
               <!-- Footer -->
-              <div style="background: #1f2937; padding: 25px; text-align: center;">
-                <p style="margin: 0 0 10px 0; color: #9ca3af; font-size: 13px;">This is a computer-generated invoice and does not require a signature.</p>
-                <p style="margin: 0; color: #6b7280; font-size: 12px;">© 2025 CertiStage. All rights reserved.</p>
-                <p style="margin: 10px 0 0 0;">
-                  <a href="${appUrl}" style="color: #10b981; text-decoration: none; font-size: 12px;">www.certistage.com</a>
-                  <span style="color: #4b5563; margin: 0 10px;">|</span>
-                  <a href="mailto:support@certistage.com" style="color: #10b981; text-decoration: none; font-size: 12px;">support@certistage.com</a>
-                </p>
-              </div>
+              ${getEmailFooter()}
             </div>
           </body>
         </html>
