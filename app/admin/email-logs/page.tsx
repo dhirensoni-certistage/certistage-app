@@ -174,8 +174,9 @@ export default function EmailLogsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex-1 overflow-y-auto">
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Mail className="h-6 w-6" />
@@ -299,85 +300,87 @@ export default function EmailLogsPage() {
       {/* Email Logs Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px]">#</TableHead>
-                <TableHead>To</TableHead>
-                <TableHead>Template</TableHead>
-                <TableHead className="hidden md:table-cell">Subject</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="w-[100px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-10">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                  </TableCell>
+                  <TableHead className="w-[50px]">#</TableHead>
+                  <TableHead className="min-w-[200px]">To</TableHead>
+                  <TableHead className="min-w-[150px]">Template</TableHead>
+                  <TableHead className="hidden md:table-cell min-w-[250px]">Subject</TableHead>
+                  <TableHead className="min-w-[100px]">Status</TableHead>
+                  <TableHead className="min-w-[150px]">Date</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
-              ) : logs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                    No email logs found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                logs.map((log, index) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="text-muted-foreground">
-                      {(pagination.page - 1) * pagination.limit + index + 1}
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">{log.to}</div>
-                      {log.metadata?.userName && (
-                        <div className="text-xs text-muted-foreground">{log.metadata.userName}</div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-normal">
-                        {getTemplateLabel(log.template)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell max-w-[300px] truncate">
-                      {log.subject}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(log.status)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {format(new Date(log.createdAt), "dd MMM, yy HH:mm")}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handlePreview(log.id)}
-                          title="Preview"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(log.id)}
-                          className="text-red-500 hover:text-red-600"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-10">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : logs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                      No email logs found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  logs.map((log, index) => (
+                    <TableRow key={log.id}>
+                      <TableCell className="text-muted-foreground">
+                        {(pagination.page - 1) * pagination.limit + index + 1}
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{log.to}</div>
+                        {log.metadata?.userName && (
+                          <div className="text-xs text-muted-foreground">{log.metadata.userName}</div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-normal whitespace-nowrap">
+                          {getTemplateLabel(log.template)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell max-w-[300px] truncate">
+                        {log.subject}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(log.status)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                        {format(new Date(log.createdAt), "dd MMM, yy HH:mm")}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handlePreview(log.id)}
+                            title="Preview"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(log.id)}
+                            className="text-red-500 hover:text-red-600"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
           {/* Pagination */}
           {pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between p-4 border-t">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
               <div className="text-sm text-muted-foreground">
                 Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
                 {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
@@ -468,6 +471,7 @@ export default function EmailLogsPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   )
 }
