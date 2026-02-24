@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -59,7 +59,7 @@ export default function SetupPage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
-            <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
+            <CheckCircle2 className="h-16 w-16 text-neutral-500 mx-auto mb-4" />
             <h2 className="text-xl font-bold mb-2">Setup Complete!</h2>
             <p className="text-muted-foreground mb-4">
               Super admin has been created. You can now login to the admin panel.
@@ -145,3 +145,4 @@ export default function SetupPage() {
     </div>
   )
 }
+

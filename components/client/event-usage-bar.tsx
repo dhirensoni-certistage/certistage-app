@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
@@ -64,7 +64,7 @@ export function EventUsageBar({ currentCount, maxEvents, planName }: EventUsageB
                       "font-medium",
                       isAtLimit ? "text-red-600 dark:text-red-400" :
                       isNearLimit ? "text-amber-600 dark:text-amber-400" :
-                      "text-emerald-600 dark:text-emerald-400"
+                      "text-neutral-600 dark:text-neutral-400"
                     )}>
                       {usagePercent}%
                     </span>
@@ -97,3 +97,4 @@ export function EventUsageBar({ currentCount, maxEvents, planName }: EventUsageB
     </div>
   )
 }
+

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
@@ -156,13 +156,13 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+            <Card className="bg-neutral-50 dark:bg-neutral-900/20 border-neutral-200 dark:border-neutral-800">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
-                  <Download className="h-8 w-8 text-green-600" />
+                  <Download className="h-8 w-8 text-neutral-600" />
                   <div>
-                    <p className="text-2xl font-bold text-green-600">{stats.totalDownloaded}</p>
-                    <p className="text-xs text-green-600/70">Downloaded</p>
+                    <p className="text-2xl font-bold text-neutral-600">{stats.totalDownloaded}</p>
+                    <p className="text-xs text-neutral-600/70">Downloaded</p>
                   </div>
                 </div>
               </CardContent>
@@ -207,7 +207,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
                           <div>
                             <p className="font-medium">{ct.name}</p>
                             <p className="text-sm text-muted-foreground">
-                              {ct.recipientsCount} recipients • {ct.downloadedCount} downloaded ({downloadPercent}%)
+                              {ct.recipientsCount} recipients â€¢ {ct.downloadedCount} downloaded ({downloadPercent}%)
                             </p>
                           </div>
                         </div>
@@ -226,3 +226,4 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
     </>
   )
 }
+

@@ -1,4 +1,4 @@
-// Authentication for Client Portal
+﻿// Authentication for Client Portal
 
 export type PlanType = "free" | "professional" | "enterprise" | "premium"
 
@@ -6,7 +6,6 @@ export interface PlanFeatures {
   canCreateEvent: boolean
   canImportData: boolean
   canExportReport: boolean
-  canDigitalSignature: boolean
   downloadLimit: number // -1 = unlimited
   maxCertificateTypes: number // -1 = unlimited
   maxCertificates: number // -1 = unlimited
@@ -23,7 +22,6 @@ export const PLAN_FEATURES: Record<PlanType, PlanFeatures> = {
     canCreateEvent: true,
     canImportData: false,
     canExportReport: false,
-    canDigitalSignature: false,
     downloadLimit: 1,
     maxCertificateTypes: 1,
     maxCertificates: 50,
@@ -38,7 +36,6 @@ export const PLAN_FEATURES: Record<PlanType, PlanFeatures> = {
     canCreateEvent: true,
     canImportData: true,
     canExportReport: true,
-    canDigitalSignature: true,
     downloadLimit: -1,
     maxCertificateTypes: 5,
     maxCertificates: 2000,
@@ -53,13 +50,12 @@ export const PLAN_FEATURES: Record<PlanType, PlanFeatures> = {
     canCreateEvent: true,
     canImportData: true,
     canExportReport: true,
-    canDigitalSignature: true,
     downloadLimit: -1,
     maxCertificateTypes: 100,
     maxCertificates: 25000,
     maxEvents: 10,
     canUpgrade: true,
-    displayName: "Enterprise Gold",
+    displayName: "Enterprise",
     price: "₹6,999/year",
     priceYearly: "₹6,999",
     color: "amber"
@@ -68,13 +64,12 @@ export const PLAN_FEATURES: Record<PlanType, PlanFeatures> = {
     canCreateEvent: true,
     canImportData: true,
     canExportReport: true,
-    canDigitalSignature: true,
     downloadLimit: -1,
     maxCertificateTypes: 200,
     maxCertificates: 50000,
     maxEvents: 25,
     canUpgrade: false,
-    displayName: "Premium Plus",
+    displayName: "Premium",
     price: "₹11,999/year",
     priceYearly: "₹11,999",
     color: "purple"
@@ -471,3 +466,4 @@ export function getEventDownloadLimit(eventOwnerId?: string): number {
   const planFeatures = PLAN_FEATURES[owner.plan]
   return planFeatures.downloadLimit
 }
+

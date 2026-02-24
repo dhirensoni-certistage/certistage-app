@@ -1,4 +1,4 @@
-import Head from 'next/head'
+﻿import Head from 'next/head'
 
 interface SEOHeadProps {
   title?: string
@@ -57,8 +57,8 @@ export default function SEOHead({
       <link rel="manifest" href="/site.webmanifest" />
       
       {/* Additional Meta */}
-      <meta name="theme-color" content="#10b981" />
-      <meta name="msapplication-TileColor" content="#10b981" />
+      <meta name="theme-color" content="#171717" />
+      <meta name="msapplication-TileColor" content="#171717" />
     </Head>
   )
 }

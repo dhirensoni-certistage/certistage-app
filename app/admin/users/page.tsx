@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -378,8 +378,8 @@ export default function UsersPage() {
             </div>
             
             {newUser.plan !== "free" && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg text-sm">
-                <p className="text-emerald-700 dark:text-emerald-300">
+              <div className="p-3 bg-neutral-50 dark:bg-neutral-950/30 rounded-lg text-sm">
+                <p className="text-neutral-700 dark:text-neutral-300">
                   Plan will be active for {newUser.planDuration} month(s) from today.
                   No payment required - admin assigned plan.
                 </p>
@@ -410,3 +410,4 @@ export default function UsersPage() {
     </>
   )
 }
+

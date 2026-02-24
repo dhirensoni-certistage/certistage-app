@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -85,7 +85,7 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case "signup": return <User className="h-4 w-4 text-blue-500" />
-      case "payment": return <CreditCard className="h-4 w-4 text-green-500" />
+      case "payment": return <CreditCard className="h-4 w-4 text-neutral-500" />
       case "event": return <Calendar className="h-4 w-4 text-purple-500" />
       default: return <Bell className="h-4 w-4" />
     }
@@ -107,7 +107,7 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
                 <Search className="h-4 w-4" />
                 <span className="text-sm">Search...</span>
                 <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium">
-                  ⌘K
+                  âŒ˜K
                 </kbd>
               </Button>
             </TooltipTrigger>
@@ -222,3 +222,4 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
     </header>
   )
 }
+

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -64,6 +64,7 @@ export default function CertificateTemplatePage() {
   // Template editing state
   const [textPosition, setTextPosition] = useState({ x: 50, y: 60 })
   const [fontSize, setFontSize] = useState(24)
+  const [fontFamily, setFontFamily] = useState<string>("Helvetica")
   const [textCase, setTextCase] = useState<TextCase>("none")
   const [isDragging, setIsDragging] = useState(false)
   const [searchFields, setSearchFields] = useState<SearchFields>({
@@ -100,6 +101,9 @@ export default function CertificateTemplatePage() {
           if (data.certificateType?.fontSize) {
             setFontSize(data.certificateType.fontSize)
           }
+          if (data.certificateType?.fontFamily) {
+            setFontFamily(data.certificateType.fontFamily)
+          }
           if (data.certificateType?.searchFields) {
             setSearchFields(data.certificateType.searchFields)
           }
@@ -122,37 +126,47 @@ export default function CertificateTemplatePage() {
     if (!file || !userId) return
 
     setIsUploading(true)
-    const formData = new FormData()
-    formData.append("file", file)
-    formData.append("userId", userId)
-    formData.append("typeId", typeId)
+    
+    // Convert file to base64
+    const reader = new FileReader()
+    reader.onloadend = async () => {
+      const base64String = reader.result as string
 
-    try {
-      const res = await fetch("/api/client/upload-template", {
-        method: "POST",
-        body: formData
-      })
-      
-      if (res.ok) {
-        const data = await res.json()
-        setCertType(prev => prev ? { ...prev, templateImage: data.url } : null)
-        toast.success("Template uploaded successfully!")
-      } else {
-        toast.error("Failed to upload template")
+      try {
+        const res = await fetch("/api/client/upload-template", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            typeId,
+            imageData: base64String
+          })
+        })
+        
+        if (res.ok) {
+          const data = await res.json()
+          setCertType(prev => prev ? { ...prev, templateImage: data.url } : null)
+          toast.success("Template uploaded successfully!")
+        } else {
+          toast.error("Failed to upload template")
+        }
+      } catch {
+        toast.error("Upload failed")
+      } finally {
+        setIsUploading(false)
       }
-    } catch {
-      toast.error("Upload failed")
-    } finally {
-      setIsUploading(false)
     }
+    
+    reader.readAsDataURL(file)
   }
 
-  // Save text position
+  // Save text position and styling settings
   const savePosition = async () => {
     if (!userId || !typeId) return
     
     setIsSaving(true)
     try {
+      // Save styling settings to database (not as new image)
       const res = await fetch("/api/client/certificate-types", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -161,6 +175,9 @@ export default function CertificateTemplatePage() {
           typeId,
           textPosition,
           fontSize,
+          fontFamily,
+          fontBold: certType?.fontBold || false,
+          fontItalic: certType?.fontItalic || false,
           textCase,
           searchFields
         })
@@ -172,11 +189,12 @@ export default function CertificateTemplatePage() {
         if (data.certificateType) {
           setCertType(prev => prev ? { ...prev, ...data.certificateType } : null)
         }
-        toast.success("Settings saved!")
+        toast.success("Settings saved successfully!")
       } else {
-        toast.error("Failed to save")
+        toast.error("Failed to save settings")
       }
-    } catch {
+    } catch (error) {
+      console.error("Save error:", error)
       toast.error("Save failed")
     } finally {
       setIsSaving(false)
@@ -225,7 +243,7 @@ export default function CertificateTemplatePage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 overflow-x-hidden max-w-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -265,7 +283,7 @@ export default function CertificateTemplatePage() {
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <div className="text-2xl font-bold text-green-600">{certType.stats.downloaded}</div>
+              <div className="text-2xl font-bold text-neutral-600">{certType.stats.downloaded}</div>
               <p className="text-sm text-muted-foreground">Downloaded</p>
             </CardContent>
           </Card>
@@ -278,37 +296,44 @@ export default function CertificateTemplatePage() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-6 w-full max-w-full overflow-x-hidden">
         {/* Template Preview */}
-        <div className="lg:col-span-2">
-          <Card>
+        <div className="lg:col-span-2 w-full max-w-full overflow-hidden">
+          <Card className="w-full max-w-full overflow-hidden">
             <CardHeader>
               <CardTitle>Template Design</CardTitle>
               <CardDescription>Upload template and position the name text</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
               <div 
                 ref={containerRef}
-                className="relative bg-muted rounded-lg overflow-hidden aspect-[1.414/1] cursor-crosshair"
+                className="relative bg-white rounded-lg overflow-hidden cursor-crosshair border-2 w-full"
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
+                style={{ maxHeight: "70vh" }}
               >
                 {certType?.templateImage ? (
                   <>
                     <img 
                       src={certType.templateImage} 
                       alt="Certificate Template"
-                      className="w-full h-full object-contain"
+                      className="w-full h-auto object-contain block max-w-full"
+                      draggable={false}
+                      style={{ maxHeight: "70vh" }}
                     />
                     {/* Draggable text position indicator */}
                     <div
-                      className="absolute bg-primary/20 border-2 border-primary border-dashed rounded px-4 py-2 cursor-move select-none"
+                      className="absolute bg-primary/20 border-2 border-primary border-dashed rounded px-4 py-2 cursor-move select-none pointer-events-auto"
                       style={{
                         left: `${textPosition.x}%`,
                         top: `${textPosition.y}%`,
                         transform: "translate(-50%, -50%)",
-                        fontSize: `${fontSize}px`
+                        fontSize: `${fontSize}px`,
+                        fontFamily: fontFamily,
+                        fontWeight: certType.fontBold ? "bold" : "normal",
+                        fontStyle: certType.fontItalic ? "italic" : "normal",
+                        whiteSpace: "nowrap"
                       }}
                       onMouseDown={handleMouseDown}
                     >
@@ -405,6 +430,26 @@ export default function CertificateTemplatePage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Type className="h-4 w-4" />
+                  Font Family
+                </Label>
+                <Select value={fontFamily} onValueChange={setFontFamily}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select font" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Helvetica">Helvetica (Sans-serif)</SelectItem>
+                    <SelectItem value="Times">Times New Roman (Serif)</SelectItem>
+                    <SelectItem value="Courier">Courier (Monospace)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Only PDF-compatible fonts are available
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Type className="h-4 w-4" />
                   Text Case
                 </Label>
                 <Select value={textCase} onValueChange={(value: TextCase) => setTextCase(value)}>
@@ -489,3 +534,4 @@ export default function CertificateTemplatePage() {
     </div>
   )
 }
+

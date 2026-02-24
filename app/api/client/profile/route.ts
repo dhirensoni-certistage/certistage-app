@@ -8,26 +8,27 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get("userId")
     const email = searchParams.get("email")
-    
+
     // If no userId or email provided, try to get from NextAuth session
     if (!userId && !email) {
       try {
         const { getServerSession } = await import("next-auth")
         const { authOptions } = await import("@/lib/auth-config")
         const session = await getServerSession(authOptions)
-        
+
         if (!session?.user?.email) {
           // No session - user not logged in, return 401
+          console.warn("Profile API: No userId param and no NextAuth session found.")
           return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
         }
-        
+
         await connectDB()
         const user = await User.findOne({ email: session.user.email.toLowerCase() }).select("-password").lean()
-        
+
         if (!user) {
           return NextResponse.json({ error: "User not found" }, { status: 404 })
         }
-        
+
         return NextResponse.json({
           success: true,
           user: {
@@ -47,18 +48,18 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
       }
     }
-    
+
     await connectDB()
-    
+
     // Try to get user by userId or email
     let user = null
-    
+
     if (userId) {
       user = await User.findById(userId).select("-password").lean()
     } else if (email) {
       user = await User.findOne({ email: email.toLowerCase() }).select("-password").lean()
     }
-    
+
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
@@ -87,9 +88,9 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     await connectDB()
-    
+
     const { userId, name, phone, organization } = await request.json()
-    
+
     if (!userId) {
       return NextResponse.json({ error: "User ID required" }, { status: 400 })
     }
@@ -134,14 +135,14 @@ export async function PUT(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     await connectDB()
-    
+
     const body = await request.json()
     const { plan, userId } = body
-    
+
     if (!userId) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
-    
+
     if (!plan) {
       return NextResponse.json({ error: "Plan is required" }, { status: 400 })
     }
@@ -153,15 +154,15 @@ export async function PATCH(request: NextRequest) {
 
     // For now, allow plan update without payment verification (demo mode)
     // In production, this should verify payment first
-    
+
     // Calculate plan expiry (1 year from now for paid plans)
-    const planExpiresAt = plan !== "free" 
-      ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) 
+    const planExpiresAt = plan !== "free"
+      ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
       : null
 
     const user = await User.findByIdAndUpdate(
       userId,
-      { 
+      {
         plan,
         planExpiresAt
       },

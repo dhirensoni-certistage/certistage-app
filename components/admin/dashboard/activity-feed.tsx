@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -20,8 +20,8 @@ interface ActivityFeedProps {
 const activityConfig = {
   signup: {
     icon: UserPlus,
-    color: "text-emerald-500",
-    bgColor: "bg-emerald-500/10",
+    color: "text-neutral-500",
+    bgColor: "bg-neutral-500/10",
   },
   event_created: {
     icon: Calendar,

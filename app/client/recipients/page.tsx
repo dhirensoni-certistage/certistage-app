@@ -24,7 +24,7 @@ import {
 import { getClientSession, getTrialStatus, getCurrentPlanFeatures } from "@/lib/auth"
 import {
   Users, FileSpreadsheet, Search, Trash2, Download, Plus, Lock,
-  UserPlus, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Pencil, MoreHorizontal
+  UserPlus, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Pencil, MoreHorizontal, Award
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
+import { getDownloadLink } from "@/lib/events"
 
 // Types for API response
 interface EventRecipient {
@@ -80,6 +81,8 @@ export default function RecipientsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [previewRecipient, setPreviewRecipient] = useState<(EventRecipient & { certTypeName: string; certTypeId: string }) | null>(null)
   const [editingRecipient, setEditingRecipient] = useState<(EventRecipient & { certTypeId: string }) | null>(null)
   const [addToTypeId, setAddToTypeId] = useState<string>("")
   const [isLoading, setIsLoading] = useState(true)
@@ -215,6 +218,10 @@ export default function RecipientsPage() {
 
   const filteredRecipients = getFilteredRecipients()
   const allRecipients = getAllRecipients()
+  const previewLink = previewRecipient && eventId
+    ? `/download/embed?event=${eventId}&cert=${previewRecipient.certificateId}`
+    : ""
+  const downloadLink = previewRecipient ? `/api/download/pdf?recipientId=${previewRecipient.id}` : ""
 
   // Pagination
   const totalPages = Math.ceil(filteredRecipients.length / rowsPerPage)
@@ -305,7 +312,7 @@ export default function RecipientsPage() {
     const prefix = ['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Prof.', 'Er.'].find(p => nameParts[0] === p) || ''
     const firstName = prefix ? nameParts.slice(1, -1).join(' ') || nameParts[1] || '' : nameParts.slice(0, -1).join(' ') || nameParts[0] || ''
     const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : ''
-    
+
     setFormPrefix(prefix)
     setFormFirstName(firstName)
     setFormLastName(lastName)
@@ -313,6 +320,11 @@ export default function RecipientsPage() {
     setFormMobile(recipient.mobile || '')
     setFormRegNo(recipient.certificateId || '')
     setIsEditDialogOpen(true)
+  }
+
+  const openPreviewDialog = (recipient: EventRecipient & { certTypeName: string; certTypeId: string }) => {
+    setPreviewRecipient(recipient)
+    setIsPreviewOpen(true)
   }
 
   // Handle update recipient
@@ -666,37 +678,37 @@ export default function RecipientsPage() {
   const showTableSkeleton = isLoading || !event
 
   return (
-    <div className="p-6 flex flex-col h-screen overflow-hidden">
+    <div className="p-6 flex flex-col h-screen overflow-hidden bg-[#FDFDFD]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+      <div className="flex items-center justify-between mb-6 flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Attendees</h1>
-          <p className="text-muted-foreground">Manage all event attendees{event ? ` for ${event.name}` : ''}</p>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[11px] font-semibold text-[#888] uppercase tracking-[0.15em]">Manage</span>
+          </div>
+          <h1 className="text-[24px] font-semibold text-black tracking-tight leading-none">Attendees</h1>
         </div>
       </div>
 
       {/* Recipients Table with Filters */}
       {!showTableSkeleton && event?.certificateTypes.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Certificate Types Yet</h3>
-            <p className="text-muted-foreground mb-4">
-              Create a certificate type first before adding attendees
-            </p>
-            <Button onClick={() => window.location.href = "/client/certificates"}>
-              Go to Manage Certificate
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="rounded-md border border-[#E5E5E5] bg-white p-16 text-center">
+          <Users className="h-12 w-12 text-[#CCC] mx-auto mb-4" />
+          <h3 className="text-base font-semibold text-black mb-2">No Certificate Types Yet</h3>
+          <p className="text-sm text-[#666] mb-6">
+            Create a certificate type first before adding attendees
+          </p>
+          <Button onClick={() => window.location.href = "/client/certificates"} className="h-9 px-4 bg-black text-white hover:bg-[#222] text-sm">
+            Go to Manage Certificate
+          </Button>
+        </div>
       ) : (
-        <div className="rounded-lg border overflow-hidden flex flex-col flex-1 min-h-0">
+        <div className="rounded-md border border-[#E5E5E5] bg-white overflow-hidden flex flex-col flex-1 min-h-0 shadow-sm">
           {/* Filters in table header */}
-          <div className="bg-muted/50 border-b px-4 py-3 flex-shrink-0">
+          <div className="bg-[#FAFAFA] border-b border-[#E5E5E5] px-4 py-3 flex-shrink-0">
             <div className="flex flex-wrap items-center gap-3">
               {/* Certificate Type Filter */}
               <Select value={selectedTypeId} onValueChange={setSelectedTypeId} disabled={showTableSkeleton}>
-                <SelectTrigger className="w-[180px] h-9">
+                <SelectTrigger className="w-[180px] h-8 text-xs border-[#E5E5E5] bg-white rounded-sm">
                   <SelectValue placeholder="All Certificate" />
                 </SelectTrigger>
                 <SelectContent>
@@ -711,7 +723,7 @@ export default function RecipientsPage() {
 
               {/* Status Filter */}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[130px] h-9">
+                <SelectTrigger className="w-[130px] h-8 text-xs border-[#E5E5E5] bg-white rounded-sm">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -724,12 +736,12 @@ export default function RecipientsPage() {
               {/* Search */}
               <div className="flex-1 min-w-[200px]">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#999]" />
                   <Input
                     placeholder="Search by name, email, mobile, reg no..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9"
+                    className="pl-8 h-8 text-xs border-[#E5E5E5] bg-white rounded-sm placeholder:text-[#BBB]"
                   />
                 </div>
               </div>
@@ -744,10 +756,10 @@ export default function RecipientsPage() {
               />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-[#E5E5E5] rounded-sm">
+                    <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
                     Import
-                    <ChevronDown className="h-4 w-4 ml-2" />
+                    <ChevronDown className="h-3.5 w-3.5 ml-1.5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -780,8 +792,9 @@ export default function RecipientsPage() {
                 size="sm"
                 onClick={openAddDialog}
                 disabled={showTableSkeleton || !event || event.certificateTypes.length === 0}
+                className="h-8 px-3 text-xs bg-black text-white hover:bg-[#222] rounded-sm"
               >
-                <UserPlus className="h-4 w-4 mr-2" />
+                <UserPlus className="h-3.5 w-3.5 mr-1.5" />
                 Add Attendee
               </Button>
             </div>
@@ -789,49 +802,51 @@ export default function RecipientsPage() {
 
           {/* Table with sticky header */}
           <div className="flex-1 overflow-auto min-h-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <table className="w-full text-sm table-fixed">
-              <thead className="sticky top-0 bg-muted z-10">
+            <table className="w-full text-xs table-fixed">
+              <thead className="sticky top-0 bg-[#FAFAFA] z-10 border-b border-[#E5E5E5]">
                 <tr>
-                  <th className="text-center p-3 font-medium w-[40px]">
+                  <th className="text-center px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[40px]">
                     <Checkbox
                       checked={paginatedRecipients.length > 0 && selectedIds.size === paginatedRecipients.length}
                       onCheckedChange={toggleSelectAll}
                     />
                   </th>
-                  <th className="text-left p-3 font-medium w-[40px]">#</th>
-                  <th className="text-left p-3 font-medium w-[140px]">Name</th>
-                  <th className="text-left p-3 font-medium w-[180px]">Email</th>
-                  <th className="text-left p-3 font-medium w-[120px]">Mobile</th>
-                  <th className="text-left p-3 font-medium w-[150px]">Reg No</th>
-                  <th className="text-left p-3 font-medium w-[120px]">Certificate</th>
-                  <th className="text-left p-3 font-medium w-[90px]">Status</th>
-                  <th className="text-center p-3 font-medium w-[70px]">Downloads</th>
-                  <th className="text-center p-3 font-medium w-[50px]"></th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[40px]">#</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[140px]">Name</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[180px]">Email</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[120px]">Mobile</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[150px]">Reg No</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[120px]">Certificate</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[70px]">Preview</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[90px]">Status</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[70px]">Downloads</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[50px]"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-white">
                 {showTableSkeleton ? (
                   // Skeleton loader rows - only for table data
                   Array.from({ length: rowsPerPage }).map((_, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="p-3 text-center"><Skeleton className="h-4 w-4 mx-auto" /></td>
-                      <td className="p-3"><Skeleton className="h-4 w-6" /></td>
-                      <td className="p-3"><Skeleton className="h-4 w-24" /></td>
-                      <td className="p-3"><Skeleton className="h-4 w-32" /></td>
-                      <td className="p-3"><Skeleton className="h-4 w-20" /></td>
-                      <td className="p-3"><Skeleton className="h-4 w-28" /></td>
-                      <td className="p-3"><Skeleton className="h-4 w-20" /></td>
-                      <td className="p-3"><Skeleton className="h-5 w-16" /></td>
-                      <td className="p-3 text-center"><Skeleton className="h-4 w-8 mx-auto" /></td>
-                      <td className="p-3 text-center"><Skeleton className="h-6 w-6 mx-auto" /></td>
+                    <tr key={i} className="border-b border-[#F0F0F0]">
+                      <td className="px-3 py-3 text-center"><Skeleton className="h-3 w-3 mx-auto" /></td>
+                      <td className="px-3 py-3"><Skeleton className="h-3 w-6" /></td>
+                      <td className="px-3 py-3"><Skeleton className="h-3 w-24" /></td>
+                      <td className="px-3 py-3"><Skeleton className="h-3 w-32" /></td>
+                      <td className="px-3 py-3"><Skeleton className="h-3 w-20" /></td>
+                      <td className="px-3 py-3"><Skeleton className="h-3 w-28" /></td>
+                      <td className="px-3 py-3"><Skeleton className="h-3 w-20" /></td>
+                      <td className="px-3 py-3 text-center"><Skeleton className="h-6 w-6 mx-auto" /></td>
+                      <td className="px-3 py-3"><Skeleton className="h-5 w-16" /></td>
+                      <td className="px-3 py-3 text-center"><Skeleton className="h-3 w-8 mx-auto" /></td>
+                      <td className="px-3 py-3 text-center"><Skeleton className="h-6 w-6 mx-auto" /></td>
                     </tr>
                   ))
                 ) : filteredRecipients.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="p-8 text-center">
-                      <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                      <p className="font-medium">No Attendees Found</p>
-                      <p className="text-sm text-muted-foreground">
+                    <td colSpan={11} className="p-12 text-center">
+                      <Users className="h-10 w-10 text-[#CCC] mx-auto mb-2" />
+                      <p className="font-medium text-sm text-black">No Attendees Found</p>
+                      <p className="text-xs text-[#666] mt-1">
                         {searchQuery || statusFilter !== "all"
                           ? "Try adjusting your filters"
                           : "Add attendees to get started"}
@@ -840,41 +855,56 @@ export default function RecipientsPage() {
                   </tr>
                 ) : (
                   paginatedRecipients.map((r, i) => (
-                    <tr key={r.id} className={`border-t hover:bg-muted/50 ${selectedIds.has(r.id) ? 'bg-muted/30' : ''}`}>
-                      <td className="p-3 text-center">
+                    <tr key={r.id} className={`border-b border-[#F0F0F0] hover:bg-[#FAFAFA] transition-colors ${selectedIds.has(r.id) ? 'bg-[#F5F5F5]' : ''}`}>
+                      <td className="px-3 py-3 text-center">
                         <Checkbox
                           checked={selectedIds.has(r.id)}
                           onCheckedChange={() => toggleSelect(r.id)}
                         />
                       </td>
-                      <td className="p-3 text-muted-foreground">{startIndex + i + 1}</td>
-                      <td className="p-3 font-medium truncate" title={r.name}>{r.name}</td>
-                      <td className="p-3 text-muted-foreground truncate" title={r.email}>{r.email || "-"}</td>
-                      <td className="p-3 text-muted-foreground truncate">{r.mobile || "-"}</td>
-                      <td className="p-3">
-                        <code className="text-xs bg-muted px-2 py-1 rounded font-mono truncate block" title={r.certificateId}>
+                      <td className="px-3 py-3 text-[#999] font-mono">{startIndex + i + 1}</td>
+                      <td className="px-3 py-3 font-medium text-black truncate" title={r.name}>{r.name}</td>
+                      <td className="px-3 py-3 text-[#666] truncate" title={r.email}>{r.email || "-"}</td>
+                      <td className="px-3 py-3 text-[#666] truncate">{r.mobile || "-"}</td>
+                      <td className="px-3 py-3">
+                        <code
+                          className="text-[11px] bg-[#F5F5F5] border border-[#E5E5E5] px-2 py-0.5 rounded-sm font-mono text-[#666] truncate inline-block max-w-[140px] whitespace-nowrap"
+                          title={r.certificateId}
+                        >
                           {r.certificateId}
                         </code>
                       </td>
-                      <td className="p-3">
-                        <Badge variant="outline" className="text-xs">
+                      <td className="px-3 py-3">
+                        <Badge variant="outline" className="text-[10px] font-medium border-[#E5E5E5] text-[#666]">
                           {r.certTypeName}
                         </Badge>
                       </td>
-                      <td className="p-3">
+                      <td className="px-3 py-3 text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 hover:bg-neutral-100"
+                          onClick={() => openPreviewDialog(r)}
+                          disabled={!eventId}
+                          title="View certificate preview"
+                        >
+                          <Award className="h-4 w-4 text-[#666]" />
+                        </Button>
+                      </td>
+                      <td className="px-3 py-3">
                         <Badge
                           variant={r.status === "downloaded" ? "default" : "outline"}
-                          className={r.status === "downloaded" ? "bg-emerald-500" : ""}
+                          className={r.status === "downloaded" ? "bg-black text-white text-[10px]" : "text-[10px] border-[#E5E5E5] text-[#888]"}
                         >
-                          {r.status}
+                          {r.status === "downloaded" ? "Downloaded" : "Pending"}
                         </Badge>
                       </td>
-                      <td className="p-3 text-center">{r.downloadCount}</td>
-                      <td className="p-3 text-center">
+                      <td className="px-3 py-3 text-center font-mono text-[#666]">{r.downloadCount}</td>
+                      <td className="px-3 py-3 text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7">
-                              <MoreHorizontal className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-neutral-100">
+                              <MoreHorizontal className="h-3.5 w-3.5" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -882,9 +912,9 @@ export default function RecipientsPage() {
                               <Pencil className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={() => openDeleteDialog(r)}
-                              className="text-destructive focus:text-destructive"
+                              className="text-red-600 focus:text-red-600"
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
@@ -961,6 +991,55 @@ export default function RecipientsPage() {
           </div>
         </div>
       )}
+
+      {/* Certificate Preview Dialog */}
+      <Dialog
+        open={isPreviewOpen}
+        onOpenChange={(open) => {
+          setIsPreviewOpen(open)
+          if (!open) setPreviewRecipient(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-6xl h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Certificate Preview</DialogTitle>
+            <DialogDescription>
+              {previewRecipient
+                ? `Preview for ${previewRecipient.name} • ${previewRecipient.certificateId}`
+                : "Loading preview..."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-lg border border-neutral-200 overflow-hidden bg-white flex-1 min-h-0">
+            {previewLink ? (
+              <iframe
+                title="Certificate preview"
+                src={previewLink}
+                className="w-full h-full bg-white"
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-sm text-neutral-500">
+                Unable to load preview.
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 mt-4">
+            <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                if (downloadLink) window.open(downloadLink, "_blank", "noopener,noreferrer")
+              }}
+              disabled={!downloadLink}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download Certificate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

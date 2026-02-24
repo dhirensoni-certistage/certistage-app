@@ -28,10 +28,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Event ID required" }, { status: 400 })
     }
 
-    const eventObjectId = new mongoose.Types.ObjectId(eventId)
+    let eventObjectId: mongoose.Types.ObjectId | null = null
+    try {
+      eventObjectId = new mongoose.Types.ObjectId(eventId)
+    } catch (e) {
+      console.warn("Invalid eventId format for ObjectId:", eventId)
+    }
 
-    // Get event
-    const event = await Event.findById(eventId).lean()
+    // Get event with fallback
+    const event = await Event.findOne({
+      $or: [
+        { _id: eventObjectId || new mongoose.Types.ObjectId() },
+        { _id: eventId as any }
+      ]
+    }).lean() || await Event.findById(eventId).lean();
+
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
@@ -58,8 +69,10 @@ export async function GET(request: NextRequest) {
 
     if (includeRecipients) {
       // Get recipients grouped by certificate type using aggregation
+      const matchQuery: any = { eventId: eventObjectId || eventId }
+
       const recipientsByType = await Recipient.aggregate([
-        { $match: { eventId: eventObjectId } },
+        { $match: matchQuery },
         {
           $group: {
             _id: "$certificateTypeId",
@@ -87,6 +100,16 @@ export async function GET(request: NextRequest) {
       certificateTypes = certTypes.map(ct => {
         const typeData = recipientsMap.get(ct._id?.toString()) || { recipients: [], total: 0, downloaded: 0 }
         const ctAny = ct as any
+
+        // Handle signature position migration
+        if (ctAny.signatures) {
+          ctAny.signatures = ctAny.signatures.map((sig: any) => {
+            if (!sig.position && (sig.x !== undefined || sig.y !== undefined)) {
+              return { ...sig, position: { x: sig.x ?? 80, y: sig.y ?? 80 } }
+            }
+            return sig
+          })
+        }
 
         return {
           id: ct._id?.toString(),
@@ -139,6 +162,16 @@ export async function GET(request: NextRequest) {
         const stats = statsMap.get(ct._id?.toString()) || { total: 0, downloaded: 0 }
         const ctAny = ct as any
 
+        // Handle signature position migration
+        if (ctAny.signatures) {
+          ctAny.signatures = ctAny.signatures.map((sig: any) => {
+            if (!sig.position && (sig.x !== undefined || sig.y !== undefined)) {
+              return { ...sig, position: { x: sig.x ?? 80, y: sig.y ?? 80 } }
+            }
+            return sig
+          })
+        }
+
         return {
           id: ct._id?.toString(),
           name: ct.name,
@@ -171,6 +204,7 @@ export async function GET(request: NextRequest) {
 
     const dashboardEvent = {
       _id: event._id?.toString(),
+      id: event._id?.toString(),
       name: event.name,
       description: event.description,
       certificateTypes,

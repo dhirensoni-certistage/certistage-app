@@ -1,4 +1,4 @@
-// Razorpay Configuration and Utilities
+﻿// Razorpay Configuration and Utilities
 
 // Get config from localStorage (client-side) or env (server-side)
 export function getRazorpayConfig() {
@@ -56,13 +56,13 @@ export const PLAN_DETAILS = {
     description: "Up to 3 events, 2,000 certificates"
   },
   enterprise: {
-    name: "Enterprise Gold",
+    name: "Enterprise",
     price: 699900,
     displayPrice: "₹6,999/year",
     description: "Up to 10 events, 25,000 certificates"
   },
   premium: {
-    name: "Premium Plus",
+    name: "Premium",
     price: 1199900,
     displayPrice: "₹11,999/year",
     description: "Up to 25 events, 50,000 certificates"
@@ -202,3 +202,4 @@ export async function openRazorpayCheckout(
   const razorpay = new (window as any).Razorpay(options)
   razorpay.open()
 }
+

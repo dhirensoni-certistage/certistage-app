@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { 
+import {
   User, Lock, Loader2, Eye, EyeOff, Save, LogOut, Crown,
   Mail, Phone, Building2, Shield, ChevronRight, Check
 } from "lucide-react"
@@ -106,44 +106,53 @@ export default function SettingsPage() {
 
   const planFeatures = PLAN_FEATURES[profile.plan as keyof typeof PLAN_FEATURES] || PLAN_FEATURES.free
   const initials = profile.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
-  const getPlanGradient = (p: string) => p === "premium" ? "from-purple-500 to-pink-500" : p === "enterprise" ? "from-amber-500 to-orange-500" : p === "professional" ? "from-blue-500 to-cyan-500" : "from-gray-400 to-gray-500"
   const daysLeft = profile.planExpiresAt ? Math.max(0, Math.ceil((new Date(profile.planExpiresAt).getTime() - Date.now()) / 86400000)) : null
 
   return (
     <div className="p-6 md:p-8 max-w-4xl mx-auto pl-8 md:pl-12">
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center gap-6">
-        <Avatar className="h-20 w-20 border-4 border-background shadow-lg">
-          <AvatarFallback className={`bg-gradient-to-br ${getPlanGradient(profile.plan)} text-white text-xl font-semibold`}>{initials}</AvatarFallback>
-        </Avatar>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{profile.name}</h1>
-          <p className="text-muted-foreground">{profile.email}</p>
-          <div className="flex items-center gap-3 mt-2">
-            <Badge className={`bg-gradient-to-r ${getPlanGradient(profile.plan)} text-white border-0`}>{planFeatures.displayName}</Badge>
-            {profile.createdAt && <span className="text-xs text-muted-foreground">Member since {new Date(profile.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>}
-          </div>
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[11px] font-semibold text-[#888] uppercase tracking-[0.15em]">Account</span>
         </div>
-        {profile.plan !== "premium" && <Button asChild className="gap-2 bg-gradient-to-r from-violet-500 to-indigo-500"><Link href="/client/upgrade"><Crown className="h-4 w-4" />Upgrade</Link></Button>}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+          <Avatar className="h-16 w-16 border border-[#E5E5E5]">
+            <AvatarFallback className="bg-neutral-900 text-white text-lg font-semibold">{initials}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1">
+            <h1 className="text-[24px] font-semibold text-black tracking-tight leading-none">{profile.name}</h1>
+            <p className="text-sm text-[#666] mt-1">{profile.email}</p>
+            <div className="flex items-center gap-3 mt-2">
+              <Badge className="bg-neutral-900 text-white border-0 text-xs">{planFeatures.displayName}</Badge>
+              {profile.createdAt && <span className="text-xs text-[#999]">Member since {new Date(profile.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>}
+            </div>
+          </div>
+          {profile.plan !== "premium" && <Button asChild className="gap-2 h-9 px-4 bg-black text-white hover:bg-[#222]"><Link href="/client/upgrade"><Crown className="h-4 w-4" />Upgrade</Link></Button>}
+        </div>
       </div>
 
       {profile.plan !== "free" && daysLeft !== null && (
-        <Card className="mb-6 overflow-hidden">
-          <div className={`h-1 bg-gradient-to-r ${getPlanGradient(profile.plan)}`} />
+        <Card className="mb-6">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`h-10 w-10 rounded-full bg-gradient-to-br ${getPlanGradient(profile.plan)} flex items-center justify-center`}><Crown className="h-5 w-5 text-white" /></div>
-              <div><p className="font-medium">{planFeatures.displayName}</p><p className="text-sm text-muted-foreground">{daysLeft > 0 ? `${daysLeft} days left` : "Expired"}</p></div>
+              <div className="h-10 w-10 rounded-full bg-neutral-900 flex items-center justify-center"><Crown className="h-5 w-5 text-white" /></div>
+              <div>
+                <p className="font-medium">{planFeatures.displayName}</p>
+                <p className="text-sm text-muted-foreground">{daysLeft > 0 ? `${daysLeft} days left` : "Expired"}</p>
+              </div>
             </div>
-            <div className="text-right"><p className="text-xs text-muted-foreground">Expires</p><p className="font-medium">{new Date(profile.planExpiresAt!).toLocaleDateString()}</p></div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Expires</p>
+              <p className="font-medium">{new Date(profile.planExpiresAt!).toLocaleDateString()}</p>
+            </div>
           </CardContent>
         </Card>
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="profile" className="gap-2"><User className="h-4 w-4" /><span className="hidden sm:inline">Profile</span></TabsTrigger>
-          <TabsTrigger value="security" className="gap-2"><Shield className="h-4 w-4" /><span className="hidden sm:inline">Security</span></TabsTrigger>
-          <TabsTrigger value="plan" className="gap-2"><Crown className="h-4 w-4" /><span className="hidden sm:inline">Plan</span></TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid bg-neutral-100/70 dark:bg-neutral-900/60 p-1 rounded-lg">
+          <TabsTrigger value="profile" className="gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm rounded-md"><User className="h-4 w-4" /><span className="hidden sm:inline">Profile</span></TabsTrigger>
+          <TabsTrigger value="security" className="gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm rounded-md"><Shield className="h-4 w-4" /><span className="hidden sm:inline">Security</span></TabsTrigger>
+          <TabsTrigger value="plan" className="gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm rounded-md"><Crown className="h-4 w-4" /><span className="hidden sm:inline">Plan</span></TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -168,17 +177,17 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <Label>Current Password</Label>
                 <div className="relative">
-                  <Input 
-                    type={showPasswords ? "text" : "password"} 
-                    value={passwordForm.currentPassword} 
-                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} 
+                  <Input
+                    type={showPasswords ? "text" : "password"}
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
                     className="pr-10"
                   />
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="icon" 
-                    className="absolute right-0 top-0 h-full hover:bg-transparent" 
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full hover:bg-transparent"
                     onClick={() => setShowPasswords(!showPasswords)}
                   >
                     {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -189,18 +198,18 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <Label>New Password</Label>
                   <div className="relative">
-                    <Input 
-                      type={showPasswords ? "text" : "password"} 
-                      value={passwordForm.newPassword} 
-                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} 
+                    <Input
+                      type={showPasswords ? "text" : "password"}
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                       placeholder="Min 6 characters"
                       className="pr-10"
                     />
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="icon" 
-                      className="absolute right-0 top-0 h-full hover:bg-transparent" 
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full hover:bg-transparent"
                       onClick={() => setShowPasswords(!showPasswords)}
                     >
                       {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -210,17 +219,17 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <Label>Confirm Password</Label>
                   <div className="relative">
-                    <Input 
-                      type={showPasswords ? "text" : "password"} 
-                      value={passwordForm.confirmPassword} 
+                    <Input
+                      type={showPasswords ? "text" : "password"}
+                      value={passwordForm.confirmPassword}
                       onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                       className="pr-10"
                     />
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="icon" 
-                      className="absolute right-0 top-0 h-full hover:bg-transparent" 
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full hover:bg-transparent"
                       onClick={() => setShowPasswords(!showPasswords)}
                     >
                       {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -231,16 +240,12 @@ export default function SettingsPage() {
               <div className="flex justify-end"><Button type="submit" disabled={isSavingPassword} className="gap-2">{isSavingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}Update Password</Button></div>
             </form>
           </CardContent></Card>
-          <Card className="border-destructive/20"><CardContent className="p-6 flex items-center justify-between">
-            <div><h3 className="font-semibold text-destructive">Sign Out</h3><p className="text-sm text-muted-foreground">Sign out from this device</p></div>
-            <Button variant="destructive" onClick={handleLogout} className="gap-2"><LogOut className="h-4 w-4" />Logout</Button>
-          </CardContent></Card>
         </TabsContent>
 
         <TabsContent value="plan">
           <Card><CardContent className="p-6">
             <h3 className="text-lg font-semibold mb-4">Current Plan</h3>
-            <div className={`p-4 rounded-lg bg-gradient-to-br ${getPlanGradient(profile.plan)} text-white mb-6 flex items-center justify-between`}>
+            <div className="p-4 rounded-lg bg-neutral-900 text-white mb-6 flex items-center justify-between">
               <div><p className="text-white/80 text-sm">You're on</p><p className="text-2xl font-bold">{planFeatures.displayName}</p></div>
               <Crown className="h-10 w-10 text-white/80" />
             </div>
@@ -252,11 +257,10 @@ export default function SettingsPage() {
                 { label: "Certificates", value: planFeatures.maxCertificates },
                 { label: "Bulk Import", value: planFeatures.canImportData },
                 { label: "Export Reports", value: planFeatures.canExportReport },
-                { label: "Digital Signature", value: planFeatures.canDigitalSignature },
               ].map((f, i) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                   <span className="text-sm">{f.label}</span>
-                  {typeof f.value === "boolean" ? (f.value ? <Check className="h-4 w-4 text-emerald-500" /> : <span className="text-xs text-muted-foreground">—</span>) : <span className="font-medium">{f.value === -1 ? "Unlimited" : f.value.toLocaleString()}</span>}
+                  {typeof f.value === "boolean" ? (f.value ? <Check className="h-4 w-4 text-black" /> : <span className="text-xs text-muted-foreground">—</span>) : <span className="font-medium">{f.value === -1 ? "Unlimited" : f.value.toLocaleString()}</span>}
                 </div>
               ))}
             </div>

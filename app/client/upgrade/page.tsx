@@ -1,16 +1,29 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Check, Crown, Building2, ArrowLeft, Sparkles, Zap, AlertCircle, Loader2, TrendingDown, Calendar } from "lucide-react"
+import {
+  Check,
+  Crown,
+  Building2,
+  ArrowLeft,
+  Sparkles,
+  Zap,
+  AlertCircle,
+  Loader2,
+  TrendingDown,
+  Calendar,
+  ShieldCheck,
+  ChevronRight,
+  ArrowRight
+} from "lucide-react"
 import { getClientSession, PLAN_FEATURES, type PlanType } from "@/lib/auth"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useRazorpay } from "@/hooks/use-razorpay"
-import { PLAN_PRICES, type PlanId } from "@/lib/razorpay"
 
 interface ProRataInfo {
   originalPrice: number
@@ -21,27 +34,30 @@ interface ProRataInfo {
   savingsPercent: number
 }
 
-const plans: { id: PlanType; icon: any; popular?: boolean; badge?: string; price: string; description: string }[] = [
-  { 
-    id: "professional", 
-    icon: Crown, 
-    popular: true, 
+const plans: { id: PlanType; icon: any; popular?: boolean; badge?: string; price: string; description: string; color: string }[] = [
+  {
+    id: "professional",
+    icon: Zap,
+    popular: true,
     badge: "Most Popular",
-    price: "₹2,999",
-    description: "Up to 3 events"
+    price: "2,999",
+    description: "Perfect for single large events.",
+    color: "text-blue-500"
   },
-  { 
-    id: "enterprise", 
-    icon: Building2, 
+  {
+    id: "enterprise",
+    icon: Building2,
     badge: "Best Value",
-    price: "₹6,999", 
-    description: "Up to 10 events"
+    price: "6,999",
+    description: "Ideal for recurring monthly events.",
+    color: "text-neutral-900 dark:text-white"
   },
-  { 
-    id: "premium", 
-    icon: Sparkles,
-    price: "₹11,999",
-    description: "Up to 25 events"
+  {
+    id: "premium",
+    icon: Crown,
+    price: "11,999",
+    description: "Unlimited power for large organizations.",
+    color: "text-amber-500"
   },
 ]
 
@@ -49,32 +65,25 @@ const features: Record<string, string[]> = {
   professional: [
     "Up to 2,000 certificates/year",
     "Up to 5 certificate types",
-    "Event creation",
-    "Excel import",
-    "Multiple downloads",
-    "Digital signature",
     "Basic analytics & export",
-    "Online support"
+    "Priority email support",
+    "Excel data import"
   ],
   enterprise: [
     "Up to 25,000 certificates/year",
     "Up to 100 certificate types",
-    "Bulk import",
-    "Priority support",
-    "Advanced analytics",
-    "Event-wise export",
-    "Email notifications",
-    "All Professional features"
+    "Bulk import & processing",
+    "Advanced report filtering",
+    "Dedicated account manager",
+    "Everything in Professional"
   ],
   premium: [
     "Up to 50,000 certificates/year",
-    "Up to 200 certificate types",
-    "Dedicated support",
-    "White-label (logo + footer)",
-    "Advanced & summary reports",
-    "API access",
-    "Custom domain",
-    "All Enterprise features"
+    "Unlimited certificate types",
+    "Full Whitelabel branding",
+    "Custom design assistance",
+    "API & Webhook access",
+    "Everything in Enterprise"
   ]
 }
 
@@ -82,38 +91,29 @@ function UpgradePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const pendingPlanParam = searchParams.get("pending") as PlanType | null
-  
+
   const [currentPlan, setCurrentPlan] = useState<PlanType>("free")
   const [pendingPlan, setPendingPlan] = useState<PlanType | null>(null)
   const [userId, setUserId] = useState<string>("")
   const [userName, setUserName] = useState<string>("")
   const [userEmail, setUserEmail] = useState<string>("")
   const [userPhone, setUserPhone] = useState<string>("")
-  const [planStartDate, setPlanStartDate] = useState<Date | null>(null)
   const [planExpiresAt, setPlanExpiresAt] = useState<Date | null>(null)
   const [proRataInfo, setProRataInfo] = useState<Record<string, ProRataInfo>>({})
   const [loadingProRata, setLoadingProRata] = useState(false)
 
   const { initiatePayment, isLoading, isProcessing } = useRazorpay({
-    onSuccess: async (data) => {
-      // Update local session with new plan and clear pendingPlan
+    onSuccess: async (data: any) => {
       const session = getClientSession()
       if (session) {
         session.userPlan = data.plan
         session.pendingPlan = null
         localStorage.setItem("clientSession", JSON.stringify(session))
       }
-      setCurrentPlan(data.plan)
-      setPendingPlan(null)
-      
-      // Redirect to dashboard after success
-      setTimeout(() => {
-        router.push("/client/dashboard")
-      }, 1500)
+      toast.success("Upgrade Successful!", { description: `You are now on the ${PLAN_FEATURES[data.plan as keyof typeof PLAN_FEATURES]?.displayName} plan.` })
+      setTimeout(() => router.push("/client/dashboard"), 1500)
     },
-    onError: (error) => {
-      console.error("Payment error:", error)
-    }
+    onError: (error: any) => console.error(error)
   })
 
   useEffect(() => {
@@ -125,310 +125,151 @@ function UpgradePageContent() {
       setUserName(session.userName || "")
       setUserEmail(session.userEmail || "")
       setUserPhone(session.userPhone || "")
-      setPlanStartDate(session.planStartDate ? new Date(session.planStartDate) : null)
       setPlanExpiresAt(session.planExpiresAt ? new Date(session.planExpiresAt) : null)
     }
   }, [pendingPlanParam])
 
-  // Fetch pro-rata pricing for paid plan users
-  useEffect(() => {
-    const fetchProRataPricing = async () => {
-      if (currentPlan === "free" || !userId) return
-      
-      setLoadingProRata(true)
-      const proRataData: Record<string, ProRataInfo> = {}
-      
-      for (const plan of plans) {
-        if (plan.id === currentPlan) continue
-        
-        try {
-          const response = await fetch("/api/razorpay/calculate-pro-rata", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ plan: plan.id, userId })
-          })
-          
-          if (response.ok) {
-            const data = await response.json()
-            if (data.proRata) {
-              proRataData[plan.id] = data.proRata
-            }
-          }
-        } catch (error) {
-          console.error(`Failed to fetch pro-rata for ${plan.id}:`, error)
-        }
-      }
-      
-      setProRataInfo(proRataData)
-      setLoadingProRata(false)
-    }
-    
-    fetchProRataPricing()
-  }, [currentPlan, userId])
-
   const handleUpgrade = async (planId: PlanType) => {
     if (!userId) {
-      toast.error("Session expired. Please login again.")
+      toast.error("Session expired")
       return
     }
-
-    // Initiate Razorpay payment
-    initiatePayment(planId, {
-      id: userId,
-      name: userName,
-      email: userEmail,
-      phone: userPhone
-    })
+    initiatePayment(planId as any, { id: userId, name: userName, email: userEmail, phone: userPhone })
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <Button variant="ghost" size="sm" asChild className="mb-6">
-        <Link href="/client/dashboard">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Dashboard
-        </Link>
-      </Button>
+    <div className="p-8 md:p-12 max-w-7xl mx-auto animate-in fade-in duration-700">
+      {/* Back Link */}
+      <Link href="/client/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors mb-8 group">
+        <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+        Back to workspace
+      </Link>
 
-      {/* Pending Plan Alert */}
-      {pendingPlan && (
-        <div className="mb-6 rounded-xl border-2 border-amber-500/50 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-            <div>
-              <p className="font-semibold text-amber-900 dark:text-amber-100">
-                Complete Your {PLAN_FEATURES[pendingPlan]?.displayName} Upgrade
-              </p>
-              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                You selected the {PLAN_FEATURES[pendingPlan]?.displayName} plan ({PLAN_FEATURES[pendingPlan]?.priceYearly}/year) during signup. 
-                Click the button below to complete your payment and unlock all features.
-              </p>
-              <Button 
-                className="mt-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600"
-                onClick={() => handleUpgrade(pendingPlan)}
-                disabled={isLoading || isProcessing}
-              >
-                {isLoading || isProcessing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Crown className="h-4 w-4 mr-2" />
-                    Pay {PLAN_FEATURES[pendingPlan]?.priceYearly} Now
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold mb-2">
-          {pendingPlan ? "Complete Your Upgrade" : "Upgrade Your Plan"}
+      {/* Header */}
+      <div className="max-w-2xl mb-16">
+        <h1 className="text-[40px] font-bold text-neutral-900 dark:text-white tracking-tight leading-tight mb-4">
+          Scale your certificates <br /> with the right plan.
         </h1>
-        <p className="text-muted-foreground">
-          {pendingPlan 
-            ? "Complete payment to unlock your selected plan features"
-            : "Choose the plan that best fits your needs"
-          }
+        <p className="text-[17px] text-neutral-500 leading-relaxed font-normal">
+          From independent workshops to worldwide conferences, CertiStage provides the infrastructure you need to issue credentials at scale.
         </p>
-        <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted">
-          <span className="text-sm text-muted-foreground">Current Plan:</span>
-          <span className="text-sm font-semibold text-primary">{PLAN_FEATURES[currentPlan]?.displayName || "Free"}</span>
-        </div>
       </div>
 
-      {/* Pro-rata upgrade info for paid plan users */}
+      {/* Pro-rata Alert if upgrading from paid */}
       {currentPlan !== "free" && planExpiresAt && (
-        <div className="mb-6 rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 p-4">
-          <div className="flex items-start gap-3">
-            <TrendingDown className="h-5 w-5 text-emerald-600 mt-0.5" />
-            <div>
-              <p className="font-semibold text-emerald-900 dark:text-emerald-100">
-                Pro-rata Upgrade Available
-              </p>
-              <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">
-                Your current plan expires on {new Date(planExpiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}. 
-                Upgrade now and get credit for your unused days - pay only the difference!
-              </p>
+        <div className="mb-12 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center shadow-sm">
+              <TrendingDown className="h-5 w-5 text-neutral-600" />
             </div>
+            <div>
+              <p className="text-[15px] font-bold text-neutral-900 dark:text-white tracking-tight">Pro-rata Upgrade Active</p>
+              <p className="text-sm text-neutral-500">Your current plan credit will be applied. You'll only pay the difference.</p>
+            </div>
+          </div>
+          <div className="text-right hidden md:block">
+            <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Expires</p>
+            <p className="text-sm font-bold text-neutral-900 dark:text-white">{planExpiresAt.toLocaleDateString()}</p>
           </div>
         </div>
       )}
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Free Plan */}
-        <Card className="border-border/50 relative flex flex-col opacity-60">
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-lg">Free</CardTitle>
-            </div>
-            <CardDescription>Trial / Demo</CardDescription>
-            <div className="mt-4">
-              <span className="text-4xl font-bold">₹0</span>
-            </div>
-          </CardHeader>
-          <CardContent className="flex flex-col flex-1">
-            <ul className="space-y-2 text-sm flex-1">
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>Up to 50 certificates</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>1 certificate template</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>Certificate design & creation</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>Manual participant entry</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>Download page link</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>1 time download only</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>Email support (limited)</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>7 days trial</span>
-              </li>
-            </ul>
-            <Button variant="outline" className="w-full mt-4" disabled>
-              Current Plan
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Pricing Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
         {plans.map((plan) => {
-          const isCurrentPlan = currentPlan === plan.id
-          const isPendingPlan = pendingPlan === plan.id
-          const Icon = plan.icon
+          const isCurrent = currentPlan === plan.id
+          const isPending = pendingPlan === plan.id
+          const featureList = features[plan.id as keyof typeof features] || []
 
           return (
-            <div key={plan.id} className="relative pt-3">
-              {isPendingPlan ? (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-medium text-white rounded-md z-10 bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse">
-                  Your Selected Plan
+            <div key={plan.id} className="relative group">
+              {isPending && (
+                <div className="absolute -top-3 left-6 px-3 py-1 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-black text-[10px] font-bold uppercase tracking-wider z-10 shadow-lg">
+                  Selected Choice
                 </div>
-              ) : plan.badge && (
-                <div className={cn(
-                  "absolute top-0 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-medium text-white rounded-md z-10",
-                  plan.popular && "bg-primary",
-                  plan.id === "enterprise" && "bg-amber-500"
-                )}>
+              )}
+              {plan.badge && !isPending && (
+                <div className="absolute -top-3 left-6 px-3 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 text-[10px] font-bold uppercase tracking-wider z-10">
                   {plan.badge}
                 </div>
               )}
-              <Card 
-                className={cn(
-                  "relative transition-all flex flex-col h-full",
-                  isPendingPlan && "border-amber-500 shadow-lg border-2 ring-2 ring-amber-500/20",
-                  !isPendingPlan && plan.popular && "border-primary shadow-lg border-2",
-                  !isPendingPlan && plan.id === "enterprise" && "border-amber-500/50",
-                  !isPendingPlan && plan.id === "premium" && "border-violet-500/50 bg-gradient-to-b from-background to-muted/30",
-                  isCurrentPlan && "opacity-60"
-                )}
-              >
-              <CardHeader className="pb-4 pt-6">
-                <div className="flex items-center gap-2">
-                  <Icon className={cn(
-                    "h-5 w-5",
-                    plan.id === "professional" && "text-primary",
-                    plan.id === "enterprise" && "text-amber-500",
-                    plan.id === "premium" && "text-violet-500"
-                  )} />
-                  <CardTitle className="text-lg">
-                    {plan.id === "professional" && "Professional"}
-                    {plan.id === "enterprise" && "Enterprise Gold"}
-                    {plan.id === "premium" && "Premium Plus"}
-                  </CardTitle>
-                </div>
-                <CardDescription>{plan.description}</CardDescription>
-                
-                {/* Pro-rata pricing display */}
-                {proRataInfo[plan.id] && proRataInfo[plan.id].unusedCredit > 0 ? (
-                  <div className="mt-4 space-y-2">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-emerald-600">
-                        ₹{(proRataInfo[plan.id].finalAmount / 100).toLocaleString("en-IN")}
-                      </span>
-                      <span className="text-sm text-muted-foreground line-through">
-                        {plan.price}
-                      </span>
+
+              <Card className={cn(
+                "h-full border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-none transition-all duration-300 flex flex-col p-2",
+                plan.popular && "border-neutral-400 dark:border-neutral-600",
+                isPending && "border-neutral-900 dark:border-white ring-1 ring-neutral-900 dark:ring-white"
+              )}>
+                <CardHeader className="p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className={cn("h-10 w-10 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 flex items-center justify-center", plan.color)}>
+                      <plan.icon className="h-5 w-5" />
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-1 rounded-md">
-                      <TrendingDown className="h-3 w-3" />
-                      <span>Save ₹{(proRataInfo[plan.id].savings / 100).toLocaleString("en-IN")} ({proRataInfo[plan.id].savingsPercent}%)</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      <span>{proRataInfo[plan.id].daysRemaining} days credit applied</span>
-                    </div>
+                    <span className="text-lg font-bold tracking-tight text-neutral-900 dark:text-white uppercase">{plan.id}</span>
                   </div>
-                ) : (
-                  <div className="mt-4">
-                    <span className="text-4xl font-bold">{plan.price}</span>
-                    <span className="text-muted-foreground">/year</span>
+
+                  <div className="mb-1">
+                    <span className="text-[48px] font-bold tracking-tighter text-neutral-900 dark:text-white">₹{plan.price}</span>
+                    <span className="text-[15px] font-normal text-neutral-400 ml-2">/ year</span>
                   </div>
-                )}
-              </CardHeader>
-              
-              <CardContent className="flex flex-col flex-1">
-                <ul className="space-y-2 text-sm flex-1">
-                  {features[plan.id]?.map((feature: string, index: number) => (
-                    <li key={index} className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                
-                <Button 
-                  className={cn(
-                    "w-full mt-4",
-                    isPendingPlan && "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600",
-                    !isPendingPlan && plan.popular && "bg-primary hover:bg-primary/90"
-                  )}
-                  variant={isPendingPlan || plan.popular ? "default" : "outline"}
-                  disabled={isCurrentPlan || isLoading || isProcessing}
-                  onClick={() => handleUpgrade(plan.id)}
-                >
-                  {isCurrentPlan 
-                    ? "Current Plan" 
-                    : isLoading || isProcessing
-                      ? "Processing..." 
-                      : isPendingPlan
-                        ? "Complete Payment"
-                        : "Get Started"
-                  }
-                </Button>
-              </CardContent>
+                  <CardDescription className="text-[14px] text-neutral-500 mt-2 mb-6 font-normal min-h-[40px]">{plan.description}</CardDescription>
+                </CardHeader>
+
+                <CardContent className="p-6 pt-0 flex-1 flex flex-col">
+                  <div className="space-y-4 mb-10 flex-1">
+                    {featureList.map((f, i) => (
+                      <div key={i} className="flex items-start gap-3">
+                        <div className="h-5 w-5 rounded-full bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center shrink-0 mt-0.5">
+                          <Check className="h-3 w-3 text-neutral-900 dark:text-white" />
+                        </div>
+                        <span className="text-[14px] text-neutral-600 dark:text-neutral-400 leading-tight">{f}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button
+                    variant={plan.popular || isPending ? "default" : "outline"}
+                    className={cn(
+                      "w-full h-12 text-[15px] font-bold transition-all shadow-sm",
+                      (plan.popular || isPending) && "bg-neutral-900 dark:bg-white text-white dark:text-black hover:opacity-90",
+                      !(plan.popular || isPending) && "border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                    )}
+                    disabled={isCurrent || isLoading || isProcessing}
+                    onClick={() => handleUpgrade(plan.id)}
+                  >
+                    {isCurrent ? "Current Plan" : isProcessing ? "Processing..." : isPending ? "Complete Payment" : "Upgrade Plan"}
+                    {!isCurrent && <ArrowRight className="h-4 w-4 ml-2" />}
+                  </Button>
+                </CardContent>
               </Card>
             </div>
           )
         })}
       </div>
 
-      <div className="mt-10 text-center">
-        <p className="text-sm text-muted-foreground">
-          Need help choosing? <a href="mailto:support@certistage.com" className="text-primary hover:underline">Contact our team</a>
-        </p>
-        <p className="text-xs text-muted-foreground mt-2">
-          All paid plans include secure certificate delivery and download page links.
-        </p>
+      {/* Trust Badge */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center p-12 rounded-[32px] bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-100 dark:border-neutral-800/50">
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-[10px] font-bold uppercase tracking-wider mb-6">
+            <ShieldCheck className="h-3 w-3 text-neutral-600" /> Enterprise Secure
+          </div>
+          <h2 className="text-[28px] font-bold text-neutral-900 dark:text-white tracking-tight mb-4">Enterprise-grade security and reliability.</h2>
+          <p className="text-[16px] text-neutral-500 font-normal leading-relaxed mb-6">
+            Every plan includes 256-bit encryption, 99.9% uptime SLA, and automated backups. Your data and certificates are protected with industry-leading infrastructure.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            { label: "Secured by Razorpay", sub: "PCI-DSS Compliant" },
+            { label: "SSL Encrypted", sub: "256-bit AES" },
+            { label: "99.9% Uptime", sub: "SLA Guaranteed" },
+            { label: "Priority Support", sub: "24/7 Availability" }
+          ].map((t, i) => (
+            <div key={i} className="p-6 rounded-2xl bg-white dark:bg-neutral-950 border border-neutral-100 dark:border-neutral-800 shadow-sm">
+              <p className="font-bold text-neutral-900 dark:text-white text-[14px]">{t.label}</p>
+              <p className="text-[11px] text-neutral-400 font-medium uppercase tracking-tight mt-1">{t.sub}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -436,12 +277,10 @@ function UpgradePageContent() {
 
 export default function UpgradePage() {
   return (
-    <Suspense fallback={
-      <div className="p-8 flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    }>
+    <Suspense fallback={<div className="p-24 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-neutral-200" /></div>}>
       <UpgradePageContent />
     </Suspense>
   )
 }
+
+

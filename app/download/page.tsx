@@ -1,11 +1,11 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { motion } from "framer-motion"
-import { Award, Download, Check, AlertCircle, Loader2 } from "lucide-react"
+import { Download, Check, AlertCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import Link from "next/link"
+import Image from "next/image"
 import { toast } from "sonner"
 import { jsPDF } from "jspdf"
 
@@ -31,8 +31,8 @@ interface CertificateType {
   fontBold: boolean
   fontItalic: boolean
   showNameField: boolean
+  textCase?: "none" | "uppercase" | "lowercase" | "capitalize"
   customFields?: any[]
-  signatures?: any[]
 }
 
 interface EventData {
@@ -54,22 +54,48 @@ export default function DownloadPage() {
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
 
+  // Load Google Font if needed
   useEffect(() => {
-    // Prevent right-click
+    if (certType?.fontFamily && certType.fontFamily !== 'Arial') {
+      const fontName = certType.fontFamily.replace(/\s+/g, '+')
+      const link = document.createElement('link')
+      link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;700&display=swap`
+      link.rel = 'stylesheet'
+      document.head.appendChild(link)
+      
+      return () => {
+        document.head.removeChild(link)
+      }
+    }
+  }, [certType?.fontFamily])
+
+  // Transform text based on textCase setting
+  const transformText = (text: string, textCase?: string): string => {
+    if (!textCase || textCase === "none") return text
+    
+    switch (textCase) {
+      case "uppercase":
+        return text.toUpperCase()
+      case "lowercase":
+        return text.toLowerCase()
+      case "capitalize":
+        return text.split(" ").map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(" ")
+      default:
+        return text
+    }
+  }
+
+  useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault()
     document.addEventListener("contextmenu", handleContextMenu)
-
-    // Prevent keyboard shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        (e.ctrlKey && (e.key === "s" || e.key === "p" || e.key === "u")) ||
-        e.key === "F12"
-      ) {
+      if ((e.ctrlKey && (e.key === "s" || e.key === "p" || e.key === "u")) || e.key === "F12") {
         e.preventDefault()
       }
     }
     document.addEventListener("keydown", handleKeyDown)
-
     return () => {
       document.removeEventListener("contextmenu", handleContextMenu)
       document.removeEventListener("keydown", handleKeyDown)
@@ -83,82 +109,74 @@ export default function DownloadPage() {
       return
     }
 
-    // Fetch data from API
     const fetchData = async () => {
       try {
+        console.log("ðŸ” Fetching certificate data for:", { eventId, certId })
         const res = await fetch(`/api/download?event=${eventId}&cert=${certId}`)
         const data = await res.json()
-
+        
+        console.log("ðŸ“¦ API Response:", data)
+        console.log("ðŸ–¼ï¸ Template Image URL:", data.certificateType?.templateImage)
+        
         if (!res.ok) {
           setError(data.error || "Certificate not found. This link may be invalid or expired.")
           setLoading(false)
           return
         }
-
-        if (!data.certificateType?.templateImage) {
-          setError("Certificate template not available. Please contact the administrator.")
-          setLoading(false)
-          return
-        }
-
+        
+        console.log("âœ… Setting certificate data...")
         setRecipient(data.recipient)
         setCertType(data.certificateType)
         setEvent(data.event)
+        
         setLoading(false)
       } catch (err) {
-        console.error("Fetch error:", err)
+        console.error("âŒ Fetch error:", err)
         setError("Failed to load certificate. Please try again.")
         setLoading(false)
       }
     }
-
     fetchData()
   }, [eventId, certId])
 
   const handleDownload = async () => {
     if (!certType?.templateImage || !eventId || !certId || !recipient) return
-
     setIsDownloading(true)
-
     try {
-      // Create canvas
       const canvas = document.createElement("canvas")
       const ctx = canvas.getContext("2d")
       if (!ctx) throw new Error("Could not get canvas context")
-
-      // Load template image
-      const img = new Image()
+      const img = new window.Image()
       img.crossOrigin = "anonymous"
-
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
         img.onerror = reject
         img.src = certType.templateImage!
       })
-
       canvas.width = img.width
       canvas.height = img.height
       ctx.drawImage(img, 0, 0)
-
-      // Draw name (if enabled)
       if (certType.showNameField !== false) {
         const textX = (certType.textPosition.x / 100) * canvas.width
         const textY = (certType.textPosition.y / 100) * canvas.height
-        const fontSize = Math.round(canvas.height * ((certType.fontSize || 24) / 400))
+        // Match preview: fontSize / 10 cqw = fontSize / 10 / 100 * container_width
+        const fontSize = Math.max(10, ((certType.fontSize || 24) / 10 / 100) * canvas.width)
 
         ctx.font = `${certType.fontBold ? "bold" : "normal"} ${certType.fontItalic ? "italic" : "normal"} ${fontSize}px ${certType.fontFamily || "Arial"}, sans-serif`
         ctx.fillStyle = "#000000"
         ctx.textAlign = "center"
         ctx.textBaseline = "middle"
-        ctx.fillText(recipient.name, textX, textY)
+        
+        // Apply text transformation
+        const displayName = transformText(recipient.name, certType.textCase)
+        ctx.fillText(displayName, textX, textY)
       }
 
-      // Draw custom fields
       if (certType.customFields) {
         certType.customFields.forEach((field: any) => {
           const fieldX = (field.position.x / 100) * canvas.width
           const fieldY = (field.position.y / 100) * canvas.height
-          const fieldFontSize = Math.round(canvas.height * ((field.fontSize || 24) / 400))
+          const fieldFontSize = Math.max(10, ((field.fontSize || 24) / 10 / 100) * canvas.width)
 
           ctx.font = `${field.fontBold ? "bold" : "normal"} ${field.fontItalic ? "italic" : "normal"} ${fieldFontSize}px ${field.fontFamily || "Arial"}, sans-serif`
           ctx.fillStyle = "#000000"
@@ -172,64 +190,28 @@ export default function DownloadPage() {
             case "REG_NO": value = recipient.certificateId || ""; break
             default: value = ""
           }
-
-          if (value) {
-            ctx.fillText(value, fieldX, fieldY)
-          }
+          if (value) ctx.fillText(value, fieldX, fieldY)
         })
       }
 
-      // Draw signatures
-      if (certType.signatures) {
-        for (const sig of certType.signatures) {
-          if (sig.image) {
-            const sigImg = new Image()
-            sigImg.crossOrigin = "anonymous"
-            await new Promise<void>((resolve) => {
-              sigImg.onload = () => resolve()
-              sigImg.onerror = () => resolve()
-              sigImg.src = sig.image
-            })
-
-            const sigWidth = (sig.width / 100) * canvas.width
-            const sigHeight = (sigWidth / sigImg.width) * sigImg.height
-            const sigX = (sig.position.x / 100) * canvas.width - (sigWidth / 2)
-            const sigY = (sig.position.y / 100) * canvas.height - (sigHeight / 2)
-
-            ctx.drawImage(sigImg, sigX, sigY, sigWidth, sigHeight)
-          }
-        }
-      }
-
-      // Create PDF
       const pdfWidth = 297
       const pdfHeight = (canvas.height / canvas.width) * pdfWidth
-
       const pdf = new jsPDF({
         orientation: pdfWidth > pdfHeight ? "landscape" : "portrait",
         unit: "mm",
         format: [pdfWidth, pdfHeight],
       })
-
       const imgData = canvas.toDataURL("image/jpeg", 1.0)
       pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight)
       pdf.save(`certificate-${certId}.pdf`)
-
-      // Track download via API
-      try {
-        await fetch("/api/download", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ recipientId: recipient.id })
-        })
-      } catch (e) {
-        console.error("Failed to track download:", e)
-      }
-
+      await fetch("/api/download", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientId: recipient.id })
+      })
       setDownloaded(true)
       toast.success("Certificate downloaded successfully!")
     } catch (error) {
-      console.error("Download error:", error)
       toast.error("Failed to download certificate. Please try again.")
     } finally {
       setIsDownloading(false)
@@ -238,10 +220,10 @@ export default function DownloadPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-[#0a0a0a] flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading certificate...</p>
+          <Loader2 className="h-6 w-6 animate-spin text-neutral-300 mx-auto mb-4" />
+          <p className="text-sm text-neutral-500 font-medium">Preparing your certificate...</p>
         </div>
       </div>
     )
@@ -249,18 +231,16 @@ export default function DownloadPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-screen bg-white dark:bg-[#0a0a0a] flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center p-4">
-          <Card className="max-w-md w-full">
-            <CardContent className="py-12 text-center">
-              <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
-                <AlertCircle className="h-8 w-8 text-destructive" />
-              </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">Certificate Not Found</h2>
-              <p className="text-muted-foreground">{error}</p>
-            </CardContent>
-          </Card>
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-white dark:bg-neutral-950 p-10 rounded-xl border border-neutral-200 dark:border-neutral-800 text-center shadow-sm">
+            <div className="h-16 w-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="h-8 w-8 text-red-500" />
+            </div>
+            <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Unavailable</h2>
+            <p className="text-sm text-neutral-500 leading-relaxed font-normal">{error}</p>
+          </div>
         </main>
         <Footer />
       </div>
@@ -268,97 +248,149 @@ export default function DownloadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-[#0a0a0a] flex flex-col">
       <Header />
 
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="max-w-3xl w-full space-y-6">
-          {/* Event Info */}
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-foreground mb-1">{event?.name}</h1>
-            <p className="text-muted-foreground">Certificate for {recipient?.name}</p>
+      <main className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12">
+        <div className="max-w-4xl w-full">
+          {/* Info Section */}
+          <div className="text-center mb-10">
+            <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white tracking-tight mb-2">{event?.name}</h1>
+            <p className="text-sm text-neutral-500 font-normal">Official digital credential for <span className="text-neutral-900 dark:text-white font-medium">{recipient?.name}</span></p>
           </div>
 
-          {/* Certificate Preview */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="relative rounded-lg overflow-hidden border border-border select-none">
-                {certType?.templateImage && (
-                  <div className="relative">
-                    <img
-                      src={certType.templateImage}
-                      alt="Certificate"
-                      className="w-full h-auto pointer-events-none"
-                      draggable={false}
-                    />
-                    {/* Name overlay */}
-                    <div
-                      className="absolute"
+          <div className="bg-white dark:bg-neutral-950 rounded-xl border border-neutral-200 dark:border-neutral-800 p-2 md:p-3 shadow-sm mb-10 mx-auto w-full max-w-4xl">
+            {certType?.templateImage ? (
+              <div className="relative w-full">
+                <img
+                  src={certType.templateImage}
+                  alt="Certificate"
+                  className="w-full h-auto block mx-auto rounded-lg"
+                  draggable={false}
+                  style={{
+                    maxHeight: 'calc(100vh - 320px)',
+                    objectFit: 'contain'
+                  }}
+                  onLoad={() => console.log("âœ… Certificate image loaded successfully")}
+                  onError={() => {
+                    console.error("âŒ Certificate image failed to load:", certType.templateImage)
+                    toast.error("Failed to load certificate image")
+                  }}
+                />
+                {/* Name overlay */}
+                {certType.showNameField !== false && (
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: `${certType.textPosition.x}%`,
+                      top: `${certType.textPosition.y}%`,
+                      transform: "translate(-50%, -50%)",
+                    }}
+                  >
+                    <span
+                      className="whitespace-nowrap leading-none select-none"
                       style={{
-                        left: `${certType.textPosition.x}%`,
-                        top: `${certType.textPosition.y}%`,
+                        fontSize: `clamp(8px, ${(certType.fontSize || 24) * 0.04}vw, ${(certType.fontSize || 24) * 0.7}px)`,
+                        fontFamily: `"${certType.fontFamily || 'Arial'}", sans-serif`,
+                        fontWeight: certType.fontBold ? 'bold' : 'normal',
+                        fontStyle: certType.fontItalic ? 'italic' : 'normal',
+                        color: "#000"
+                      }}
+                    >
+                      {transformText(recipient?.name || "", certType.textCase)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Custom Fields Overlay */}
+                {certType.customFields?.map((field: any, i: number) => {
+                  let value = ""
+                  switch (field.variable) {
+                    case "EMAIL": value = recipient?.email || ""; break
+                    case "MOBILE": value = recipient?.mobile || ""; break
+                    case "REG_NO": value = recipient?.certificateId || ""; break
+                    default: value = `{{${field.variable}}}`
+                  }
+                  if (!value) return null
+
+                  return (
+                    <div
+                      key={i}
+                      className="absolute pointer-events-none"
+                      style={{
+                        left: `${field.position.x}%`,
+                        top: `${field.position.y}%`,
                         transform: "translate(-50%, -50%)",
                       }}
                     >
                       <span
-                        className="text-lg md:text-2xl font-semibold text-foreground whitespace-nowrap"
-                        style={{ textAlign: "center" }}
+                        className="whitespace-nowrap leading-none select-none"
+                        style={{
+                          fontSize: `clamp(6px, ${(field.fontSize || 24) * 0.04}vw, ${(field.fontSize || 24) * 0.7}px)`,
+                          fontFamily: `"${field.fontFamily || 'Arial'}", sans-serif`,
+                          fontWeight: field.fontBold ? 'bold' : 'normal',
+                          fontStyle: field.fontItalic ? 'italic' : 'normal',
+                          color: "#000"
+                        }}
                       >
-                        {recipient?.name}
+                        {value}
                       </span>
                     </div>
-                    {/* Preview watermark */}
-                    {!downloaded && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="text-4xl md:text-6xl font-bold text-foreground/5 rotate-[-30deg]">
-                          PREVIEW
-                        </span>
-                      </div>
-                    )}
+                  )
+                })}
+
+                {/* Watermark */}
+                {!downloaded && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+                    <span className="text-[12vw] font-black text-neutral-900/5 rotate-[-25deg] uppercase tracking-[1em]">
+                      Preview
+                    </span>
                   </div>
                 )}
               </div>
-
-              {/* Download Button */}
-              <div className="mt-4 flex justify-center">
-                {downloaded ? (
-                  <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="flex items-center gap-2 px-6 py-3 rounded-lg bg-emerald-500/10 text-emerald-600"
-                  >
-                    <Check className="h-5 w-5" />
-                    <span className="font-medium">Downloaded Successfully</span>
-                  </motion.div>
-                ) : (
-                  <Button
-                    size="lg"
-                    onClick={handleDownload}
-                    disabled={isDownloading}
-                    className="min-w-48"
-                  >
-                    {isDownloading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Generating PDF...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download Certificate
-                      </>
-                    )}
-                  </Button>
-                )}
+            ) : (
+              <div className="text-center p-8">
+                <AlertCircle className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+                <p className="text-sm text-neutral-500">Certificate template not available</p>
               </div>
+            )}
+          </div>
 
-              {downloaded && (
-                <p className="text-center text-sm text-muted-foreground mt-3">
-                  You can download again by refreshing this page.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          <div className="flex justify-center">
+            {downloaded ? (
+              <div
+                className="flex items-center gap-2.5 px-8 py-3 rounded-full bg-neutral-500/10 text-neutral-600 border border-neutral-500/20"
+              >
+                <Check className="h-5 w-5" />
+                <span className="text-sm font-semibold">Saved Successfully</span>
+              </div>
+            ) : (
+              <Button
+                size="lg"
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="h-12 px-10 rounded-full font-semibold text-sm shadow-md"
+              >
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2.5 animate-spin" />
+                    Preparing PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2.5" />
+                    Download PDF
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+
+          {downloaded && (
+            <p className="text-center text-[13px] text-neutral-400 mt-6 font-normal">
+              You can download again by refreshing this page.
+            </p>
+          )}
         </div>
       </main>
 
@@ -369,11 +401,11 @@ export default function DownloadPage() {
 
 function Header() {
   return (
-    <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-center">
-        <div className="flex items-center gap-1.5">
-          <img src="/Certistage_icon.svg" alt="CertiStage" className="h-9 w-9" />
-          <span className="font-semibold text-lg text-foreground">CertiStage</span>
+    <header className="border-b border-neutral-200 dark:border-neutral-800 bg-white/50 dark:bg-[#0a0a0a]/50 backdrop-blur-md sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
+          <span className="font-semibold text-[17px] text-neutral-900 dark:text-white">CertiStage</span>
         </div>
       </div>
     </header>
@@ -382,16 +414,15 @@ function Header() {
 
 function Footer() {
   return (
-    <footer className="border-t border-border/50 bg-card/50 py-4">
-      <div className="container mx-auto px-4 text-center">
-        <p className="text-sm text-muted-foreground">
-          Powered by <span className="font-semibold text-primary">CertiStage</span> •
-          Certificate Generation Platform
-        </p>
-        <p className="text-xs text-muted-foreground/60 mt-1">
-          © {new Date().getFullYear()} All rights reserved
-        </p>
+    <footer className="border-t border-neutral-200 dark:border-neutral-800 py-8 bg-neutral-50 dark:bg-[#080808]">
+      <div className="max-w-7xl mx-auto px-6 text-center">
+        <div className="flex flex-col md:flex-row items-center justify-center gap-1.5 text-xs text-neutral-400">
+          <span>Powered by <Link href="/" className="font-bold text-neutral-900 dark:text-white hover:underline">CertiStage</Link> Digital Credentialing Platform</span>
+          <span className="hidden md:inline">â€¢</span>
+          <span>Â© {new Date().getFullYear()} All rights reserved</span>
+        </div>
       </div>
     </footer>
   )
 }
+

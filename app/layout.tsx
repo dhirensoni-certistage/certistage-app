@@ -11,6 +11,31 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "CertiStage",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "INR"
+  },
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.9",
+    "ratingCount": "580"
+  },
+  "description": "Create, customize, and distribute professional certificates for events, courses, and achievements.",
+  "featureList": "Bulk Generation, Drag & Drop Editor, Email Distribution, Analytics",
+  "author": {
+    "@type": "Organization",
+    "name": "CertiStage",
+    "url": "https://www.certistage.com"
+  }
+}
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.certistage.com'),
   title: {
@@ -79,11 +104,15 @@ export const metadata: Metadata = {
   },
 }
 
+
+
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f8f8f6" },
     { media: "(prefers-color-scheme: dark)", color: "#1a1a22" },
   ],
+  width: "device-width",
+  initialScale: 1,
 }
 
 export default function RootLayout({
@@ -93,16 +122,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased overflow-x-hidden`} suppressHydrationWarning>
         <ErrorBoundary>
           <AuthProvider>
-            <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
               {children}
               <Toaster />
             </ThemeProvider>
           </AuthProvider>
         </ErrorBoundary>
         <Analytics />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </body>
     </html>
   )

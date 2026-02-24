@@ -1,8 +1,8 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
-import { Award, Download, Check, AlertCircle, Loader2, Search, User, ArrowLeft, Mail, Phone, Hash } from "lucide-react"
+import { Award, Download, Check, AlertCircle, Loader2, Search, ArrowLeft, FileText, User, Mail, Phone, Hash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,11 +10,59 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { type EventRecipient, type CertificateType, type CertificateEvent } from "@/lib/events"
-import { jsPDF } from "jspdf"
 import { cn } from "@/lib/utils"
 
-type Step = "verify" | "select-profile" | "preview"
+interface SearchFields {
+  name: boolean
+  email: boolean
+  mobile: boolean
+  regNo: boolean
+}
+
+interface Recipient {
+  id: string
+  name: string
+  email: string
+  mobile: string
+  certificateId: string
+  regNo?: string
+  downloadCount: number
+}
+
+interface CertificateType {
+  id: string
+  name: string
+  templateImage: string
+  textPosition: { x: number; y: number }
+  fontSize: number
+  fontFamily: string
+  fontBold: boolean
+  fontItalic: boolean
+  textCase?: "none" | "uppercase" | "lowercase" | "capitalize"
+  searchFields: SearchFields
+  customFields?: Array<{
+    variable: string
+    position: { x: number; y: number }
+    fontSize: number
+    fontFamily: string
+    fontBold: boolean
+    fontItalic: boolean
+  }>
+  signatures?: Array<{
+    image: string
+    position?: { x: number; y: number }
+    x?: number
+    y?: number
+    width: number
+  }>
+}
+
+interface EventData {
+  id: string
+  name: string
+}
+
+type Step = "search" | "select" | "preview"
 
 export default function CertTypeDownloadPage() {
   const params = useParams()
@@ -22,23 +70,40 @@ export default function CertTypeDownloadPage() {
   const typeId = params.typeId as string
 
   const [loading, setLoading] = useState(true)
+  const [event, setEvent] = useState<EventData | null>(null)
   const [certType, setCertType] = useState<CertificateType | null>(null)
-  const [eventData, setEventData] = useState<CertificateEvent | null>(null)
-  const [eventName, setEventName] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [downloadLimit, setDownloadLimit] = useState<number>(-1)
-  
-  const [step, setStep] = useState<Step>("verify")
-  const [searchValue, setSearchValue] = useState("")
+
+  const [step, setStep] = useState<Step>("search")
   const [searchField, setSearchField] = useState<string>("name")
-  const [isVerifying, setIsVerifying] = useState(false)
-  
-  const [matchedRecipients, setMatchedRecipients] = useState<EventRecipient[]>([])
-  const [selectedRecipient, setSelectedRecipient] = useState<EventRecipient | null>(null)
-  
+  const [searchValue, setSearchValue] = useState("")
+  const [isSearching, setIsSearching] = useState(false)
+
+  const [matchedRecipients, setMatchedRecipients] = useState<Recipient[]>([])
+  const [selectedRecipient, setSelectedRecipient] = useState<Recipient | null>(null)
+
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
 
+  // Transform text based on textCase setting
+  const transformText = (text: string, textCase?: string): string => {
+    if (!textCase || textCase === "none") return text
+    
+    switch (textCase) {
+      case "uppercase":
+        return text.toUpperCase()
+      case "lowercase":
+        return text.toLowerCase()
+      case "capitalize":
+        return text.split(" ").map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(" ")
+      default:
+        return text
+    }
+  }
+
+  // Disable right-click and shortcuts
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault()
     document.addEventListener("contextmenu", handleContextMenu)
@@ -54,87 +119,47 @@ export default function CertTypeDownloadPage() {
     }
   }, [])
 
+  // Load certificate type data
   useEffect(() => {
-    if (!eventId || !typeId) {
-      setError("Invalid link.")
-      setLoading(false)
-      return
-    }
-
-    // Fetch from API instead of localStorage
-    const fetchData = async () => {
+    const loadData = async () => {
       try {
+        console.log("ðŸ” [Type Download] Loading data for eventId:", eventId, "typeId:", typeId)
         const res = await fetch(`/api/download?eventId=${eventId}&typeId=${typeId}`)
-        const data = await res.json()
-        
         if (!res.ok) {
-          setError(data.error || "Failed to load certificate data.")
+          const data = await res.json()
+          console.error("âŒ [Type Download] API Error:", data.error)
+          setError(data.error || "Failed to load certificate")
           setLoading(false)
           return
         }
 
-        if (!data.event) {
-          setError("Event not found.")
-          setLoading(false)
-          return
-        }
-
-        if (!data.certificateType) {
-          setError("Certificate type not found.")
-          setLoading(false)
-          return
-        }
-
-        if (!data.certificateType.templateImage) {
-          setError("Certificate template not available yet.")
-          setLoading(false)
-          return
-        }
-
-        setEventName(data.event.name)
-        setEventData(data.event)
+        const data = await res.json()
+        console.log("ðŸ“¦ [Type Download] API Response:", data)
+        console.log("ðŸ–¼ï¸ [Type Download] Template Image:", data.certificateType?.templateImage)
+        console.log("ðŸ” [Type Download] Search Fields:", data.certificateType?.searchFields)
         
-        // Map API response to expected format
-        const certTypeData: CertificateType = {
-          id: data.certificateType.id,
-          name: data.certificateType.name,
-          template: data.certificateType.templateImage,
-          textPosition: data.certificateType.textPosition || { x: 50, y: 60 },
-          fontSize: data.certificateType.fontSize || 24,
-          fontFamily: data.certificateType.fontFamily || "Arial",
-          fontBold: data.certificateType.fontBold || false,
-          fontItalic: data.certificateType.fontItalic || false,
-          showNameField: data.certificateType.showNameField !== false,
-          customFields: data.certificateType.customFields || [],
-          signatures: data.certificateType.signatures || [],
-          searchFields: data.certificateType.searchFields || { name: true, email: false, mobile: false, regNo: false },
-          recipients: data.recipients || [],
-          stats: data.certificateType.stats || { total: 0, downloaded: 0, pending: 0 },
-          createdAt: data.certificateType.createdAt || new Date().toISOString()
-        }
-        
-        setCertType(certTypeData)
-        setDownloadLimit(data.downloadLimit ?? -1)
-        setLoading(false)
-      } catch (error) {
-        console.error("Failed to fetch certificate data:", error)
-        setError("Failed to load certificate data. Please try again.")
+        setEvent(data.event)
+        setCertType(data.certificateType)
+
+        // Set default search field based on enabled fields
+        const sf = data.certificateType?.searchFields || { name: true, email: false, mobile: false, regNo: false }
+        console.log("Setting search field based on:", sf)
+        if (sf.name) setSearchField("name")
+        else if (sf.email) setSearchField("email")
+        else if (sf.mobile) setSearchField("mobile")
+        else if (sf.regNo) setSearchField("regNo")
+      } catch (err) {
+        console.error("âŒ [Type Download] Fetch error:", err)
+        setError("Failed to load certificate data")
+      } finally {
         setLoading(false)
       }
     }
 
-    fetchData()
-  }, [eventId, typeId])
-
-  // Update searchField when certType changes
-  useEffect(() => {
-    if (certType?.searchFields) {
-      if (certType.searchFields.name) setSearchField("name")
-      else if (certType.searchFields.email) setSearchField("email")
-      else if (certType.searchFields.mobile) setSearchField("mobile")
-      else if (certType.searchFields.regNo) setSearchField("regNo")
+    if (eventId && typeId) {
+      loadData()
     }
-  }, [certType])
+  }, [eventId, typeId])
 
   const getSearchFieldLabel = (field: string) => {
     switch (field) {
@@ -167,143 +192,90 @@ export default function CertTypeDownloadPage() {
   }
 
   const getEnabledSearchFields = () => {
-    if (!certType?.searchFields) return ["name", "email", "mobile"]
+    if (!certType?.searchFields) return []
     const fields: string[] = []
     if (certType.searchFields.name) fields.push("name")
     if (certType.searchFields.email) fields.push("email")
     if (certType.searchFields.mobile) fields.push("mobile")
     if (certType.searchFields.regNo) fields.push("regNo")
-    return fields.length > 0 ? fields : ["name", "email", "mobile"]
+    return fields
   }
 
-  const getSearchDescription = () => {
-    if (!certType?.searchFields) {
-      return "Enter your registered email or mobile number"
-    }
-    
-    const enabledFields = getEnabledSearchFields()
-    if (enabledFields.length === 0) {
-      return "Enter your registered email or mobile number"
-    }
-    
-    if (enabledFields.length === 1) {
-      const field = enabledFields[0]
-      return `Enter your registered ${getSearchFieldLabel(field).toLowerCase()}`
-    }
-    
-    // Multiple fields enabled
-    const fieldLabels = enabledFields.map(f => getSearchFieldLabel(f).toLowerCase())
-    if (fieldLabels.length === 2) {
-      return `Enter your registered ${fieldLabels.join(" or ")}`
-    }
-    
-    const lastField = fieldLabels.pop()
-    return `Enter your registered ${fieldLabels.join(", ")} or ${lastField}`
-  }
-
-  const handleVerify = () => {
-    if (!searchValue.trim() || !certType) {
-      const enabledFields = getEnabledSearchFields()
-      if (enabledFields.length === 2) {
-        toast.error(`Please enter your ${enabledFields.map(f => getSearchFieldLabel(f).toLowerCase()).join(" or ")}`)
-      } else {
-        toast.error(`Please enter your ${getSearchFieldLabel(searchField).toLowerCase()}`)
-      }
+  const handleSearch = async () => {
+    if (!searchValue.trim()) {
+      toast.error(`Please enter your ${getSearchFieldLabel(searchField).toLowerCase()}`)
       return
     }
 
-    setIsVerifying(true)
-    
-    setTimeout(() => {
-      const searchLower = searchValue.toLowerCase().trim()
-      const searchDigits = searchValue.replace(/[^0-9]/g, "")
-      const enabledFields = getEnabledSearchFields()
-      
-      // If 2 fields enabled, search in both fields
-      const matches = certType.recipients.filter(r => {
-        if (enabledFields.length === 2) {
-          // Search in both enabled fields
-          const field1 = enabledFields[0]
-          const field2 = enabledFields[1]
-          
-          const match1 = field1 === "name" 
-            ? r.name.toLowerCase().includes(searchLower)
-            : field1 === "email"
-            ? r.email && r.email.toLowerCase() === searchLower
-            : field1 === "mobile"
-            ? searchDigits.length >= 10 && r.mobile.replace(/[^0-9]/g, "").slice(-10) === searchDigits.slice(-10)
-            : field1 === "regNo"
-            ? (r.regNo || r.certificateId || "").toLowerCase().includes(searchLower)
-            : false
-            
-          const match2 = field2 === "name"
-            ? r.name.toLowerCase().includes(searchLower)
-            : field2 === "email"
-            ? r.email && r.email.toLowerCase() === searchLower
-            : field2 === "mobile"
-            ? searchDigits.length >= 10 && r.mobile.replace(/[^0-9]/g, "").slice(-10) === searchDigits.slice(-10)
-            : field2 === "regNo"
-            ? (r.regNo || r.certificateId || "").toLowerCase().includes(searchLower)
-            : false
-            
-          return match1 || match2
-        } else {
-          // Single field search
-          if (searchField === "name") {
-            return r.name.toLowerCase().includes(searchLower)
-          } else if (searchField === "email") {
-            return r.email && r.email.toLowerCase() === searchLower
-          } else if (searchField === "mobile") {
-            if (searchDigits.length >= 10) {
-              const recipientDigits = r.mobile.replace(/[^0-9]/g, "")
-              const searchLast10 = searchDigits.slice(-10)
-              const recipientLast10 = recipientDigits.slice(-10)
-              return searchLast10 === recipientLast10 && recipientLast10.length === 10
-            }
-            return false
-          } else if (searchField === "regNo") {
-            const regNo = r.regNo || r.certificateId || ""
-            return regNo.toLowerCase().includes(searchLower)
-          }
-          return false
-        }
+    setIsSearching(true)
+
+    try {
+      const res = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId,
+          typeId,
+          searchQuery: searchValue.trim(),
+          searchType: searchField
+        })
       })
 
-      if (matches.length === 0) {
-        const enabledFields = getEnabledSearchFields()
-        if (enabledFields.length === 2) {
-          toast.error(`No certificate found. Please check your ${enabledFields.map(f => getSearchFieldLabel(f).toLowerCase()).join(" or ")} and try again.`)
-        } else {
-          toast.error(`No certificate found. Please check your ${getSearchFieldLabel(searchField).toLowerCase()}.`)
-        }
-        setIsVerifying(false)
+      const data = await res.json()
+      console.log("ðŸ” [Search Response]:", data)
+
+      if (!data.found || data.recipients.length === 0) {
+        toast.error("No certificate found. Please check your details and try again.")
+        setIsSearching(false)
         return
       }
 
-      // Show all matches
-      setMatchedRecipients(matches)
+      setMatchedRecipients(data.recipients.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email || "",
+        mobile: r.mobile || "",
+        certificateId: r.regNo || r.id,
+        regNo: r.regNo,
+        downloadCount: r.downloadCount || 0
+      })))
 
-      if (matches.length === 1) {
-        setSelectedRecipient(matches[0])
+      if (data.recipients.length === 1) {
+        const recipient = {
+          id: data.recipients[0].id,
+          name: data.recipients[0].name,
+          email: data.recipients[0].email || "",
+          mobile: data.recipients[0].mobile || "",
+          certificateId: data.recipients[0].regNo || data.recipients[0].id,
+          regNo: data.recipients[0].regNo,
+          downloadCount: data.recipients[0].downloadCount || 0
+        }
+        console.log("âœ… [Single Match] Setting recipient:", recipient)
+        console.log("ðŸ“‹ [CertType Check] Current certType:", certType)
+        console.log("ðŸ–¼ï¸ [Template Check] Template Image:", certType?.templateImage)
+        setSelectedRecipient(recipient)
         setStep("preview")
       } else {
-        setStep("select-profile")
+        setStep("select")
       }
-      
-      setIsVerifying(false)
-    }, 800)
+    } catch (err) {
+      console.error("âŒ [Search Error]:", err)
+      toast.error("Search failed. Please try again.")
+    } finally {
+      setIsSearching(false)
+    }
   }
 
-  const handleSelectRecipient = (recipient: EventRecipient) => {
+  const handleSelectRecipient = (recipient: Recipient) => {
     setSelectedRecipient(recipient)
     setStep("preview")
   }
 
   const handleBack = () => {
     if (step === "preview" && matchedRecipients.length > 1) {
-      setStep("select-profile")
+      setStep("select")
     } else {
-      setStep("verify")
+      setStep("search")
       setSelectedRecipient(null)
       setMatchedRecipients([])
     }
@@ -311,129 +283,50 @@ export default function CertTypeDownloadPage() {
   }
 
   const handleDownload = async () => {
-    if (!certType?.template || !selectedRecipient) return
+    if (!selectedRecipient) return
 
     setIsDownloading(true)
 
     try {
-      // First check with API if download is allowed
-      const checkRes = await fetch("/api/download", {
+      // Check if mobile/WebView
+      const isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
+      const pdfUrl = `/api/download/pdf?recipientId=${selectedRecipient.id}`
+
+      if (isMobile) {
+        window.open(pdfUrl, "_blank")
+        setTimeout(() => {
+          setDownloaded(true)
+          setIsDownloading(false)
+          toast.success("Opening certificate...")
+        }, 1500)
+        return
+      }
+
+      // Desktop: fetch and download
+      const response = await fetch(pdfUrl)
+      if (!response.ok) throw new Error("Download failed")
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${certType?.name}-${selectedRecipient.certificateId}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      // Track download
+      await fetch("/api/download", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recipientId: selectedRecipient.id })
       })
-      
-      const checkData = await checkRes.json()
-      
-      if (!checkRes.ok) {
-        if (checkData.limitReached) {
-          toast.error("Download limit reached! Free plan allows only 1 download per certificate. Please contact the organizer to upgrade.")
-          setIsDownloading(false)
-          return
-        }
-        toast.error(checkData.error || "Download failed")
-        setIsDownloading(false)
-        return
-      }
-      const canvas = document.createElement("canvas")
-      const ctx = canvas.getContext("2d")
-      if (!ctx) throw new Error("Canvas error")
 
-      const img = new Image()
-      img.crossOrigin = "anonymous"
-
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve()
-        img.onerror = reject
-        img.src = certType.template!
-      })
-
-      canvas.width = img.width
-      canvas.height = img.height
-      ctx.drawImage(img, 0, 0)
-
-      const textX = (certType.textPosition.x / 100) * canvas.width
-      const textY = (certType.textPosition.y / 100) * canvas.height
-      // Scale font size relative to canvas width for consistent sizing
-      // Using width/1600 gives proper scaling - 50px font at 1600px width = 50px, at 800px = 25px
-      const scaleFactor = canvas.width / 1600
-      const scaledFontSize = Math.round((certType.fontSize || 24) * scaleFactor)
-      const fontWeight = certType.fontBold ? "bold" : "normal"
-      const fontStyle = certType.fontItalic ? "italic" : "normal"
-      const fontFamily = certType.fontFamily || "Arial"
-      
-      ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px ${fontFamily}`
-      ctx.fillStyle = "#000000"
-      ctx.textAlign = "center"
-      ctx.textBaseline = "middle"
-      
-      // Draw NAME field only if showNameField is not false
-      if (certType.showNameField !== false) {
-        ctx.fillText(selectedRecipient.name, textX, textY)
-      }
-
-      // Draw custom fields
-      if (certType.customFields) {
-        for (const field of certType.customFields) {
-          const fieldX = (field.position.x / 100) * canvas.width
-          const fieldY = (field.position.y / 100) * canvas.height
-          const fieldFontSize = Math.round((field.fontSize || 24) * scaleFactor)
-          const fieldFontWeight = field.fontBold ? "bold" : "normal"
-          const fieldFontStyle = field.fontItalic ? "italic" : "normal"
-          const fieldFontFamily = field.fontFamily || "Arial"
-          
-          ctx.font = `${fieldFontStyle} ${fieldFontWeight} ${fieldFontSize}px ${fieldFontFamily}`
-          
-          let value = ""
-          switch (field.variable) {
-            case "NAME": value = selectedRecipient.name; break
-            case "EMAIL": value = selectedRecipient.email; break
-            case "MOBILE": value = selectedRecipient.mobile; break
-            case "REG_NO": value = selectedRecipient.certificateId; break
-            default: value = field.variable
-          }
-          
-          ctx.fillText(value, fieldX, fieldY)
-        }
-      }
-
-      // Draw signatures
-      if (certType.signatures) {
-        for (const sig of certType.signatures) {
-          const sigImg = new Image()
-          sigImg.crossOrigin = "anonymous"
-          await new Promise<void>((resolve) => {
-            sigImg.onload = () => resolve()
-            sigImg.onerror = () => resolve()
-            sigImg.src = sig.image
-          })
-          
-          const sigWidth = (sig.width / 100) * canvas.width
-          const sigHeight = (sigImg.height / sigImg.width) * sigWidth
-          const sigX = (sig.position.x / 100) * canvas.width - sigWidth / 2
-          const sigY = (sig.position.y / 100) * canvas.height - sigHeight / 2
-          
-          ctx.drawImage(sigImg, sigX, sigY, sigWidth, sigHeight)
-        }
-      }
-
-      const pdfWidth = 297
-      const pdfHeight = (canvas.height / canvas.width) * pdfWidth
-
-      const pdf = new jsPDF({
-        orientation: pdfWidth > pdfHeight ? "landscape" : "portrait",
-        unit: "mm",
-        format: [pdfWidth, pdfHeight],
-      })
-
-      pdf.addImage(canvas.toDataURL("image/jpeg", 1.0), "JPEG", 0, 0, pdfWidth, pdfHeight)
-      pdf.save(`${certType.name}-${selectedRecipient.certificateId}.pdf`)
-      
       setDownloaded(true)
       toast.success("Certificate downloaded!")
-    } catch (error) {
-      console.error(error)
-      toast.error("Download failed.")
+    } catch (err) {
+      toast.error("Download failed. Please try again.")
     } finally {
       setIsDownloading(false)
     }
@@ -465,23 +358,38 @@ export default function CertTypeDownloadPage() {
     )
   }
 
+  const enabledFields = getEnabledSearchFields()
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="max-w-md w-full space-y-6">
 
-          {/* Step 1: Verify */}
-          {step === "verify" && (
-            <Card className="shadow-lg border-0">
-              <CardContent className="p-6 space-y-5">
-                <div className="text-center space-y-1">
-                  <h2 className="text-xl font-semibold">Download Certificate</h2>
-                  <p className="text-sm text-muted-foreground">{getSearchDescription()}</p>
-                </div>
-                {/* Search Field Selector (only if 3+ fields enabled) */}
-                {getEnabledSearchFields().length > 2 && (
+      <main className="flex-1 flex items-center justify-center p-4 overflow-x-hidden">
+        <div className="max-w-xl w-full space-y-6 overflow-x-hidden">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-foreground mb-1">{event?.name}</h1>
+            <p className="text-muted-foreground">{certType?.name} - Download Certificate</p>
+            <p className="text-xs text-primary mt-1">v2.0 - Dynamic Search</p>
+          </div>
+
+          {/* Step 1: Search */}
+          {step === "search" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5" />
+                  Find Your Certificate
+                </CardTitle>
+                <CardDescription>
+                  {enabledFields.length === 1 
+                    ? `Enter your ${getSearchFieldLabel(enabledFields[0]).toLowerCase()}`
+                    : "Search using your registered details"
+                  }
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Search Field Selector (if multiple fields enabled) */}
+                {enabledFields.length > 1 && (
                   <div className="space-y-2">
                     <Label>Search By</Label>
                     <Select value={searchField} onValueChange={setSearchField}>
@@ -489,7 +397,7 @@ export default function CertTypeDownloadPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {getEnabledSearchFields().map((field) => (
+                        {enabledFields.map((field) => (
                           <SelectItem key={field} value={field}>
                             <div className="flex items-center gap-2">
                               {getSearchFieldIcon(field)}
@@ -501,40 +409,24 @@ export default function CertTypeDownloadPage() {
                     </Select>
                   </div>
                 )}
+
+                {/* Search Input */}
                 <div className="space-y-2">
-                  {getEnabledSearchFields().length === 2 ? (
-                    // If 2 fields enabled, show combined label
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      <Search className="h-4 w-4" />
-                      {getEnabledSearchFields().map((f, idx) => (
-                        <span key={f}>
-                          {getSearchFieldLabel(f)}
-                          {idx < getEnabledSearchFields().length - 1 && " or "}
-                        </span>
-                      ))}
-                    </Label>
-                  ) : (
-                    // Single field or 3+ fields (with dropdown)
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      {getSearchFieldIcon(searchField)}
-                      {getSearchFieldLabel(searchField)}
-                    </Label>
-                  )}
+                  <Label className="flex items-center gap-2">
+                    {getSearchFieldIcon(searchField)}
+                    {getSearchFieldLabel(searchField)}
+                  </Label>
                   <Input
                     type={searchField === "email" ? "email" : "text"}
-                    placeholder={
-                      getEnabledSearchFields().length === 2
-                        ? `Enter your ${getEnabledSearchFields().map(f => getSearchFieldLabel(f).toLowerCase()).join(" or ")}`
-                        : getSearchFieldPlaceholder(searchField)
-                    }
+                    placeholder={getSearchFieldPlaceholder(searchField)}
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleVerify()}
-                    className="h-11"
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   />
                 </div>
-                <Button className="w-full h-11" onClick={handleVerify} disabled={isVerifying}>
-                  {isVerifying ? (
+
+                <Button type="button" className="w-full" onClick={handleSearch} disabled={isSearching}>
+                  {isSearching ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Searching...</>
                   ) : (
                     <><Search className="h-4 w-4 mr-2" />Find Certificate</>
@@ -544,37 +436,46 @@ export default function CertTypeDownloadPage() {
             </Card>
           )}
 
-          {/* Step 2: Select Profile */}
-          {step === "select-profile" && (
-            <Card className="shadow-lg border-0">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
+          {/* Step 2: Select (if multiple matches) */}
+          {step === "select" && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" onClick={handleBack}>
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                   <div>
-                    <h2 className="font-semibold">Select Your Profile</h2>
-                    <p className="text-sm text-muted-foreground">{matchedRecipients.length} profiles found</p>
+                    <CardTitle>Select Your Certificate</CardTitle>
+                    <CardDescription>
+                      {matchedRecipients.length} certificates found
+                    </CardDescription>
                   </div>
                 </div>
+              </CardHeader>
+              <CardContent>
                 <div className="space-y-2">
                   {matchedRecipients.map((recipient) => (
                     <button
                       key={recipient.id}
                       onClick={() => handleSelectRecipient(recipient)}
                       className={cn(
-                        "w-full p-4 rounded-lg border text-left transition-colors cursor-pointer",
+                        "w-full p-4 rounded-lg border text-left transition-colors",
                         "hover:bg-accent hover:border-primary/50"
                       )}
                     >
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <User className="h-5 w-5 text-primary" />
+                          <FileText className="h-5 w-5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-foreground">{recipient.name}</p>
-                          <p className="text-sm text-muted-foreground">{recipient.email || recipient.mobile}</p>
+                          {recipient.email && (
+                            <p className="text-sm text-muted-foreground">{recipient.email}</p>
+                          )}
                         </div>
+                        {recipient.certificateId && (
+                          <Badge variant="outline">Reg: {recipient.certificateId}</Badge>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -584,101 +485,149 @@ export default function CertTypeDownloadPage() {
           )}
 
           {/* Step 3: Preview & Download */}
-          {step === "preview" && selectedRecipient && certType && (
-            <div className="space-y-4 max-w-2xl mx-auto">
+          {step === "preview" && selectedRecipient && (
+            <div className="space-y-4">
               <Button variant="ghost" size="sm" onClick={handleBack}>
-                <ArrowLeft className="h-4 w-4 mr-2" />Back
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
               </Button>
-              
-              <Card className="shadow-lg border-0">
-                <CardContent className="p-5">
-                  <div className="relative rounded-lg overflow-hidden border select-none [container-type:inline-size]">
-                    <img
-                      src={certType.template}
-                      alt="Certificate"
-                      className="w-full h-auto pointer-events-none"
-                      draggable={false}
-                    />
-                    {/* NAME field - only show if showNameField is not false */}
-                    {certType.showNameField !== false && (
-                      <div
-                        className="absolute"
+
+              {!certType ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <AlertCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
+                    <h2 className="text-xl font-semibold mb-2">Error</h2>
+                    <p className="text-muted-foreground">Certificate type data not loaded</p>
+                  </CardContent>
+                </Card>
+              ) : (
+              <Card>
+                <CardHeader className="text-center pb-2">
+                  <Badge className="w-fit mx-auto mb-2">{certType.name}</Badge>
+                  <CardTitle>Certificate Preview</CardTitle>
+                  <CardDescription>
+                    For <span className="font-medium text-foreground">{selectedRecipient.name}</span>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4">
+                  {!certType.templateImage ? (
+                    <div className="text-center p-8 border rounded-lg bg-muted/50">
+                      <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground">Certificate template not available</p>
+                      <p className="text-xs text-muted-foreground mt-2">Template URL is missing from database</p>
+                    </div>
+                  ) : (
+                    <div className="relative rounded-lg overflow-hidden border select-none bg-white w-full">
+                      <img
+                        src={certType.templateImage}
+                        alt="Certificate"
+                        className="w-full h-auto pointer-events-none block"
+                        draggable={false}
+                        style={{ maxHeight: "70vh", maxWidth: "100%" }}
+                        onLoad={() => console.log("âœ… [Type Download] Certificate image loaded")}
+                        onError={() => {
+                          console.error("âŒ [Type Download] Failed to load image:", certType.templateImage)
+                          toast.error("Failed to load certificate image")
+                        }}
+                      />
+                    {/* Name Field */}
+                    <div
+                      className="absolute pointer-events-none"
+                      style={{
+                        left: `${certType.textPosition.x}%`,
+                        top: `${certType.textPosition.y}%`,
+                        transform: "translate(-50%, -50%)",
+                      }}
+                    >
+                      <span
+                        className="whitespace-nowrap leading-none select-none"
                         style={{
-                          left: `${certType.textPosition.x}%`,
-                          top: `${certType.textPosition.y}%`,
-                          transform: "translate(-50%, -50%)",
+                          fontSize: `clamp(8px, ${(certType.fontSize || 24) * 0.04}vw, ${(certType.fontSize || 24) * 0.7}px)`,
+                          fontFamily: `"${certType.fontFamily || 'Arial'}", sans-serif`,
+                          fontWeight: certType.fontBold ? 'bold' : 'normal',
+                          fontStyle: certType.fontItalic ? 'italic' : 'normal',
+                          color: "#000"
                         }}
                       >
-                        <span 
-                          className="text-black whitespace-nowrap"
-                          style={{
-                            fontSize: `max(10px, ${(certType.fontSize || 24) * 0.0625}cqi)`,
-                            fontFamily: certType.fontFamily || 'Arial',
-                            fontWeight: certType.fontBold ? 'bold' : 'normal',
-                            fontStyle: certType.fontItalic ? 'italic' : 'normal',
-                          }}
-                        >
-                          {selectedRecipient.name}
-                        </span>
-                      </div>
-                    )}
+                        {transformText(selectedRecipient.name, certType.textCase)}
+                      </span>
+                    </div>
+
                     {/* Custom Fields */}
-                    {certType.customFields?.map((field) => (
-                      <div
-                        key={field.id}
-                        className="absolute"
-                        style={{
-                          left: `${field.position.x}%`,
-                          top: `${field.position.y}%`,
-                          transform: "translate(-50%, -50%)",
-                        }}
-                      >
-                        <span 
-                          className="text-black whitespace-nowrap"
+                    {certType.customFields?.map((field: any, i: number) => {
+                      let value = ""
+                      switch (field.variable) {
+                        case "EMAIL": value = selectedRecipient.email || ""; break
+                        case "MOBILE": value = selectedRecipient.mobile || ""; break
+                        case "REG_NO": value = selectedRecipient.certificateId || ""; break
+                        default: value = ""
+                      }
+                      if (!value) return null
+
+                      return (
+                        <div
+                          key={i}
+                          className="absolute pointer-events-none"
                           style={{
-                            fontSize: `max(8px, ${(field.fontSize || 24) * 0.0625}cqi)`,
-                            fontFamily: field.fontFamily || 'Arial',
-                            fontWeight: field.fontBold ? 'bold' : 'normal',
-                            fontStyle: field.fontItalic ? 'italic' : 'normal',
+                            left: `${field.position.x}%`,
+                            top: `${field.position.y}%`,
+                            transform: "translate(-50%, -50%)",
                           }}
                         >
-                          {field.variable === 'NAME' ? selectedRecipient.name :
-                           field.variable === 'EMAIL' ? selectedRecipient.email :
-                           field.variable === 'MOBILE' ? selectedRecipient.mobile :
-                           field.variable === 'REG_NO' ? selectedRecipient.certificateId : field.variable}
-                        </span>
-                      </div>
-                    ))}
+                          <span
+                            className="whitespace-nowrap leading-none select-none"
+                            style={{
+                              fontSize: `clamp(6px, ${(field.fontSize || 24) * 0.04}vw, ${(field.fontSize || 24) * 0.7}px)`,
+                              fontFamily: `"${field.fontFamily || 'Arial'}", sans-serif`,
+                              fontWeight: field.fontBold ? 'bold' : 'normal',
+                              fontStyle: field.fontItalic ? 'italic' : 'normal',
+                              color: "#000"
+                            }}
+                          >
+                            {value}
+                          </span>
+                        </div>
+                      )
+                    })}
+
                     {/* Signatures */}
-                    {certType.signatures?.map((sig) => (
-                      <div
-                        key={sig.id}
-                        className="absolute"
-                        style={{
-                          left: `${sig.position.x}%`,
-                          top: `${sig.position.y}%`,
-                          transform: "translate(-50%, -50%)",
-                        }}
-                      >
-                        <img 
-                          src={sig.image} 
-                          alt="Signature" 
-                          className="h-auto object-contain"
-                          style={{ width: `${sig.width}%`, maxWidth: '150px' }}
-                          draggable={false}
-                        />
-                      </div>
-                    ))}
+                    {certType.signatures?.map((sig: any, i: number) => {
+                      const sigPos = sig.position || { x: sig.x ?? 50, y: sig.y ?? 50 }
+                      return (
+                        <div
+                          key={i}
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: `${sigPos.x}%`,
+                            top: `${sigPos.y}%`,
+                            transform: "translate(-50%, -50%)",
+                            width: `calc(${sig.width || 20}vw * 0.4)`
+                          }}
+                        >
+                          <img
+                            src={sig.image}
+                            alt="Signature"
+                            className="w-full h-auto object-contain select-none"
+                            draggable={false}
+                          />
+                        </div>
+                      )
+                    })}
+
+                    {/* Watermark */}
                     {!downloaded && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="text-4xl md:text-6xl font-bold text-foreground/5 rotate-[-30deg]">PREVIEW</span>
+                        <span className="text-4xl md:text-6xl font-bold text-gray-200/30 rotate-[-30deg] select-none">
+                          PREVIEW
+                        </span>
                       </div>
                     )}
                   </div>
+                  )}
 
                   <div className="mt-4 flex justify-center">
                     {downloaded ? (
-                      <div className="flex items-center gap-2 px-6 py-3 rounded-lg bg-emerald-500/10 text-emerald-600">
+                      <div className="flex items-center gap-2 px-6 py-3 rounded-lg bg-neutral-500/10 text-neutral-600">
                         <Check className="h-5 w-5" />
                         <span className="font-medium">Downloaded!</span>
                       </div>
@@ -694,6 +643,7 @@ export default function CertTypeDownloadPage() {
                   </div>
                 </CardContent>
               </Card>
+              )}
             </div>
           )}
         </div>
@@ -706,10 +656,12 @@ export default function CertTypeDownloadPage() {
 
 function Header() {
   return (
-    <header className="bg-background">
-      <div className="container mx-auto px-4 h-14 flex items-center justify-center">
-        <div className="flex items-center gap-1.5">
-          <img src="/Certistage_icon.svg" alt="CertiStage" className="h-9 w-9" />
+    <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
+      <div className="container mx-auto px-4 h-16 flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+            <Award className="h-5 w-5 text-primary-foreground" />
+          </div>
           <span className="font-semibold text-lg">CertiStage</span>
         </div>
       </div>
@@ -719,12 +671,13 @@ function Header() {
 
 function Footer() {
   return (
-    <footer className="py-6">
+    <footer className="border-t border-border/50 bg-card/50 py-4">
       <div className="container mx-auto px-4 text-center">
-        <p className="text-xs text-muted-foreground">
-          Powered by <span className="font-medium text-foreground">CertiStage</span>
+        <p className="text-sm text-muted-foreground">
+          Powered by <span className="font-semibold text-primary">CertiStage</span>
         </p>
       </div>
     </footer>
   )
 }
+

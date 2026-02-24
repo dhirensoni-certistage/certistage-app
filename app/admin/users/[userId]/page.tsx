@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
@@ -307,13 +307,13 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+            <Card className="bg-neutral-50 dark:bg-neutral-900/20 border-neutral-200 dark:border-neutral-800">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
-                  <Users className="h-8 w-8 text-green-600" />
+                  <Users className="h-8 w-8 text-neutral-600" />
                   <div>
-                    <p className="text-2xl font-bold text-green-600">{stats.totalRecipients}</p>
-                    <p className="text-xs text-green-600/70">Recipients</p>
+                    <p className="text-2xl font-bold text-neutral-600">{stats.totalRecipients}</p>
+                    <p className="text-xs text-neutral-600/70">Recipients</p>
                   </div>
                 </div>
               </CardContent>
@@ -346,7 +346,7 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
                         <div>
                           <p className="font-medium">{event.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {event.certificateTypesCount} types • {event.recipientsCount} recipients
+                            {event.certificateTypesCount} types â€¢ {event.recipientsCount} recipients
                           </p>
                         </div>
                       </div>
@@ -380,10 +380,10 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
                     <div key={payment._id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border">
                       <div className="flex items-center gap-3">
                         <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
-                          payment.status === "success" ? "bg-green-500/10" : "bg-yellow-500/10"
+                          payment.status === "success" ? "bg-neutral-500/10" : "bg-yellow-500/10"
                         }`}>
                           <CreditCard className={`h-5 w-5 ${
-                            payment.status === "success" ? "text-green-600" : "text-yellow-600"
+                            payment.status === "success" ? "text-neutral-600" : "text-yellow-600"
                           }`} />
                         </div>
                         <div>
@@ -412,3 +412,5 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
     </>
   )
 }
+
+

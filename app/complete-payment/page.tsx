@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -30,12 +30,11 @@ const planDetails: Record<string, {
       "Up to 2,000 certificates/year",
       "Up to 5 certificate types",
       "Excel import",
-      "Digital signature",
       "Basic analytics"
     ]
   },
   enterprise: {
-    name: "Enterprise Gold",
+    name: "Enterprise",
     price: "₹6,999",
     priceNum: 699900,
     icon: Building2,
@@ -50,7 +49,7 @@ const planDetails: Record<string, {
     ]
   },
   premium: {
-    name: "Premium Plus",
+    name: "Premium",
     price: "₹11,999",
     priceNum: 1199900,
     icon: Sparkles,
@@ -146,7 +145,7 @@ function PaymentPageContent() {
       <header className="bg-white border-b">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image src="/Certistage_icon.svg" alt="CertiStage" width={28} height={28} />
+            <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
             <span className="font-semibold text-lg">CertiStage</span>
           </div>
           <Badge variant="outline" className="text-xs">Secure Checkout</Badge>
@@ -183,8 +182,8 @@ function PaymentPageContent() {
               <ul className="space-y-3">
                 {selectedPlan.features.map((feature, i) => (
                   <li key={i} className="flex items-center gap-3">
-                    <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                      <Check className="h-3 w-3 text-green-600" />
+                    <div className="h-5 w-5 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">
+                      <Check className="h-3 w-3 text-neutral-600" />
                     </div>
                     <span className="text-gray-700">{feature}</span>
                   </li>
@@ -260,3 +259,5 @@ export default function CompletePaymentPage() {
     </Suspense>
   )
 }
+
+

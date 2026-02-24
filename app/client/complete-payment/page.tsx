@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -28,7 +28,6 @@ const planFeatures: Record<string, string[]> = {
     "Up to 2,000 certificates/year",
     "Up to 3 events",
     "Excel import & export",
-    "Digital signature",
     "Online support"
   ],
   enterprise: [
@@ -141,7 +140,7 @@ export default function CompletePaymentPage() {
       {/* Header */}
       <header className="p-6">
         <div className="flex items-center justify-center gap-2">
-          <Image src="/Certistage_icon.svg" alt="CertiStage" width={32} height={32} />
+          <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
           <span className="text-xl font-semibold text-white">CertiStage</span>
         </div>
       </header>
@@ -152,7 +151,7 @@ export default function CompletePaymentPage() {
           {/* Welcome Message */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white mb-2">
-              Welcome, {userName}! 🎉
+              Welcome, {userName}! ðŸŽ‰
             </h1>
             <p className="text-slate-400">
               Complete your payment to activate your plan
@@ -189,7 +188,7 @@ export default function CompletePaymentPage() {
                 <ul className="space-y-2">
                   {features.map((feature, index) => (
                     <li key={index} className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+                      <Check className="h-4 w-4 text-neutral-500 shrink-0" />
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -199,7 +198,7 @@ export default function CompletePaymentPage() {
               {/* Trust Badges */}
               <div className="flex items-center justify-center gap-6 py-4 border-y border-border mb-6">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Shield className="h-4 w-4 text-emerald-500" />
+                  <Shield className="h-4 w-4 text-neutral-500" />
                   <span>Secure Payment</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -258,3 +257,4 @@ export default function CompletePaymentPage() {
     </div>
   )
 }
+

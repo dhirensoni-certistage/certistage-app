@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import crypto from "crypto"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
@@ -73,9 +73,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 })
     }
 
+    const now = new Date()
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
+    const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase()
+    const generatedInvoiceNumber = `INV-${dateStr}-${randomStr}`
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://certistage.com"
+
     // Check if payment already processed (idempotency)
     const existingPayment = await Payment.findOne({ orderId: razorpay_order_id })
     if (existingPayment && existingPayment.status === "success") {
+      const existingInvoiceNumber = existingPayment.invoiceNumber
+      const existingInvoiceUrl = existingInvoiceNumber
+        ? `${appUrl}/api/invoices/${encodeURIComponent(existingInvoiceNumber)}/pdf`
+        : undefined
+
       return NextResponse.json({
         success: true,
         message: "Payment already processed",
@@ -83,14 +94,20 @@ export async function POST(request: NextRequest) {
           orderId: existingPayment.orderId,
           paymentId: existingPayment.paymentId,
           plan: existingPayment.plan,
-          status: existingPayment.status
+          status: existingPayment.status,
+          invoiceNumber: existingInvoiceNumber,
+          invoiceUrl: existingInvoiceUrl
         }
       })
     }
 
     // Calculate plan expiry (1 year from now)
-    const planStartDate = new Date()
+    const planStartDate = now
     const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+    const amount = PLAN_PRICES[plan as PlanId] || 0
+    const gatewayFeePercent = 2
+    const baseAmount = Math.round(amount / (1 + gatewayFeePercent / 100))
+    const gatewayFee = amount - baseAmount
 
     // Update user's plan in database and clear pendingPlan
     const user = await User.findByIdAndUpdate(
@@ -113,6 +130,11 @@ export async function POST(request: NextRequest) {
       existingPayment.paymentId = razorpay_payment_id
       existingPayment.status = "success"
       existingPayment.razorpaySignature = razorpay_signature
+      existingPayment.invoiceNumber = existingPayment.invoiceNumber || generatedInvoiceNumber
+      existingPayment.invoiceIssuedAt = existingPayment.invoiceIssuedAt || now
+      existingPayment.invoiceBaseAmount = baseAmount
+      existingPayment.invoiceGatewayFee = gatewayFee
+      existingPayment.amount = amount
       await existingPayment.save()
     } else {
       await Payment.create({
@@ -120,17 +142,24 @@ export async function POST(request: NextRequest) {
         orderId: razorpay_order_id,
         paymentId: razorpay_payment_id,
         plan,
-        amount: PLAN_PRICES[plan as PlanId] || 0,
+        amount,
         currency: "INR",
         status: "success",
-        razorpaySignature: razorpay_signature
+        razorpaySignature: razorpay_signature,
+        invoiceNumber: generatedInvoiceNumber,
+        invoiceIssuedAt: now,
+        invoiceBaseAmount: baseAmount,
+        invoiceGatewayFee: gatewayFee
       })
     }
+
+    const paymentRecord = await Payment.findOne({ orderId: razorpay_order_id })
+    const invoiceNumber = paymentRecord?.invoiceNumber || generatedInvoiceNumber
+    const defaultInvoiceUrl = `${appUrl}/api/invoices/${encodeURIComponent(invoiceNumber)}/pdf`
 
     // Create admin notification in database
     try {
       const Notification = (await import('@/models/Notification')).default
-      const amount = PLAN_PRICES[plan as PlanId] || 0
       const planDisplayName = plan.charAt(0).toUpperCase() + plan.slice(1)
       
       await Notification.create({
@@ -154,21 +183,19 @@ export async function POST(request: NextRequest) {
     // Send invoice email to customer
     try {
       const { sendEmail, emailTemplates } = await import('@/lib/email')
-      const amount = PLAN_PRICES[plan as PlanId] || 0
       const planDisplayName = plan.charAt(0).toUpperCase() + plan.slice(1)
       const adminCCEmail = process.env.ADMIN_CC_EMAIL
-      
-      // Generate invoice number: INV-YYYYMMDD-XXXXX
-      const now = new Date()
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
-      const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase()
-      const invoiceNumber = `INV-${dateStr}-${randomStr}`
-      
-      // Calculate gateway fee (included in total, shown for transparency)
-      // Razorpay charges ~2% - we show this as already included
-      const gatewayFeePercent = 2
-      const baseAmount = Math.round(amount / (1 + gatewayFeePercent / 100))
-      const gatewayFee = amount - baseAmount
+
+      // Optional PDF download URL template (set in env):
+      // INVOICE_PDF_URL_TEMPLATE=https://certistage.com/api/invoices/{invoiceNumber}/pdf
+      // Supported placeholders: {invoiceNumber}, {paymentId}, {userId}
+      const invoiceUrlTemplate = process.env.INVOICE_PDF_URL_TEMPLATE
+      const invoiceUrl = invoiceUrlTemplate
+        ? invoiceUrlTemplate
+            .replace('{invoiceNumber}', encodeURIComponent(invoiceNumber))
+            .replace('{paymentId}', encodeURIComponent(razorpay_payment_id))
+            .replace('{userId}', encodeURIComponent(String(userId)))
+        : defaultInvoiceUrl
       
       // Send professional invoice email with CC
       const invoiceTemplate = emailTemplates.invoice({
@@ -183,7 +210,8 @@ export async function POST(request: NextRequest) {
         totalAmount: amount,
         paymentId: razorpay_payment_id,
         paymentDate: now,
-        validUntil: planExpiresAt
+        validUntil: planExpiresAt,
+        invoiceUrl
       })
       
       await sendEmail({
@@ -247,6 +275,8 @@ export async function POST(request: NextRequest) {
         plan,
         userId,
         status: "success",
+        invoiceNumber,
+        invoiceUrl: defaultInvoiceUrl,
         activatedAt: new Date().toISOString(),
         expiresAt: planExpiresAt.toISOString()
       }
@@ -256,3 +286,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Payment verification failed" }, { status: 500 })
   }
 }
+

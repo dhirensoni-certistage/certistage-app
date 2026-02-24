@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -78,22 +78,27 @@ export default function SupportPage() {
   const isProfessionalOrHigher = useMemo(() =>
     planFeatures &&
     (planFeatures.displayName === "Professional" ||
-      planFeatures.displayName === "Enterprise Gold" ||
-      planFeatures.displayName === "Premium Plus"),
+      planFeatures.displayName === "Enterprise" ||
+      planFeatures.displayName === "Premium"),
     [planFeatures]
   )
 
   return (
-    <div className="p-8 space-y-6 max-w-5xl mx-auto">
+    <div className="p-8 space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Support</h1>
-        <p className="text-muted-foreground mt-1">Get help with CertiStage</p>
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Support</h1>
+          <p className="text-muted-foreground mt-1">Get help with CertiStage and track your request.</p>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {isProfessionalOrHigher ? "Priority response within 24 hours" : "Standard response within 48 hours"}
+        </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-12 gap-6">
         {/* Support Contact Info + Resource buttons */}
-        <div className="md:col-span-1 space-y-4">
+        <div className="md:col-span-4 space-y-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -126,7 +131,7 @@ export default function SupportPage() {
 
               {isProfessionalOrHigher && (
                 <div className="pt-2 border-t">
-                  <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <Badge className="bg-neutral-900 text-white">
                     {planFeatures.displayName} Support
                   </Badge>
                   <p className="text-xs text-muted-foreground mt-2">
@@ -153,7 +158,7 @@ export default function SupportPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-neutral-200 dark:border-neutral-800">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <ExternalLink className="h-5 w-5" />
@@ -162,7 +167,7 @@ export default function SupportPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               <Button
-                variant="ghost"
+                variant="outline"
                 className="w-full justify-start text-sm"
                 size="sm"
                 onClick={() => setResourceModal("docs")}
@@ -170,7 +175,7 @@ export default function SupportPage() {
                 Documentation
               </Button>
               <Button
-                variant="ghost"
+                variant="outline"
                 className="w-full justify-start text-sm"
                 size="sm"
                 onClick={() => setResourceModal("faqs")}
@@ -178,7 +183,7 @@ export default function SupportPage() {
                 FAQs
               </Button>
               <Button
-                variant="ghost"
+                variant="outline"
                 className="w-full justify-start text-sm"
                 size="sm"
                 onClick={() => setResourceModal("videos")}
@@ -190,7 +195,7 @@ export default function SupportPage() {
         </div>
 
         {/* Support Request Form */}
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
@@ -203,8 +208,8 @@ export default function SupportPage() {
           <CardContent>
             {submitted ? (
               <div className="py-12 text-center">
-                <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+                <div className="h-16 w-16 rounded-full bg-neutral-500/10 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="h-8 w-8 text-neutral-600" />
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Request Submitted!</h3>
                 <p className="text-muted-foreground mb-1">
@@ -294,30 +299,29 @@ export default function SupportPage() {
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Certificate not generating?</h4>
-              <p className="text-sm text-muted-foreground">
-                Make sure your template image is properly uploaded and all required fields are filled in.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Can't upload attendees?</h4>
-              <p className="text-sm text-muted-foreground">
-                Check that your Excel file has the correct column headers: Name, Email, Mobile.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Download link not working?</h4>
-              <p className="text-sm text-muted-foreground">
-                Ensure the certificate has been generated first. Check your plan's download limits.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Need more features?</h4>
-              <p className="text-sm text-muted-foreground">
-                Upgrade your plan to unlock advanced features like bulk import and analytics.
-              </p>
-            </div>
+            {[
+              {
+                title: "Certificate not generating?",
+                body: "Make sure your template image is uploaded and all required fields are filled in."
+              },
+              {
+                title: "Can't upload attendees?",
+                body: "Check that your Excel file has the correct headers: Name, Email, Mobile."
+              },
+              {
+                title: "Download link not working?",
+                body: "Generate certificates first and check plan download limits."
+              },
+              {
+                title: "Need more features?",
+                body: "Upgrade your plan to unlock bulk import and advanced analytics."
+              },
+            ].map((item, i) => (
+              <div key={i} className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
+                <h4 className="font-medium text-sm">{item.title}</h4>
+                <p className="text-sm text-muted-foreground mt-1">{item.body}</p>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -348,7 +352,7 @@ export default function SupportPage() {
             {resourceModal === "faqs" && (
               <div className="space-y-2">
                 <p><span className="font-medium text-foreground">How do I bulk import attendees?</span> Go to the 'Attendees' tab, click on 'Import', and download the sample Excel file. Fill in your attendee data and upload it back.</p>
-                <p><span className="font-medium text-foreground">Import steps:</span> Attendees → choose type → Import Excel with required columns.</p>
+                <p><span className="font-medium text-foreground">Import steps:</span> Attendees â†’ choose type â†’ Import Excel with required columns.</p>
                 <p><span className="font-medium text-foreground">Downloads blocked:</span> Generate certificates and check plan limits.</p>
                 <p><span className="font-medium text-foreground">Edit after sending:</span> Update template, regenerate, resend links.</p>
                 <p><span className="font-medium text-foreground">Paid plans:</span> More events, bulk import, unlimited downloads/exports, priority support.</p>
@@ -365,3 +369,5 @@ export default function SupportPage() {
     </div>
   )
 }
+
+

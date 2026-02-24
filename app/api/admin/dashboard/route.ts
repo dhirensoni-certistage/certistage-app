@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import Event from "@/models/Event"
@@ -186,3 +186,4 @@ export async function GET() {
     }, { status: 500 })
   }
 }
+

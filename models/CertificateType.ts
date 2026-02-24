@@ -14,13 +14,7 @@ export interface ITextField {
   textAlign: string
 }
 
-export interface ISignatureField {
-  id: string
-  image: string
-  x: number
-  y: number
-  width: number
-}
+
 
 export interface ICustomField {
   id: string
@@ -55,7 +49,6 @@ export interface ICertificateType extends Document {
   textCase: TextCase
   showNameField: boolean
   customFields: ICustomField[]
-  signatures: ISignatureField[]
   isActive: boolean
   shortCode?: string
   // Search configuration for download page
@@ -78,13 +71,7 @@ const TextFieldSchema = new Schema<ITextField>({
   textAlign: { type: String, default: "center" }
 }, { _id: false })
 
-const SignatureFieldSchema = new Schema<ISignatureField>({
-  id: { type: String, required: true },
-  image: { type: String, required: true },
-  x: { type: Number, default: 80 },
-  y: { type: Number, default: 80 },
-  width: { type: Number, default: 15 }
-}, { _id: false })
+
 
 const CustomFieldSchema = new Schema<ICustomField>({
   id: { type: String, required: true },
@@ -117,7 +104,6 @@ const CertificateTypeSchema = new Schema<ICertificateType>(
     textCase: { type: String, enum: ["none", "uppercase", "lowercase", "capitalize"], default: "none" },
     showNameField: { type: Boolean, default: true },
     customFields: [CustomFieldSchema],
-    signatures: [SignatureFieldSchema],
     isActive: { type: Boolean, default: true },
     shortCode: { type: String, unique: true, sparse: true },
     // Search configuration for download page
@@ -135,4 +121,9 @@ const CertificateTypeSchema = new Schema<ICertificateType>(
 CertificateTypeSchema.index({ eventId: 1 })
 CertificateTypeSchema.index({ eventId: 1, isActive: 1 })
 
-export default mongoose.models.CertificateType || mongoose.model<ICertificateType>("CertificateType", CertificateTypeSchema)
+// Force model recompilation to avoid schema mismatch issues in development
+if (mongoose.models.CertificateType) {
+  delete mongoose.models.CertificateType
+}
+
+export default mongoose.model<ICertificateType>("CertificateType", CertificateTypeSchema)

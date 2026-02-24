@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -28,32 +28,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { getClientSession, getCurrentPlanFeatures, getTrialStatus, PLAN_FEATURES } from "@/lib/auth"
 import { LockedFeature } from "@/components/client/upgrade-overlay"
 import {
   getCertTypePublicLink,
-  type CertificateEvent, type CertificateType, type TextField, type SignatureField
+  type CertificateEvent, type CertificateType, type TextField
 } from "@/lib/events"
+import { motion, AnimatePresence } from "framer-motion"
 
-// Google Fonts list
-const GOOGLE_FONTS = [
-  { name: "Roboto", value: "Roboto" },
-  { name: "Open Sans", value: "Open Sans" },
-  { name: "Lato", value: "Lato" },
-  { name: "Montserrat", value: "Montserrat" },
-  { name: "Poppins", value: "Poppins" },
-  { name: "Playfair Display", value: "Playfair Display" },
-  { name: "Merriweather", value: "Merriweather" },
-  { name: "Dancing Script", value: "Dancing Script" },
-  { name: "Great Vibes", value: "Great Vibes" },
-  { name: "Pacifico", value: "Pacifico" },
-]
-
-const SYSTEM_FONTS = [
-  { name: "Arial", value: "Arial" },
-  { name: "Times New Roman", value: "Times New Roman" },
-  { name: "Georgia", value: "Georgia" },
-  { name: "Verdana", value: "Verdana" },
+// PDF-compatible fonts only (jsPDF limitation)
+const PDF_FONTS = [
+  { name: "Helvetica", value: "Helvetica", category: "Sans-serif" },
+  { name: "Times New Roman", value: "Times", category: "Serif" },
+  { name: "Courier", value: "Courier", category: "Monospace" },
 ]
 
 // Available variables for certificates
@@ -65,7 +60,7 @@ const AVAILABLE_VARIABLES = [
 ]
 import {
   Plus, FileText, Trash2, Image, Upload, Move, Eye, Check, ArrowLeft,
-  Bold, Italic, Link as LinkIcon, Copy, Users, Download, Settings, PenTool, X, Crown, Award, Lock, Search
+  Bold, Italic, Link as LinkIcon, Copy, Users, Download, Settings, PenTool, X, Crown, Award, Lock, Search, Loader2, MoreHorizontal, ExternalLink
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -89,20 +84,19 @@ export default function CertificatesPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [isDraggingText, setIsDraggingText] = useState(false)
   const [draggingFieldId, setDraggingFieldId] = useState<string | null>(null)
-  const [draggingSignatureId, setDraggingSignatureId] = useState<string | null>(null)
-  const [resizingSignatureId, setResizingSignatureId] = useState<string | null>(null)
-  const [resizeStartX, setResizeStartX] = useState<number>(0)
-  const [resizeStartWidth, setResizeStartWidth] = useState<number>(0)
   const [showPreview, setShowPreview] = useState(false)
+
+  const [selectedFieldId, setSelectedFieldId] = useState<string>("NAME") // NAME or field ID
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Debounce timer ref for API calls
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const pendingUpdatesRef = useRef<Record<string, unknown>>({})
+  const lastSaveTimeRef = useRef<number>(0)
 
   // Update local certificate type state immediately (for smooth UI)
   const updateLocalCertType = useCallback((updates: Partial<CertificateType>) => {
-    if (!event || !selectedTypeId) return
+    if (!selectedTypeId) return
 
     setEvent(prev => {
       if (!prev) return prev
@@ -113,7 +107,7 @@ export default function CertificatesPage() {
         )
       }
     })
-  }, [event, selectedTypeId])
+  }, [selectedTypeId])
 
   // Track current typeId for flush
   const currentTypeIdRef = useRef<string | null>(null)
@@ -178,6 +172,7 @@ export default function CertificatesPage() {
       pendingUpdatesRef.current = {} // Clear pending
 
       try {
+        lastSaveTimeRef.current = Date.now()
         await fetch('/api/client/certificate-types', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -208,6 +203,7 @@ export default function CertificatesPage() {
           ...updates
         })
       })
+      lastSaveTimeRef.current = Date.now()
       return res.ok
     } catch {
       return false
@@ -248,7 +244,11 @@ export default function CertificatesPage() {
             })),
             stats: apiEvent.stats
           }
-          setEvent(convertedEvent)
+
+          // Only update state if not recently saved (within 3 seconds)
+          if (Date.now() - lastSaveTimeRef.current > 3000) {
+            setEvent(convertedEvent)
+          }
         }
       }
     } catch (error) {
@@ -294,7 +294,7 @@ export default function CertificatesPage() {
   // Only poll when NOT actively editing (dragging/resizing)
   useEffect(() => {
     // Don't poll while user is interacting with the editor
-    if (isDraggingText || draggingFieldId || draggingSignatureId || resizingSignatureId) {
+    if (isDraggingText || draggingFieldId) {
       return
     }
 
@@ -305,18 +305,9 @@ export default function CertificatesPage() {
 
     const interval = setInterval(refreshEvent, 5000) // Increased to 5 seconds
     return () => clearInterval(interval)
-  }, [refreshEvent, isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, selectedTypeId, activeTab])
+  }, [refreshEvent, isDraggingText, draggingFieldId, selectedTypeId, activeTab])
 
-  // Load Google Font when selected type changes
-  useEffect(() => {
-    const type = event?.certificateTypes.find(t => t.id === selectedTypeId)
-    if (type?.fontFamily && GOOGLE_FONTS.find(f => f.value === type.fontFamily)) {
-      const link = document.createElement('link')
-      link.href = `https://fonts.googleapis.com/css2?family=${type.fontFamily.replace(/ /g, '+')}&display=swap`
-      link.rel = 'stylesheet'
-      document.head.appendChild(link)
-    }
-  }, [selectedTypeId, event])
+  // No need to load Google Fonts anymore - using only PDF-compatible system fonts
 
   const selectedType = event?.certificateTypes.find(t => t.id === selectedTypeId) || null
 
@@ -528,8 +519,16 @@ export default function CertificatesPage() {
   // Local position state for smooth dragging
   const [localPosition, setLocalPosition] = useState({ x: 50, y: 60 })
   const [localFieldPositions, setLocalFieldPositions] = useState<Record<string, { x: number; y: number }>>({})
-  const [localSignaturePositions, setLocalSignaturePositions] = useState<Record<string, { x: number; y: number }>>({})
+
   const lastSaveRef = useRef<number>(0)
+
+  // Refs for event handlers to avoid dependency cycles and frequent listener re-binding
+  const localPositionRef = useRef(localPosition)
+  const localFieldPositionsRef = useRef(localFieldPositions)
+
+  // Update refs when state changes
+  useEffect(() => { localPositionRef.current = localPosition }, [localPosition])
+  useEffect(() => { localFieldPositionsRef.current = localFieldPositions }, [localFieldPositions])
 
   // Sync local position with selected type
   useEffect(() => {
@@ -541,116 +540,77 @@ export default function CertificatesPage() {
         fieldPositions[f.id] = f.position
       })
       setLocalFieldPositions(fieldPositions)
-      // Sync signature positions
-      const sigPositions: Record<string, { x: number; y: number }> = {}
-      selectedType.signatures?.forEach(s => {
-        sigPositions[s.id] = s.position
-      })
-      setLocalSignaturePositions(sigPositions)
     }
   }, [selectedType?.id])
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
     setIsDraggingText(true)
+    setSelectedFieldId("NAME")
   }
 
   const handleFieldMouseDown = (e: React.MouseEvent, fieldId: string) => {
     e.preventDefault()
     e.stopPropagation()
     setDraggingFieldId(fieldId)
+    setSelectedFieldId(fieldId)
   }
-
-  const handleSignatureMouseDown = (e: React.MouseEvent, sigId: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDraggingSignatureId(sigId)
-  }
-
-  const handleSignatureResizeStart = (e: React.MouseEvent, sigId: string, currentWidth: number) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setResizingSignatureId(sigId)
-    setResizeStartX(e.clientX)
-    setResizeStartWidth(currentWidth)
-  }
-
-  // Track signature width locally during resize
-  const [localSignatureWidths, setLocalSignatureWidths] = useState<Record<string, number>>({})
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!containerRef.current || !eventId || !selectedTypeId) return
-    const rect = containerRef.current.getBoundingClientRect()
-    const x = Math.max(5, Math.min(95, ((e.clientX - rect.left) / rect.width) * 100))
-    const y = Math.max(5, Math.min(95, ((e.clientY - rect.top) / rect.height) * 100))
+    e.preventDefault()
+    if (!containerRef.current) return
+
+    // Find image within the container for precise bounds
+    const imgElement = containerRef.current.querySelector('img')
+    if (!imgElement) return
+
+    const rect = imgElement.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return
+
+    // Calculate percentage relative to the image dimensions
+    const rawX = ((e.clientX - rect.left) / rect.width) * 100
+    const rawY = ((e.clientY - rect.top) / rect.height) * 100
+
+    // Clamp to valid range (allow slight edge buffer 0-100)
+    const x = Math.max(0, Math.min(100, rawX))
+    const y = Math.max(0, Math.min(100, rawY))
 
     if (isDraggingText) {
-      // Only update local state during drag - API call on mouseUp
       setLocalPosition({ x, y })
     } else if (draggingFieldId) {
-      // Only update local state during drag - API call on mouseUp
       setLocalFieldPositions(prev => ({ ...prev, [draggingFieldId]: { x, y } }))
-    } else if (draggingSignatureId) {
-      // Only update local state during drag - API call on mouseUp
-      setLocalSignaturePositions(prev => ({ ...prev, [draggingSignatureId]: { x, y } }))
-    } else if (resizingSignatureId) {
-      // Calculate new width based on horizontal drag distance
-      const deltaX = e.clientX - resizeStartX
-      const deltaPercent = (deltaX / rect.width) * 100 * 2
-      const newWidth = Math.max(3, Math.min(80, resizeStartWidth + deltaPercent))
-      // Only update local state during resize - API call on mouseUp
-      setLocalSignatureWidths(prev => ({ ...prev, [resizingSignatureId]: newWidth }))
     }
-  }, [isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, resizeStartX, resizeStartWidth, eventId, selectedTypeId])
+  }, [isDraggingText, draggingFieldId])
 
   const handleMouseUp = useCallback(() => {
+    // We use refs to get the latest values without needing them in the dependency array
+    // This keeps the event listener stable.
+
     // Save text position on drag end
     if (isDraggingText && eventId && selectedTypeId) {
-      updateCertTypeAPI(selectedTypeId, { textPosition: localPosition })
+      const newPos = localPositionRef.current
+      updateLocalCertType({ textPosition: newPos })
+      updateCertTypeAPI(selectedTypeId, { textPosition: newPos })
     }
     // Save custom field position on drag end
     if (draggingFieldId && eventId && selectedTypeId && selectedType) {
-      const pos = localFieldPositions[draggingFieldId]
+      const pos = localFieldPositionsRef.current[draggingFieldId]
       if (pos) {
         const fields = selectedType.customFields || []
         const updatedFields = fields.map(f =>
           f.id === draggingFieldId ? { ...f, position: pos } : f
         )
+        updateLocalCertType({ customFields: updatedFields })
         updateCertTypeAPI(selectedTypeId, { customFields: updatedFields })
       }
     }
-    // Save signature position on drag end
-    if (draggingSignatureId && eventId && selectedTypeId && selectedType) {
-      const pos = localSignaturePositions[draggingSignatureId]
-      if (pos) {
-        const sigs = selectedType.signatures || []
-        const updatedSigs = sigs.map(s =>
-          s.id === draggingSignatureId ? { ...s, position: pos } : s
-        )
-        updateCertTypeAPI(selectedTypeId, { signatures: updatedSigs })
-      }
-    }
-    // Save signature width on resize end
-    if (resizingSignatureId && eventId && selectedTypeId && selectedType) {
-      const newWidth = localSignatureWidths[resizingSignatureId]
-      if (newWidth !== undefined) {
-        const sigs = selectedType.signatures || []
-        const updatedSigs = sigs.map(s =>
-          s.id === resizingSignatureId ? { ...s, width: newWidth } : s
-        )
-        updateCertTypeAPI(selectedTypeId, { signatures: updatedSigs })
-      }
-    }
+    // State flags are cleared immediately
     setIsDraggingText(false)
     setDraggingFieldId(null)
-    setDraggingSignatureId(null)
-    setResizingSignatureId(null)
-    // Delay refresh to avoid immediate re-render during interaction
-    setTimeout(() => refreshEvent(), 500)
-  }, [eventId, selectedTypeId, localPosition, localFieldPositions, localSignaturePositions, localSignatureWidths, refreshEvent, isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, selectedType])
+  }, [eventId, selectedTypeId, selectedType, isDraggingText, draggingFieldId, refreshEvent])
 
   useEffect(() => {
-    if (isDraggingText || draggingFieldId || draggingSignatureId || resizingSignatureId) {
+    if (isDraggingText || draggingFieldId) {
       window.addEventListener("mousemove", handleMouseMove)
       window.addEventListener("mouseup", handleMouseUp)
       return () => {
@@ -658,14 +618,22 @@ export default function CertificatesPage() {
         window.removeEventListener("mouseup", handleMouseUp)
       }
     }
-  }, [isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, handleMouseMove, handleMouseUp])
+  }, [isDraggingText, draggingFieldId, handleMouseMove, handleMouseUp])
 
   if (isLoading) {
-    return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>
+    return (
+      <div className="flex bg-[#FDFDFD] h-[80vh] w-full items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-neutral-200" />
+      </div>
+    )
   }
 
   if (!event) {
-    return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>
+    return (
+      <div className="flex bg-[#FDFDFD] h-[80vh] w-full items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-neutral-200" />
+      </div>
+    )
   }
 
   // If a certificate type is selected, show the editor
@@ -701,14 +669,11 @@ export default function CertificatesPage() {
               certType={selectedType}
               localPosition={localPosition}
               localFieldPositions={localFieldPositions}
-              localSignaturePositions={localSignaturePositions}
-              localSignatureWidths={localSignatureWidths}
               isDragging={isDragging}
               isDraggingText={isDraggingText}
               draggingFieldId={draggingFieldId}
-              draggingSignatureId={draggingSignatureId}
-              resizingSignatureId={resizingSignatureId}
               showPreview={showPreview}
+              selectedFieldId={selectedFieldId}
               containerRef={containerRef}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -716,8 +681,6 @@ export default function CertificatesPage() {
               onFileInput={handleFileInput}
               onMouseDown={handleMouseDown}
               onFieldMouseDown={handleFieldMouseDown}
-              onSignatureMouseDown={handleSignatureMouseDown}
-              onSignatureResizeStart={handleSignatureResizeStart}
               onRemoveTemplate={removeTemplate}
               onTogglePreview={() => setShowPreview(!showPreview)}
               onPositionChange={(axis, value) => {
@@ -729,11 +692,39 @@ export default function CertificatesPage() {
                 if (selectedTypeId) syncToAPI(selectedTypeId, { textPosition: newPosition })
               }}
               onFontChange={(updates) => {
-                // Update local state immediately for instant feedback
-                updateLocalCertType(updates as Partial<CertificateType>)
-                // Sync to API in background
-                if (selectedTypeId) syncToAPI(selectedTypeId, updates)
+                // Check if this is a critical setting that needs immediate save
+                const isCriticalUpdate = 'textCase' in updates || 'fontFamily' in updates
+                
+                // Update based on selected field
+                if (selectedFieldId === "NAME") {
+                  updateLocalCertType(updates as Partial<CertificateType>)
+                  if (selectedTypeId) {
+                    if (isCriticalUpdate) {
+                      // Immediate save for critical settings
+                      updateCertTypeAPI(selectedTypeId, updates)
+                    } else {
+                      // Debounced save for frequent updates (fontSize, etc.)
+                      syncToAPI(selectedTypeId, updates)
+                    }
+                  }
+                } else {
+                  // Custom field update
+                  if (selectedType && selectedType.customFields) {
+                    const updatedFields = selectedType.customFields.map(f =>
+                      f.id === selectedFieldId ? { ...f, ...updates } : f
+                    )
+                    updateLocalCertType({ customFields: updatedFields })
+                    if (selectedTypeId) {
+                      if (isCriticalUpdate) {
+                        updateCertTypeAPI(selectedTypeId, { customFields: updatedFields })
+                      } else {
+                        syncToAPI(selectedTypeId, { customFields: updatedFields })
+                      }
+                    }
+                  }
+                }
               }}
+              onSelectField={setSelectedFieldId}
               onAddCustomField={async (variable) => {
                 if (eventId && selectedTypeId) {
                   const newField: TextField = {
@@ -765,61 +756,6 @@ export default function CertificatesPage() {
                   }
                 }
               }}
-              onAddSignature={(file) => {
-                if (!eventId || !selectedTypeId) return
-
-                // Check if digital signature is allowed in plan
-                const planFeatures = getCurrentPlanFeatures()
-                if (!planFeatures.canDigitalSignature) {
-                  toast.error("Digital signature not available in Free plan", {
-                    description: "Upgrade to Professional or higher to add signatures"
-                  })
-                  return
-                }
-
-                const reader = new FileReader()
-                reader.onload = (e) => {
-                  const img = document.createElement("img")
-                  img.onload = async () => {
-                    // Compress signature image
-                    const canvas = document.createElement("canvas")
-                    const maxWidth = 300
-                    let width = img.width
-                    let height = img.height
-                    if (width > maxWidth) {
-                      height = (height * maxWidth) / width
-                      width = maxWidth
-                    }
-                    canvas.width = width
-                    canvas.height = height
-                    const ctx = canvas.getContext("2d")
-                    ctx?.drawImage(img, 0, 0, width, height)
-                    const compressedData = canvas.toDataURL("image/png", 0.8)
-
-                    const newSig: SignatureField = {
-                      id: `sig_${Date.now()}`,
-                      image: compressedData,
-                      position: { x: 80, y: 80 },
-                      width: 15,
-                    }
-                    const currentSigs = selectedType.signatures || []
-                    const updatedSigs = [...currentSigs, newSig]
-                    // Optimistic UI update - instant feedback
-                    updateLocalCertType({ signatures: updatedSigs })
-                    setLocalSignaturePositions(prev => ({ ...prev, [newSig.id]: newSig.position }))
-                    // Immediate API call for add/remove operations
-                    const success = await updateCertTypeAPI(selectedTypeId, { signatures: updatedSigs })
-                    if (success) {
-                      toast.success("Signature added! Drag it to position.")
-                    } else {
-                      toast.error("Failed to add signature")
-                      refreshEvent()
-                    }
-                  }
-                  img.src = e.target?.result as string
-                }
-                reader.readAsDataURL(file)
-              }}
               onRemoveCustomField={async (fieldId) => {
                 if (eventId && selectedTypeId) {
                   const currentFields = selectedType.customFields || []
@@ -835,33 +771,6 @@ export default function CertificatesPage() {
                     toast.error("Failed to remove field")
                     refreshEvent()
                   }
-                }
-              }}
-              onRemoveSignature={async (id) => {
-                if (eventId && selectedTypeId) {
-                  const currentSigs = selectedType.signatures || []
-                  const updatedSigs = currentSigs.filter(s => s.id !== id)
-                  // Optimistic UI update - instant feedback
-                  updateLocalCertType({ signatures: updatedSigs })
-                  // Immediate API call for add/remove operations
-                  const success = await updateCertTypeAPI(selectedTypeId, { signatures: updatedSigs })
-                  if (success) {
-                    toast.success("Signature removed")
-                  } else {
-                    toast.error("Failed to remove signature")
-                    refreshEvent()
-                  }
-                }
-              }}
-              onSignatureWidthChange={(id, width) => {
-                if (eventId && selectedTypeId) {
-                  const currentSigs = selectedType.signatures || []
-                  const updatedSigs = currentSigs.map(s => s.id === id ? { ...s, width } : s)
-                  // Optimistic UI update
-                  updateLocalCertType({ signatures: updatedSigs })
-                  setLocalSignatureWidths(prev => ({ ...prev, [id]: width }))
-                  // Sync to API in background (debounced)
-                  syncToAPI(selectedTypeId, { signatures: updatedSigs })
                 }
               }}
               onRemoveNameField={() => {
@@ -932,12 +841,15 @@ export default function CertificatesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Manage Certificates</h1>
-          <p className="text-muted-foreground">Create and manage certificate types for {event.name}</p>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[11px] font-semibold text-[#888] uppercase tracking-[0.15em]">Configure</span>
+          </div>
+          <h1 className="text-[24px] font-semibold text-black tracking-tight leading-none">Manage Certificates</h1>
         </div>
         <Button
           onClick={() => setShowAddDialog(true)}
           disabled={maxCertificateTypes !== -1 && event.certificateTypes.length >= maxCertificateTypes}
+          className="h-9 px-4 text-sm bg-black text-white hover:bg-[#222]"
         >
           <Plus className="h-4 w-4 mr-2" />
           Create New Certificate
@@ -956,7 +868,7 @@ export default function CertificatesPage() {
               <div className="flex-1">
                 <h3 className="font-semibold text-foreground mb-1">Certificate Type Limit Reached</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  You've created {maxCertificateTypes} certificate type{maxCertificateTypes > 1 ? 's' : ''} — the maximum for your {getCurrentPlanFeatures().displayName} plan.
+                  You've created {maxCertificateTypes} certificate type{maxCertificateTypes > 1 ? 's' : ''} â€” the maximum for your {getCurrentPlanFeatures().displayName} plan.
                   Upgrade to create more certificate types and unlock premium features.
                 </p>
                 <div className="flex items-center gap-3">
@@ -976,79 +888,75 @@ export default function CertificatesPage() {
       )}
 
       {/* Certificate Cards */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Certificate Templates</CardTitle>
-          <CardDescription>Click on a certificate to edit its template and settings</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {event.certificateTypes.length === 0 ? (
-            <div className="text-center py-12 border-2 border-dashed rounded-lg">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No Certificate Types Yet</h3>
-              <p className="text-muted-foreground mb-4 max-w-md mx-auto">
-                Create your first certificate type to start adding templates and recipients
-              </p>
-              <Button onClick={() => setShowAddDialog(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Certificate Type
-              </Button>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        {event.certificateTypes.length === 0 ? (
+          <div className="col-span-full py-24 border border-dashed border-[#E5E5E5] rounded-xl bg-[#FAFAFA] flex flex-col items-center justify-center text-center">
+            <div className="h-12 w-12 rounded-xl bg-white border border-[#E5E5E5] flex items-center justify-center mb-4 shadow-sm">
+              <FileText className="h-6 w-6 text-[#999]" />
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {event.certificateTypes.map((certType) => (
-                <Card
-                  key={certType.id}
-                  className="hover:border-primary/50 transition-colors cursor-pointer group"
+            <h3 className="text-[15px] font-semibold text-black mb-1">No certificates created</h3>
+            <p className="text-[13px] text-[#666] mb-6 max-w-[300px]">Design your first certificate template visually and send it to attendees.</p>
+            <Button onClick={() => setShowAddDialog(true)} className="h-9 text-xs font-medium bg-black text-white hover:bg-[#333] px-5 rounded-md shadow-sm">
+              Create First Certificate
+            </Button>
+          </div>
+        ) : (
+          <>
+            {event.certificateTypes.map((certType, index) => (
+              <motion.div
+                key={certType.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.04, duration: 0.2 }}
+              >
+                <div
+                  className="group relative flex flex-col bg-white rounded-xl border border-[#E5E5E5] hover:border-[#D4D4D4] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all duration-300 cursor-pointer overflow-hidden h-auto hover:-translate-y-0.5"
                   onClick={() => setSelectedTypeId(certType.id)}
                 >
-                  <CardContent className="p-4">
-                    {/* Template Preview */}
-                    <div className="h-24 rounded-lg bg-muted mb-3 overflow-hidden flex items-center justify-center relative">
-                      {certType.template ? (
-                        <img src={certType.template} alt={certType.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <Image className="h-8 w-8 text-muted-foreground" />
-                      )}
-                      {/* Hover overlay */}
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Settings className="h-6 w-6 text-white" />
+                  {/* Thumbnail Section - 16:10 Aspect Ratio */}
+                  <div className="aspect-[16/10] bg-[#F9F9FA] relative border-b border-[#F0F0F0] overflow-hidden group-hover:bg-[#F5F5F7] transition-colors">
+                    {certType.template ? (
+                      <div className="w-full h-full p-4 flex items-center justify-center">
+                        <img
+                          src={certType.template}
+                          alt={certType.name}
+                          className="w-full h-full object-contain shadow-sm group-hover:scale-[1.03] transition-transform duration-500 ease-out"
+                        />
                       </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full gap-3 text-[#A3A3A3]">
+                        <div className="p-3 bg-white rounded-lg border border-[#EBEBEB] shadow-sm">
+                          <Image className="h-5 w-5 opacity-40" />
+                        </div>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider opacity-50">Empty Template</span>
+                      </div>
+                    )}
+
+                    {/* Status Indicator (Top Left) */}
+                    <div className="absolute top-3 left-3">
+                      {certType.template ? (
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/90 backdrop-blur shadow-sm border border-black/5">
+                          <div className="w-1.5 h-1.5 rounded-full bg-neutral-500"></div>
+                          <span className="text-[9px] font-bold text-[#444] tracking-wide uppercase">Active</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/90 backdrop-blur shadow-sm border border-black/5">
+                          <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+                          <span className="text-[9px] font-bold text-[#444] tracking-wide uppercase">Draft</span>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Info */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-foreground truncate">{certType.name}</h3>
-                        {certType.template ? (
-                          <Badge variant="default" className="bg-emerald-500 text-xs">Ready</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs">No Template</Badge>
-                        )}
-                      </div>
-
-                      {/* Stats */}
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3.5 w-3.5" />
-                          {certType.stats.total}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Download className="h-3.5 w-3.5" />
-                          {certType.stats.downloaded}
-                        </span>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex gap-2 pt-2">
-                        <Button size="sm" className="flex-1" onClick={(e) => { e.stopPropagation(); setSelectedTypeId(certType.id) }}>
-                          <Settings className="h-3.5 w-3.5 mr-1" />
-                          Manage
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
+                    {/* Context Menu (Top Right) */}
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 bg-white/90 backdrop-blur hover:bg-white text-black shadow-sm border border-black/5 rounded-md" onClick={(e) => e.stopPropagation()}>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem onClick={(e) => {
                             e.stopPropagation()
                             if (!certType.template) {
                               toast.error("Upload template first")
@@ -1056,35 +964,92 @@ export default function CertificatesPage() {
                             }
                             const link = `${window.location.origin}${getCertTypePublicLink(eventId!, certType.id)}`
                             navigator.clipboard.writeText(link)
-                            toast.success("Download link copied!")
-                          }}
-                          title="Copy download link"
-                        >
-                          <LinkIcon className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setDeleteType(certType) }}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                            toast.success("Link copied!")
+                          }}>
+                            <LinkIcon className="h-3.5 w-3.5 mr-2" />
+                            Copy Public Link
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation()
+                            const path = getCertTypePublicLink(eventId!, certType.id)
+                            window.open(path, '_blank')
+                          }}>
+                            <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                            Preview Page
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={(e) => { e.stopPropagation(); setDeleteType(certType) }}>
+                            <Trash2 className="h-3.5 w-3.5 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+
+                  {/* Content Section */}
+                  <div className="p-4 flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-[14px] font-semibold text-[#0F0F0F] leading-snug group-hover:text-black transition-colors">{certType.name}</h3>
+                        <p className="text-[11px] text-[#666] mt-0.5 line-clamp-1">Created on {new Date(certType.createdAt || Date.now()).toLocaleDateString()}</p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
 
-              {/* Add New Card - only show if not at limit */}
-              {(maxCertificateTypes === -1 || event.certificateTypes.length < maxCertificateTypes) && (
+                    {/* Stats Grid */}
+                    <div className="flex items-center gap-4 py-2 border-t border-dashed border-[#F0F0F0]">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-medium text-[#888] uppercase tracking-wide">Attendees</span>
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5 text-[#444]" />
+                          <span className="text-[13px] font-semibold text-[#171717]">{certType.stats.total}</span>
+                        </div>
+                      </div>
+                      <div className="w-px h-6 bg-[#F0F0F0]"></div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-medium text-[#888] uppercase tracking-wide">Downloads</span>
+                        <div className="flex items-center gap-1.5">
+                          <Download className="h-3.5 w-3.5 text-[#444]" />
+                          <span className="text-[13px] font-semibold text-[#171717]">{certType.stats.downloaded}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Hover Action */}
+                    <div className="absolute bottom-4 right-4 translate-x-3 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                      <div className="h-8 px-3 flex items-center gap-2 bg-black text-white text-[11px] font-medium rounded-md shadow-sm">
+                        Manage <ArrowLeft className="h-3 w-3 rotate-180" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+
+            {/* Add New Card (Minimalist Dashed) */}
+            {(maxCertificateTypes === -1 || event.certificateTypes.length < maxCertificateTypes) && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
                 <button
                   onClick={() => setShowAddDialog(true)}
-                  className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors min-h-[200px]"
+                  className="group w-full h-full min-h-[290px] rounded-xl border border-dashed border-[#D4D4D4] bg-[#FAFAFA]/50 hover:bg-[#FAFAFA] hover:border-[#999] transition-all duration-300 flex flex-col items-center justify-center gap-4 box-border outline-none focus:ring-2 focus:ring-black/5"
                 >
-                  <Plus className="h-8 w-8" />
-                  <span className="font-medium">Add New Type</span>
+                  <div className="h-10 w-10 rounded-full bg-white border border-[#E5E5E5] flex items-center justify-center shadow-sm group-hover:scale-115 transition-transform duration-300 group-hover:border-[#999]">
+                    <Plus className="h-5 w-5 text-[#666] group-hover:text-black transition-colors" />
+                  </div>
+                  <div className="text-center">
+                    <span className="block text-[13px] font-semibold text-[#444] group-hover:text-black transition-colors">Create New Type</span>
+                    <span className="text-[11px] text-[#888] group-hover:text-[#666]">Add a new certificate template</span>
+                  </div>
                 </button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </motion.div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Create Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
@@ -1135,22 +1100,19 @@ export default function CertificatesPage() {
 
 // Template Editor Component
 function TemplateEditor({
-  certType, localPosition, localFieldPositions, localSignaturePositions, localSignatureWidths, isDragging, isDraggingText, draggingFieldId, draggingSignatureId, resizingSignatureId, showPreview, containerRef,
-  onDragOver, onDragLeave, onDrop, onFileInput, onMouseDown, onFieldMouseDown, onSignatureMouseDown, onSignatureResizeStart,
-  onRemoveTemplate, onTogglePreview, onPositionChange, onFontChange, onAddCustomField, onRemoveCustomField,
-  onAddSignature, onRemoveSignature, onSignatureWidthChange, onRemoveNameField, onRestoreNameField, onSearchFieldsChange,
+  certType, localPosition, localFieldPositions, isDragging, isDraggingText, draggingFieldId, showPreview, selectedFieldId, containerRef,
+  onDragOver, onDragLeave, onDrop, onFileInput, onMouseDown, onFieldMouseDown,
+  onRemoveTemplate, onTogglePreview, onPositionChange, onFontChange, onAddCustomField, onRemoveCustomField, onSelectField,
+  onRemoveNameField, onRestoreNameField, onSearchFieldsChange,
 }: {
   certType: CertificateType
   localPosition: { x: number; y: number }
   localFieldPositions: Record<string, { x: number; y: number }>
-  localSignaturePositions: Record<string, { x: number; y: number }>
-  localSignatureWidths: Record<string, number>
   isDragging: boolean
   isDraggingText: boolean
   draggingFieldId: string | null
-  draggingSignatureId: string | null
-  resizingSignatureId: string | null
   showPreview: boolean
+  selectedFieldId: string
   containerRef: React.RefObject<HTMLDivElement | null>
   onDragOver: (e: React.DragEvent) => void
   onDragLeave: (e: React.DragEvent) => void
@@ -1158,176 +1120,214 @@ function TemplateEditor({
   onFileInput: (e: React.ChangeEvent<HTMLInputElement>) => void
   onMouseDown: (e: React.MouseEvent) => void
   onFieldMouseDown: (e: React.MouseEvent, fieldId: string) => void
-  onSignatureMouseDown: (e: React.MouseEvent, sigId: string) => void
-  onSignatureResizeStart: (e: React.MouseEvent, sigId: string, currentWidth: number) => void
   onRemoveTemplate: () => void
   onTogglePreview: () => void
   onPositionChange: (axis: "x" | "y", value: number) => void
   onFontChange: (updates: { fontSize?: number; fontFamily?: string; fontBold?: boolean; fontItalic?: boolean; textCase?: string }) => void
+  onSelectField: (id: string) => void
   onAddCustomField: (variable: string) => void
   onRemoveCustomField: (fieldId: string) => void
-  onAddSignature: (file: File) => void
-  onRemoveSignature: (id: string) => void
-  onSignatureWidthChange: (id: string, width: number) => void
   onRemoveNameField: () => void
   onRestoreNameField: () => void
   onSearchFieldsChange: (searchFields: { name: boolean; email: boolean; mobile: boolean; regNo: boolean }) => void
 }) {
   if (!certType.template) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload Template</CardTitle>
-          <CardDescription>Upload your certificate background image</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div
-            className={cn(
-              "border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors",
-              isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-            )}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-            onClick={() => document.getElementById("template-input")?.click()}
-          >
-            <input id="template-input" type="file" accept="image/*" className="hidden" onChange={onFileInput} />
-            <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="font-medium">Drop your certificate template here</p>
-            <p className="text-sm text-muted-foreground mt-1">or click to browse</p>
-            <p className="text-xs text-muted-foreground mt-4">Supported: JPG, PNG, WebP</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-[#E5E5E5] rounded-xl bg-[#FAFAFA] min-h-[400px]">
+        <div className="h-16 w-16 rounded-2xl bg-white border border-[#E5E5E5] flex items-center justify-center mb-6 shadow-sm">
+          <Upload className="h-8 w-8 text-[#999]" />
+        </div>
+        <h3 className="text-lg font-semibold text-[#171717] mb-2">Upload Certificate Template</h3>
+        <p className="text-[#666] mb-8 max-w-[400px] text-center text-sm">Upload a high-quality background image (JPG, PNG) for your certificate. Avoid including text placeholders in the image itself.</p>
+
+        <Button
+          onClick={() => document.getElementById("template-input")?.click()}
+          className="h-10 px-6 font-medium bg-black text-white hover:bg-[#333] shadow-sm active:scale-95 transition-all"
+        >
+          Choose Image
+        </Button>
+        <input id="template-input" type="file" accept="image/*" className="hidden" onChange={onFileInput} />
+        <p className="text-xs text-[#999] mt-6">Recommended size: 1920 x 1080px</p>
+      </div>
     )
   }
 
+
+
+  // existing effects...
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Position Editor</CardTitle>
-                <CardDescription>Drag the name placeholder to position it</CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={onTogglePreview}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  {showPreview ? "Edit" : "Preview"}
-                </Button>
-                <Button variant="outline" size="sm" onClick={onRemoveTemplate}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Remove
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
+    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-130px)] min-h-[600px]">
+      {/* Left: Canvas Area */}
+      <div className="flex-1 bg-[#F5F5F7] rounded-xl border border-[#E5E5E5] relative overflow-hidden flex flex-col">
+        {/* Canvas Toolbar */}
+        <div className="h-12 border-b border-[#E5E5E5] bg-white flex items-center justify-between px-4 z-10 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-[#444] uppercase tracking-wider">Editor Canvas</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="h-8 text-xs font-medium text-[#666]" onClick={onTogglePreview}>
+              <Eye className="h-3.5 w-3.5 mr-1.5" />
+              {showPreview ? "Edit Mode" : "Preview"}
+            </Button>
+            <div className="w-px h-4 bg-[#E5E5E5] mx-1"></div>
+            <Button variant="ghost" size="sm" className="h-8 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700" onClick={onRemoveTemplate}>
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+              Clear
+            </Button>
+          </div>
+        </div>
+
+        {/* Canvas Scroller */}
+        <div className="flex-1 overflow-auto bg-[url('/grid-pattern.svg')] relative">
+          <div className="absolute inset-0 flex items-center justify-center p-8 min-h-full min-w-full">
             <div
               ref={containerRef}
-              className="relative rounded-lg overflow-hidden border select-none [container-type:inline-size]"
-              style={{ cursor: isDraggingText ? "grabbing" : "default" }}
+              className="relative inline-flex flex-col items-center justify-center rounded shadow-sm border border-[#E5E5E5] select-none bg-white transition-opacity duration-300 hover:shadow-md"
+              style={{
+                cursor: isDraggingText ? "grabbing" : "default",
+              }}
             >
-              <img src={certType.template} alt="Template" className="w-full h-auto" draggable={false} />
-              {/* NAME Field - only show if showNameField is not false */}
+              <img
+                id="certificate-template-image"
+                src={certType.template}
+                alt="Template"
+                className="block max-w-[90vw] lg:max-w-[calc(100vw-400px)] shadow-md"
+                draggable={false}
+                style={{
+                  maxHeight: 'calc(100vh - 180px)',
+                  width: 'auto',
+                  height: 'auto',
+                  objectFit: 'contain'
+                }}
+              />
+
+              {/* NAME Field */}
               {certType.showNameField !== false && (
                 <div
-                  className="absolute transition-none"
+                  className={cn(
+                    "absolute transition-none",
+                    selectedFieldId === "NAME" && !showPreview ? "z-50" : "z-20"
+                  )}
                   style={{ left: `${localPosition.x}%`, top: `${localPosition.y}%`, transform: "translate(-50%, -50%)" }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSelectField("NAME")
+                  }}
                 >
                   {!showPreview ? (
-                    <div className="relative">
-                      {/* Animated hint arrow */}
-                      {!isDraggingText && (
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce">
-                          <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded whitespace-nowrap">Drag me!</span>
-                          <svg className="h-4 w-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
+                    <div className="relative group">
+                      <div className={cn(
+                        "absolute -inset-2 border border-dashed rounded-lg transition-opacity",
+                        selectedFieldId === "NAME" ? "border-blue-600 opacity-100 ring-2 ring-blue-400/20" : "border-blue-400 opacity-0 group-hover:opacity-100"
+                      )}></div>
+                      {/* Drag Handle */}
                       <div
                         className={cn(
-                          "border-2 border-dashed rounded-lg px-3 py-1.5 flex items-center gap-2 cursor-grab transition-all",
-                          isDraggingText ? "border-primary bg-primary/10 scale-105" : "border-primary/50 bg-primary/5 hover:border-primary hover:bg-primary/10"
+                          "absolute -top-6 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10",
+                          isDraggingText && "opacity-100 cursor-grabbing"
                         )}
                         onMouseDown={onMouseDown}
                       >
-                        <Move className="h-4 w-4 text-primary" />
+                        <Move className="h-2.5 w-2.5" /> Drag
+                      </div>
+
+                      <div className="border border-blue-600 bg-blue-100 rounded px-2 py-0.5 flex items-center justify-center relative min-w-[60px] min-h-[20px] shadow-sm">
                         <span
-                          className="text-primary whitespace-nowrap"
+                          className="whitespace-nowrap leading-none select-none text-blue-800 font-bold"
                           style={{
-                            fontSize: `max(10px, ${(certType.fontSize || 24) * 0.0625}cqi)`,
+                            fontSize: `${certType.fontSize || 24}px`,
                             fontFamily: certType.fontFamily || 'Arial',
                             fontWeight: certType.fontBold ? 'bold' : 'normal',
-                            fontStyle: certType.fontItalic ? 'italic' : 'normal'
+                            fontStyle: certType.fontItalic ? 'italic' : 'normal',
+                            textTransform: certType.textCase === 'uppercase' ? 'uppercase' : certType.textCase === 'lowercase' ? 'lowercase' : certType.textCase === 'capitalize' ? 'capitalize' : 'none'
                           }}
-                        >{"{{NAME}}"}</span>
-                        <button
-                          className="ml-1 h-4 w-4 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center"
-                          onClick={(e) => { e.stopPropagation(); onRemoveNameField() }}
                         >
-                          <X className="h-2.5 w-2.5 text-white" />
-                        </button>
+                          {"{{NAME}}"}
+                        </span>
                       </div>
+
+                      {/* Remove Button */}
+                      <button
+                        className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-white border border-[#E5E5E5] shadow-sm flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100 z-20"
+                        onClick={(e) => { e.stopPropagation(); onRemoveNameField() }}
+                        title="Remove Name Field"
+                      >
+                        <X className="h-2.5 w-2.5 text-[#666] hover:text-red-600" />
+                      </button>
                     </div>
                   ) : (
                     <span
-                      className="text-black whitespace-nowrap"
+                      className="text-black whitespace-nowrap leading-none select-none"
                       style={{
-                        fontSize: `max(10px, ${(certType.fontSize || 24) * 0.0625}cqi)`,
+                        fontSize: `${certType.fontSize || 24}px`,
                         fontFamily: certType.fontFamily || 'Arial',
                         fontWeight: certType.fontBold ? 'bold' : 'normal',
                         fontStyle: certType.fontItalic ? 'italic' : 'normal',
-                        textTransform: certType.textCase === 'uppercase' ? 'uppercase' : certType.textCase === 'lowercase' ? 'lowercase' : certType.textCase === 'capitalize' ? 'capitalize' : 'none'
+                        textTransform: certType.textCase === 'uppercase' ? 'uppercase' : certType.textCase === 'lowercase' ? 'lowercase' : certType.textCase === 'capitalize' ? 'capitalize' : 'none',
+                        textShadow: '0px 0px 1px rgba(0,0,0,0.1)'
                       }}
-                    >John Anderson</span>
+                    >John Doe</span>
                   )}
                 </div>
               )}
 
-              {/* Custom Fields */}
+              {/* Custom Fields - Same Logic */}
               {certType.customFields?.map((field) => {
                 const pos = localFieldPositions[field.id] || field.position
                 return (
                   <div
                     key={field.id}
-                    className="absolute transition-none"
+                    className={cn(
+                      "absolute transition-none",
+                      selectedFieldId === field.id && !showPreview ? "z-50" : "z-20"
+                    )}
                     style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: "translate(-50%, -50%)" }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSelectField(field.id)
+                    }}
                   >
                     {!showPreview ? (
-                      <div
-                        className={cn(
-                          "border-2 border-dashed rounded-lg px-2 py-1 flex items-center gap-1 cursor-grab transition-all",
-                          draggingFieldId === field.id
-                            ? "border-amber-500 bg-amber-500/20 scale-105"
-                            : "border-amber-500/50 bg-amber-500/5 hover:border-amber-500 hover:bg-amber-500/10"
-                        )}
-                        onMouseDown={(e) => onFieldMouseDown(e, field.id)}
-                      >
-                        <Move className="h-3 w-3 text-amber-600" />
-                        <span
-                          className="text-amber-600 whitespace-nowrap text-xs"
-                          style={{
-                            fontFamily: field.fontFamily || 'Arial',
-                            fontWeight: field.fontBold ? 'bold' : 'normal',
-                            fontStyle: field.fontItalic ? 'italic' : 'normal'
-                          }}
-                        >{`{{${field.variable}}}`}</span>
+                      <div className="relative group">
+                        <div className={cn(
+                          "absolute -inset-2 border border-dashed rounded-lg transition-opacity",
+                          selectedFieldId === field.id ? "border-amber-600 opacity-100 ring-2 ring-amber-400/20" : "border-amber-600 opacity-0 group-hover:opacity-100"
+                        )}></div>
+
+                        <div
+                          className="absolute -top-6 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          onMouseDown={(e) => onFieldMouseDown(e, field.id)}
+                        >
+                          <Move className="h-2.5 w-2.5" /> Drag
+                        </div>
+
+                        <div className="border border-amber-600 bg-amber-100 rounded px-2 py-0.5 flex items-center justify-center relative min-w-[60px] min-h-[20px] shadow-sm">
+                          <span
+                            className="whitespace-nowrap leading-none select-none text-amber-800 font-bold"
+                            style={{
+                              fontSize: `${field.fontSize || 24}px`,
+                              fontFamily: field.fontFamily || 'Arial',
+                              fontWeight: field.fontBold ? 'bold' : 'normal',
+                              fontStyle: field.fontItalic ? 'italic' : 'normal'
+                            }}
+                          >
+                            {`{{${field.variable}}}`}
+                          </span>
+                        </div>
+
                         <button
-                          className="ml-1 h-4 w-4 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center"
+                          className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-white border border-[#E5E5E5] shadow-sm flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100 z-20"
                           onClick={(e) => { e.stopPropagation(); onRemoveCustomField(field.id) }}
                         >
-                          <X className="h-2.5 w-2.5 text-white" />
+                          <X className="h-2.5 w-2.5 text-[#666] hover:text-red-600" />
                         </button>
                       </div>
                     ) : (
                       <span
-                        className="text-black whitespace-nowrap"
+                        className="text-black whitespace-nowrap leading-none select-none"
                         style={{
-                          fontSize: `max(8px, ${(field.fontSize || 24) * 0.0625}cqi)`,
+                          fontSize: `${field.fontSize || 24}px`,
                           fontFamily: field.fontFamily || 'Arial',
                           fontWeight: field.fontBold ? 'bold' : 'normal',
                           fontStyle: field.fontItalic ? 'italic' : 'normal'
@@ -1342,340 +1342,267 @@ function TemplateEditor({
                 )
               })}
 
-              {/* Signatures */}
-              {certType.signatures?.map((sig) => {
-                const pos = localSignaturePositions[sig.id] || sig.position
-                return (
-                  <div
-                    key={sig.id}
-                    className="absolute transition-none"
-                    style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: "translate(-50%, -50%)" }}
-                  >
-                    {!showPreview ? (
-                      <div
-                        className={cn(
-                          "border-2 border-dashed rounded-lg p-1 cursor-grab transition-all relative group",
-                          draggingSignatureId === sig.id || resizingSignatureId === sig.id
-                            ? "border-purple-500 bg-purple-500/20 scale-105"
-                            : "border-purple-500/50 bg-purple-500/5 hover:border-purple-500 hover:bg-purple-500/10"
-                        )}
-                        onMouseDown={(e) => onSignatureMouseDown(e, sig.id)}
-                      >
-                        <div className="flex items-center gap-1">
-                          <Move className="h-3 w-3 text-purple-600" />
-                          <img
-                            src={sig.image}
-                            alt="Signature"
-                            className="object-contain opacity-70"
-                            style={{ width: `${(localSignatureWidths[sig.id] ?? sig.width) * 2}px`, maxWidth: '200px' }}
-                            draggable={false}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Sidebar: Properties Panel */}
+      <div className="w-full lg:w-[320px] bg-white border-l border-[#E5E5E5] flex flex-col shrink-0 h-full">
+        <Tabs defaultValue="design" className="w-full h-full flex flex-col">
+          <div className="p-3 border-b border-[#F0F0F0]">
+            <TabsList className="w-full bg-[#F5F5F7]">
+              <TabsTrigger value="design" className="flex-1 text-xs">Design</TabsTrigger>
+              <TabsTrigger value="variables" className="flex-1 text-xs">Fields</TabsTrigger>
+              <TabsTrigger value="settings" className="flex-1 text-xs">Settings</TabsTrigger>
+            </TabsList>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {/* DESIGN TAB */}
+            <TabsContent value="design" className="p-4 space-y-6 m-0 h-full">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-[#666]">Typography</h3>
+                  {selectedFieldId && (
+                    <span className="text-[10px] font-medium px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-100 truncate max-w-[120px]">
+                      {selectedFieldId === "NAME" ? "Name Field" : certType.customFields?.find(f => f.id === selectedFieldId)?.variable || "Custom"}
+                    </span>
+                  )}
+                </div>
+
+                {/* Helper getter and UI for current field values */}
+                {(() => {
+                  const selectedField = selectedFieldId === "NAME"
+                    ? certType
+                    : certType.customFields?.find(f => f.id === selectedFieldId) || certType
+
+                  return (
+                    <div className="space-y-5">
+                      {/* Font Family */}
+                      <div>
+                        <Label className="text-[11px] font-medium text-[#444] mb-2 block">Font Family</Label>
+                        <select
+                          value={selectedField.fontFamily || "Helvetica"}
+                          onChange={(e) => {
+                            onFontChange({ fontFamily: e.target.value })
+                          }}
+                          className="w-full h-9 px-3 rounded-md border border-[#E5E5E5] bg-white text-xs text-[#333] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none cursor-pointer transition-all hover:border-[#CCC]"
+                        >
+                          {PDF_FONTS.map(f => (
+                            <option key={f.value} value={f.value}>
+                              {f.name} ({f.category})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-[#888] mt-1.5">
+                          Only PDF-compatible fonts
+                        </p>
+                      </div>
+
+                      {/* Font Size & Weight Row */}
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-[11px] font-medium text-[#444]">Size</Label>
+                            <span className="text-[10px] font-mono text-[#666] bg-[#F5F5F7] px-1.5 py-0.5 rounded">{selectedField.fontSize || 24}px</span>
+                          </div>
+                          <Slider
+                            value={[selectedField.fontSize || 24]}
+                            onValueChange={([v]) => onFontChange({ fontSize: v })}
+                            min={12}
+                            max={200}
+                            step={1}
+                            className="py-1"
                           />
                         </div>
-                        {/* Resize handle - right edge */}
-                        <div
-                          className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-6 bg-purple-500 rounded cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity"
-                          onMouseDown={(e) => onSignatureResizeStart(e, sig.id, localSignatureWidths[sig.id] ?? sig.width)}
-                          title="Drag to resize"
-                        />
-                        <button
-                          className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center"
-                          onClick={(e) => { e.stopPropagation(); onRemoveSignature(sig.id) }}
-                        >
-                          <X className="h-2.5 w-2.5 text-white" />
-                        </button>
                       </div>
-                    ) : (
-                      <img
-                        src={sig.image}
-                        alt="Signature"
-                        className="h-auto object-contain"
-                        style={{ width: `${localSignatureWidths[sig.id] ?? sig.width}%`, maxWidth: '150px' }}
-                        draggable={false}
-                      />
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      <div className="space-y-4">
-        {/* Add Variable Card */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Add Variable</CardTitle>
-            <CardDescription className="text-xs">Click to add a field to certificate</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {/* Show NAME button if it's hidden */}
-              {certType.showNameField === false && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => onRestoreNameField()}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  {`{{NAME}}`}
-                </Button>
-              )}
-              {AVAILABLE_VARIABLES
-                .filter(v => v.key !== 'NAME') // NAME is handled separately
-                .filter(v => !certType.customFields?.find(f => f.variable === v.key)) // Hide already added
-                .map((v) => (
-                  <Button
-                    key={v.key}
-                    variant="outline"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => onAddCustomField(v.key)}
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    {`{{${v.key}}}`}
-                  </Button>
-                ))}
-              {certType.showNameField !== false &&
-                AVAILABLE_VARIABLES.filter(v => v.key !== 'NAME').every(v => certType.customFields?.find(f => f.variable === v.key)) && (
-                  <p className="text-xs text-muted-foreground">All variables added</p>
-                )}
-            </div>
-          </CardContent>
-        </Card>
+                      {/* Style & Casing Grid */}
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Font Style */}
+                        <div>
+                          <Label className="text-[11px] font-medium text-[#444] mb-2 block">Style</Label>
+                          <div className="flex bg-[#F5F5F7] p-1 rounded-md h-9 items-center">
+                            <button
+                              onClick={() => onFontChange({ fontBold: !selectedField.fontBold })}
+                              className={cn(
+                                "flex-1 h-full rounded text-[#666] hover:text-[#333] flex items-center justify-center transition-all",
+                                selectedField.fontBold && "bg-white text-black shadow-sm"
+                              )}
+                              title="Bold"
+                            >
+                              <Bold className="h-3.5 w-3.5" />
+                            </button>
+                            <div className="w-px h-3 bg-[#E5E5E5] mx-1"></div>
+                            <button
+                              onClick={() => onFontChange({ fontItalic: !selectedField.fontItalic })}
+                              className={cn(
+                                "flex-1 h-full rounded text-[#666] hover:text-[#333] flex items-center justify-center transition-all",
+                                selectedField.fontItalic && "bg-white text-black shadow-sm"
+                              )}
+                              title="Italic"
+                            >
+                              <Italic className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
 
-        <Card>
-          <CardHeader className="pb-3"><CardTitle className="text-base">Text Settings</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label className="text-xs mb-2 block">Font Family</Label>
-              <select
-                value={certType.fontFamily || "Arial"}
-                onChange={(e) => {
-                  onFontChange({ fontFamily: e.target.value })
-                  // Load Google Font if selected
-                  if (GOOGLE_FONTS.find(f => f.value === e.target.value)) {
-                    const link = document.createElement('link')
-                    link.href = `https://fonts.googleapis.com/css2?family=${e.target.value.replace(/ /g, '+')}&display=swap`
-                    link.rel = 'stylesheet'
-                    document.head.appendChild(link)
-                  }
-                }}
-                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
-              >
-                <optgroup label="System Fonts">
-                  {SYSTEM_FONTS.map(f => (
-                    <option key={f.value} value={f.value}>{f.name}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="Google Fonts">
-                  {GOOGLE_FONTS.map(f => (
-                    <option key={f.value} value={f.value}>{f.name}</option>
-                  ))}
-                </optgroup>
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs">Size: {certType.fontSize}px</Label>
-              <Slider value={[certType.fontSize]} onValueChange={([v]) => onFontChange({ fontSize: v })} min={12} max={72} step={1} className="mt-2" />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant={certType.fontBold ? "default" : "outline"}
-                size="sm"
-                className="flex-1"
-                onClick={() => onFontChange({ fontBold: !certType.fontBold })}
-              >
-                <Bold className="h-4 w-4 mr-1" />
-                Bold
-              </Button>
-              <Button
-                variant={certType.fontItalic ? "default" : "outline"}
-                size="sm"
-                className="flex-1"
-                onClick={() => onFontChange({ fontItalic: !certType.fontItalic })}
-              >
-                <Italic className="h-4 w-4 mr-1" />
-                Italic
-              </Button>
-            </div>
-            <div>
-              <Label className="text-xs mb-2 block">Text Case</Label>
-              <select
-                value={certType.textCase || "none"}
-                onChange={(e) => onFontChange({ textCase: e.target.value })}
-                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
-              >
-                <option value="none">As Entered</option>
-                <option value="uppercase">UPPERCASE</option>
-                <option value="lowercase">lowercase</option>
-                <option value="capitalize">Capitalize Each Word</option>
-              </select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Digital Signature Card */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <PenTool className="h-4 w-4" />
-              Digital Signature
-              {!getCurrentPlanFeatures().canDigitalSignature && (
-                <Badge variant="outline" className="text-xs ml-auto">Pro</Badge>
-              )}
-            </CardTitle>
-            <CardDescription className="text-xs">Upload signature</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div
-              className={cn(
-                "border-2 border-dashed rounded-lg p-4 text-center transition-colors",
-                getCurrentPlanFeatures().canDigitalSignature
-                  ? "cursor-pointer hover:border-primary/50"
-                  : "opacity-50 cursor-not-allowed"
-              )}
-              onClick={() => {
-                if (getCurrentPlanFeatures().canDigitalSignature) {
-                  document.getElementById("signature-input")?.click()
-                }
-              }}
-            >
-              <input
-                id="signature-input"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) onAddSignature(file)
-                  e.target.value = ''
-                }}
-              />
-              <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">
-                {getCurrentPlanFeatures().canDigitalSignature
-                  ? "Click to upload signature"
-                  : "Upgrade to add signatures"}
-              </p>
-            </div>
-
-            {/* Existing Signatures */}
-            {certType.signatures && certType.signatures.length > 0 && (
-              <div className="space-y-3">
-                <Label className="text-xs">Added Signatures</Label>
-                {certType.signatures.map((sig, idx) => (
-                  <div key={sig.id} className="p-2 bg-muted rounded-lg space-y-2">
-                    <div className="flex items-center gap-2">
-                      <img src={sig.image} alt={`Signature ${idx + 1}`} className="h-8 w-auto object-contain" />
-                      <span className="text-xs text-muted-foreground flex-1">Signature {idx + 1}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => onRemoveSignature(sig.id)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+                        {/* Text Casing */}
+                        {selectedFieldId === "NAME" && (
+                          <div>
+                            <Label className="text-[11px] font-medium text-[#444] mb-2 block">Casing</Label>
+                            <div className="flex bg-[#F5F5F7] p-1 rounded-md h-9 items-center">
+                              {[
+                                { value: 'none', label: 'Aa', title: 'As Entered' },
+                                { value: 'uppercase', label: 'AA', title: 'UPPERCASE' },
+                                { value: 'capitalize', label: 'Aa', title: 'Capitalize' }
+                              ].map((option) => (
+                                <button
+                                  key={option.value}
+                                  onClick={() => {
+                                    console.log('Casing button clicked:', option.value)
+                                    onFontChange({ textCase: option.value })
+                                  }}
+                                  className={cn(
+                                    "flex-1 h-full rounded text-[10px] font-medium text-[#666] hover:text-[#333] flex items-center justify-center transition-all",
+                                    ((certType.textCase || 'none') === option.value) && "bg-white text-black shadow-sm"
+                                  )}
+                                  title={option.title}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs whitespace-nowrap">Size: {Math.round(localSignatureWidths[sig.id] ?? sig.width)}%</Label>
-                      <Slider
-                        value={[localSignatureWidths[sig.id] ?? sig.width]}
-                        onValueChange={([v]) => onSignatureWidthChange(sig.id, v)}
-                        min={3}
-                        max={80}
-                        step={1}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                ))}
+                  )
+                })()}
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Search Fields Configuration */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Search className="h-4 w-4" />
-              Search Fields
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Select which fields users can search by on download page
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="search-name"
-                checked={certType.searchFields?.name ?? true}
-                onCheckedChange={(checked) => 
-                  onSearchFieldsChange({ 
-                    ...certType.searchFields || { name: true, email: false, mobile: false, regNo: false },
-                    name: checked as boolean 
-                  })
-                }
-              />
-              <Label htmlFor="search-name" className="text-sm cursor-pointer">Name</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="search-email"
-                checked={certType.searchFields?.email ?? false}
-                onCheckedChange={(checked) => 
-                  onSearchFieldsChange({ 
-                    ...certType.searchFields || { name: true, email: false, mobile: false, regNo: false },
-                    email: checked as boolean 
-                  })
-                }
-              />
-              <Label htmlFor="search-email" className="text-sm cursor-pointer">Email</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="search-mobile"
-                checked={certType.searchFields?.mobile ?? false}
-                onCheckedChange={(checked) => 
-                  onSearchFieldsChange({ 
-                    ...certType.searchFields || { name: true, email: false, mobile: false, regNo: false },
-                    mobile: checked as boolean 
-                  })
-                }
-              />
-              <Label htmlFor="search-mobile" className="text-sm cursor-pointer">Mobile</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="search-regNo"
-                checked={certType.searchFields?.regNo ?? false}
-                onCheckedChange={(checked) => 
-                  onSearchFieldsChange({ 
-                    ...certType.searchFields || { name: true, email: false, mobile: false, regNo: false },
-                    regNo: checked as boolean 
-                  })
-                }
-              />
-              <Label htmlFor="search-regNo" className="text-sm cursor-pointer">Registration No</Label>
-            </div>
-            <p className="text-xs text-muted-foreground pt-1">
-              Users will search by selected fields on download page
-            </p>
-          </CardContent>
-        </Card>
+              <div className="h-px bg-[#F0F0F0] w-full"></div>
+            </TabsContent>
+
+            {/* VARIABLES TAB */}
+            <TabsContent value="variables" className="p-4 m-0 h-full">
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100 mb-6">
+                  <h4 className="text-xs font-semibold text-blue-900 mb-1">Dynamic Fields</h4>
+                  <p className="text-[11px] text-blue-700/80 leading-relaxed">
+                    Click to add variables. Drag them on the canvas to position where they will appear on the final certificate.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-[#444] mb-2 block">Available Variables</Label>
+
+                  {certType.showNameField === false && (
+                    <button onClick={onRestoreNameField} className="w-full flex items-center justify-between p-3 rounded-lg border border-[#E5E5E5] bg-white hover:border-black/30 hover:shadow-sm transition-all group text-left">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-[#F5F5F7] flex items-center justify-center group-hover:bg-[#EBEBEB]">
+                          <span className="text-xs font-bold text-[#444]">N</span>
+                        </div>
+                        <div>
+                          <span className="block text-xs font-semibold text-[#222]">Recipient Name</span>
+                          <span className="block text-[10px] text-[#888] font-mono mt-0.5">{`{{NAME}}`}</span>
+                        </div>
+                      </div>
+                      <Plus className="h-4 w-4 text-[#CCC] group-hover:text-black" />
+                    </button>
+                  )}
+
+                  {AVAILABLE_VARIABLES.filter(v => v.key !== 'NAME' && !certType.customFields?.find(f => f.variable === v.key)).map((v) => (
+                    <button key={v.key} onClick={() => onAddCustomField(v.key)} className="w-full flex items-center justify-between p-3 rounded-lg border border-[#E5E5E5] bg-white hover:border-black/30 hover:shadow-sm transition-all group text-left">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-[#F5F5F7] flex items-center justify-center group-hover:bg-[#EBEBEB]">
+                          <span className="text-xs font-bold text-[#444]">{v.key.charAt(0)}</span>
+                        </div>
+                        <div>
+                          <span className="block text-xs font-semibold text-[#222]">{v.label}</span>
+                          <span className="block text-[10px] text-[#888] font-mono mt-0.5">{`{{${v.key}}}`}</span>
+                        </div>
+                      </div>
+                      <Plus className="h-4 w-4 text-[#CCC] group-hover:text-black" />
+                    </button>
+                  ))}
+
+                  {certType.showNameField !== false && AVAILABLE_VARIABLES.filter(v => v.key !== 'NAME').every(v => certType.customFields?.find(f => f.variable === v.key)) && (
+                    <div className="text-center py-8 text-[#999] text-xs">
+                      All available variables have been added.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* SETTINGS TAB */}
+            <TabsContent value="settings" className="p-4 m-0 h-full">
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-[#666]">Search Configuration</h3>
+                  <p className="text-[11px] text-[#666] leading-relaxed">
+                    Control which fields attendees can use to find their certificates on the public download page.
+                  </p>
+
+                  <div className="space-y-2 mt-4">
+                    {['name', 'email', 'mobile', 'regNo'].map((key) => (
+                      <div key={key} className="flex items-center justify-between p-2 rounded hover:bg-[#F5F5F7]">
+                        <Label htmlFor={`search-${key}`} className="text-xs cursor-pointer capitalize">{key === 'regNo' ? 'Registration No' : key}</Label>
+                        <Checkbox
+                          id={`search-${key}`}
+                          checked={certType.searchFields?.[key as keyof typeof certType.searchFields] ?? (key === 'name')}
+                          onCheckedChange={(checked) => onSearchFieldsChange({
+                            ...certType.searchFields || { name: true, email: false, mobile: false, regNo: false },
+                            [key]: checked
+                          })}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="h-px bg-[#F0F0F0] w-full"></div>
+
+                <div className="p-3 rounded-lg bg-orange-50 border border-orange-100 text-orange-800">
+                  <h4 className="text-xs font-semibold mb-1 flex items-center gap-1"><Lock className="h-3 w-3" /> Pro Tip</h4>
+                  <p className="text-[10px] opacity-80">
+                    Ensure your text fields contrast well with your background image. You can test this by clicking "Preview" in the toolbar.
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
+
     </div>
   )
 }
 
 
+
+// Links Tab Component
 // Links Tab Component
 function LinksTab({ certType, eventId }: { certType: CertificateType; eventId: string }) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
   const { getCertTypePublicLink, getDownloadLink } = require("@/lib/events")
+
+  // Lucide icons need to be imported or we check if they are available in scope.
+  // Assuming Chevrons are available or using text fallback if not, but better to use existing icons from scope if possible.
+  // We have ArrowLeft, maybe we can use that for 'Prev' or just ensure imports.
+  // Actually, we can add ChevronLeft, ChevronRight to the main imports at the top, but for now let's reuse what we have or add simple buttons.
+  // Let's rely on adding ChevronLeft, ChevronRight to imports first to be safe, or used available ones.
+  // ArrowLeft is available. Let's stick to ArrowLeft/ArrowRight or just text for simplicity if imports are tricky in this block.
+  // Wait, I can just use text "<" and ">" or "Prev" "Next" nicely styled.
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery])
 
   const handleCopyPublicLink = () => {
     const link = `${window.location.origin}${getCertTypePublicLink(eventId, certType.id)}`
@@ -1699,72 +1626,153 @@ function LinksTab({ certType, eventId }: { certType: CertificateType; eventId: s
     r.name?.toLowerCase().includes(searchQuery.toLowerCase()) || r.certificateId?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  return (
-    <div className="space-y-4">
-      <Card className="border-primary/20 bg-primary/5">
-        <CardHeader>
-          <CardTitle className="text-base">Public Download Link</CardTitle>
-          <CardDescription>Share this link. Recipients verify with email/mobile.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <Input readOnly value={`${typeof window !== 'undefined' ? window.location.origin : ''}${getCertTypePublicLink(eventId, certType.id)}`} className="font-mono text-sm bg-background" />
-            <Button onClick={handleCopyPublicLink}><Copy className="h-4 w-4 mr-2" />Copy</Button>
-          </div>
-        </CardContent>
-      </Card>
+  const totalPages = Math.ceil(filteredRecipients.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const currentRecipients = filteredRecipients.slice(startIndex, startIndex + itemsPerPage)
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Individual Links</CardTitle>
-              <CardDescription>Direct download links for each recipient</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Input placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-48" />
-              <Button variant="outline" onClick={handleCopyAllLinks}><Copy className="h-4 w-4 mr-2" />Copy All</Button>
-            </div>
+  return (
+    <div className="space-y-6 max-w-5xl mx-auto py-6">
+      <div className="bg-white rounded-xl border border-[#E5E5E5] p-6 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-[#171717]">Public Download Link</h3>
+            <p className="text-xs text-[#666] mt-1">Share this with all attendees. They can verify using their registered details.</p>
           </div>
-        </CardHeader>
-        <CardContent>
-          {certType.recipients.length === 0 ? (
-            <div className="text-center py-12">
-              <LinkIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Add recipients first to generate links</p>
+          <Button onClick={handleCopyPublicLink} className="h-8 text-xs bg-black text-white hover:bg-[#333]">
+            <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy Public Link
+          </Button>
+        </div>
+        <div className="flex items-center gap-2 bg-[#F9F9FA] p-3 rounded-lg border border-[#F0F0F0]">
+          <div className="h-8 w-8 rounded bg-white border border-[#E5E5E5] flex items-center justify-center shrink-0">
+            <LinkIcon className="h-4 w-4 text-[#888]" />
+          </div>
+          <code className="text-xs text-[#444] font-mono break-all line-clamp-1 flex-1">
+            {`${typeof window !== 'undefined' ? window.location.origin : ''}${getCertTypePublicLink(eventId, certType.id)}`}
+          </code>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-[#E5E5E5] shadow-sm flex flex-col overflow-hidden">
+        <div className="p-4 border-b border-[#F0F0F0] flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#FAFAFA]">
+          <div>
+            <h3 className="text-sm font-semibold text-[#171717]">Individual Links</h3>
+            <p className="text-xs text-[#666] mt-1">Direct access links for specific recipients.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#999]" />
+              <input
+                placeholder="Search recipient..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8 w-64 pl-8 pr-3 rounded-md border border-[#E5E5E5] text-xs focus:ring-1 focus:ring-black outline-none transition-all"
+              />
+            </div>
+            <Button variant="outline" onClick={handleCopyAllLinks} className="h-8 text-xs border-[#E5E5E5] bg-white hover:bg-[#F5F5F7]">
+              <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy All
+            </Button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          {filteredRecipients.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="h-12 w-12 rounded-full bg-[#F5F5F7] flex items-center justify-center mb-3">
+                <Search className="h-5 w-5 text-[#999]" />
+              </div>
+              <p className="text-sm font-medium text-[#222]">No recipients found</p>
+              <p className="text-xs text-[#888] mt-1">Try adjusting your search query</p>
             </div>
           ) : (
-            <div className="rounded-lg border overflow-hidden max-h-[400px] overflow-auto">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-muted">
-                  <tr>
-                    <th className="text-left p-3 font-medium">Name</th>
-                    <th className="text-left p-3 font-medium">Reg No</th>
-                    <th className="text-left p-3 font-medium">Status</th>
-                    <th className="text-right p-3 font-medium">Downloads</th>
-                    <th className="p-3 w-20">Actions</th>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-white border-b border-[#F0F0F0]">
+                  <th className="py-3 px-4 text-[11px] font-semibold text-[#666] uppercase tracking-wider w-[30%]">Recipient Name</th>
+                  <th className="py-3 px-4 text-[11px] font-semibold text-[#666] uppercase tracking-wider w-[20%]">Reg No</th>
+                  <th className="py-3 px-4 text-[11px] font-semibold text-[#666] uppercase tracking-wider w-[15%]">Status</th>
+                  <th className="py-3 px-4 text-[11px] font-semibold text-[#666] uppercase tracking-wider text-right w-[15%]">Downloads</th>
+                  <th className="py-3 px-4 text-[11px] font-semibold text-[#666] uppercase tracking-wider text-right w-[20%]">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F5F5F5]">
+                {currentRecipients.map((r) => (
+                  <tr key={r.id} className="group hover:bg-[#F9F9FA] transition-colors">
+                    <td className="py-3 px-4">
+                      <span className="text-sm font-medium text-[#171717]">{r.name}</span>
+                      <div className="text-[11px] text-[#888]">{r.email || r.mobile || "No contact info"}</div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="inline-flex items-center px-2 py-1 rounded bg-[#F5F5F7] border border-[#E5E5E5] text-[11px] font-mono text-[#555]">
+                        {r.certificateId}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      {r.status === "downloaded" ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-neutral-50 text-neutral-700 border border-neutral-100 text-[11px] font-medium">
+                          <span className="h-1.5 w-1.5 rounded-full bg-neutral-500"></span> Downloaded
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 text-[11px] font-medium">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span> Pending
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <span className="text-sm text-[#444]">{r.downloadCount}</span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs hover:bg-white hover:border-[#E5E5E5] hover:shadow-sm border border-transparent"
+                        onClick={() => handleCopyIndividualLink(r.certificateId)}
+                      >
+                        <Copy className="h-3 w-3 mr-1.5" /> Copy Link
+                      </Button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredRecipients.map((r) => (
-                    <tr key={r.id} className="border-t">
-                      <td className="p-3 font-medium">{r.name}</td>
-                      <td className="p-3"><code className="text-xs bg-muted px-2 py-1 rounded">{r.certificateId}</code></td>
-                      <td className="p-3">
-                        <Badge variant={r.status === "downloaded" ? "default" : "outline"} className={r.status === "downloaded" ? "bg-emerald-500" : ""}>{r.status}</Badge>
-                      </td>
-                      <td className="p-3 text-right">{r.downloadCount}</td>
-                      <td className="p-3">
-                        <Button variant="ghost" size="sm" onClick={() => handleCopyIndividualLink(r.certificateId)}><Copy className="h-4 w-4" /></Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           )}
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Pagination Footer */}
+        {filteredRecipients.length > 0 && (
+          <div className="p-3 border-t border-[#F0F0F0] flex items-center justify-between bg-white">
+            <div className="text-xs text-[#666]">
+              Showing <span className="font-medium text-[#222]">{startIndex + 1}</span> to <span className="font-medium text-[#222]">{Math.min(startIndex + itemsPerPage, filteredRecipients.length)}</span> of <span className="font-medium text-[#222]">{filteredRecipients.length}</span> recipients
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div className="text-xs font-medium px-2">
+                Page {currentPage} of {totalPages || 1}
+              </div>
+              <Button // Reusing ArrowLeft rotated for Next if ArrowRight isn't imported, but assuming standard imports. 
+                // Actually, let's use a standard chevron text if icons fail or rotation.
+                // Ideally I should import ArrowRight but for safety in this replace execution:
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ArrowLeft className="h-4 w-4 rotate-180" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
+
+

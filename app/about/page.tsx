@@ -1,59 +1,76 @@
 import Link from "next/link"
 import Image from "next/image"
-import { Award, Users, Zap, Shield, Target, Heart } from "lucide-react"
+import { Shield, Zap, Heart, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "About Us",
-  description: "Learn about CertiStage's mission to simplify certificate management for organizations. Trusted by 500+ companies worldwide for professional certificate generation.",
-  keywords: ["about certistage", "certificate platform", "digital certificates", "professional certificates", "certificate management"],
-  openGraph: {
-    title: "About CertiStage - Professional Certificate Generation Platform",
-    description: "Learn about CertiStage's mission to simplify certificate management for organizations.",
-  },
+  title: "About Us · CertiStage",
+  description: "CertiStage is the enterprise standard for digital credentialing. We empower organizations to recognize achievement at scale.",
 }
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border/50 bg-background">
-        <div className="container mx-auto px-4 h-14 flex items-center">
-          <Link href="/" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
-            <Image src="/Certistage_icon.svg" alt="CertiStage" width={32} height={32} />
-            <span className="font-semibold text-lg">CertiStage</span>
+    <div className="min-h-screen bg-white dark:bg-[#0a0a0a]">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+            <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
+            <span className="font-semibold text-[17px] text-neutral-900 dark:text-white">CertiStage</span>
           </Link>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" asChild className="text-sm">
+              <Link href="/client/login">Sign In</Link>
+            </Button>
+            <Button size="sm" asChild className="text-sm h-9 px-4">
+              <Link href="/signup">Get Started</Link>
+            </Button>
+          </div>
         </div>
       </header>
 
       <main>
         {/* Hero Section */}
-        <section className="py-16 bg-gradient-to-b from-primary/5 to-background">
-          <div className="container mx-auto px-4 text-center max-w-3xl">
-            <h1 className="text-4xl font-bold mb-4">About CertiStage</h1>
-            <p className="text-lg text-muted-foreground">
-              Empowering organizations to create and distribute professional certificates with ease. We believe every achievement deserves recognition.
+        <section className="pt-16 md:pt-24 pb-16 md:pb-20 px-6">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-[42px] md:text-[56px] font-bold tracking-tight text-neutral-900 dark:text-white leading-[1.1] mb-6">
+              We believe every achievement<br />
+              deserves recognition
+            </h1>
+            <p className="text-lg md:text-xl text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto leading-relaxed">
+              CertiStage is building the global infrastructure for digital credentials. From local workshops to international conferences.
             </p>
           </div>
         </section>
 
         {/* Mission Section */}
-        <section className="py-16">
-          <div className="container mx-auto px-4 max-w-4xl">
+        <section className="py-16 md:py-20 px-6 border-y border-neutral-200 dark:border-neutral-800">
+          <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-2xl font-bold mb-4">Our Mission</h2>
-                <p className="text-muted-foreground mb-4">
-                  At CertiStage, our mission is to simplify certificate management for organizations of all sizes. We understand the importance of recognizing achievements, whether it's completing a course, winning a competition, or participating in an event.
-                </p>
-                <p className="text-muted-foreground">
-                  We've built a platform that makes it easy to create beautiful, professional certificates and deliver them seamlessly to recipients - saving you time and effort while ensuring every achievement is properly celebrated.
-                </p>
+                <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-6">Our Mission</h2>
+                <div className="space-y-4 text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                  <p>
+                    Certificate management has traditionally been a manual, error-prone nightmare of mail merges and printer jams.
+                  </p>
+                  <p>
+                    We've built a platform that automates the chaos. Our mission is to give every organization—regardless of size—access to enterprise-grade credentialing tools.
+                  </p>
+                  <p>
+                    We focus on <strong className="text-neutral-900 dark:text-white">reliability</strong>, <strong className="text-neutral-900 dark:text-white">security</strong>, and <strong className="text-neutral-900 dark:text-white">design excellence</strong>, so you can focus on your event.
+                  </p>
+                </div>
               </div>
-              <div className="flex justify-center">
-                <div className="h-48 w-48 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Target className="h-24 w-24 text-primary" />
+              <div className="flex items-center justify-center">
+                <div className="w-full max-w-md aspect-square rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+                  <Image
+                    src="/our-mission.jpg"
+                    alt="Our Mission"
+                    width={500}
+                    height={500}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </div>
             </div>
@@ -61,144 +78,115 @@ export default function AboutPage() {
         </section>
 
         {/* Values Section */}
-        <section className="py-16 bg-muted/30">
-          <div className="container mx-auto px-4 max-w-5xl">
-            <h2 className="text-2xl font-bold text-center mb-10">Our Values</h2>
+        <section className="py-16 md:py-20 px-6">
+          <div className="max-w-6xl mx-auto">
+            <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white text-center mb-12">Core Values</h2>
             <div className="grid md:grid-cols-3 gap-6">
-              <Card className="border-border/50">
-                <CardContent className="p-6 text-center">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                    <Zap className="h-6 w-6 text-primary" />
+              {[
+                { icon: Zap, title: "Speed & Simplicity", desc: "We simplify complex workflows into one-click actions." },
+                { icon: Shield, title: "Uncompromised Security", desc: "Data privacy and integrity are the foundation of trust." },
+                { icon: Heart, title: "User Obsession", desc: "We build what you need, not just what's cool." }
+              ].map((val, i) => (
+                <div key={i} className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
+                  <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
+                    <val.icon className="w-5 h-5" />
                   </div>
-                  <h3 className="font-semibold mb-2">Simplicity</h3>
-                  <p className="text-sm text-muted-foreground">
-                    We believe powerful tools should be easy to use. Our platform is designed for simplicity without compromising on features.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="border-border/50">
-                <CardContent className="p-6 text-center">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                    <Shield className="h-6 w-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold mb-2">Reliability</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Your certificates matter. We ensure 99.9% uptime and secure, reliable delivery every time.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="border-border/50">
-                <CardContent className="p-6 text-center">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                    <Heart className="h-6 w-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold mb-2">Customer First</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Your success is our success. We're committed to providing excellent support and continuously improving based on your feedback.
-                  </p>
-                </CardContent>
-              </Card>
+                  <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">{val.title}</h3>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">{val.desc}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
         {/* Stats Section */}
-        <section className="py-16">
-          <div className="container mx-auto px-4 max-w-4xl">
-            <h2 className="text-2xl font-bold text-center mb-10">Trusted by Organizations</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-              <div>
-                <p className="text-4xl font-bold text-primary">10K+</p>
-                <p className="text-sm text-muted-foreground">Certificates Generated</p>
-              </div>
-              <div>
-                <p className="text-4xl font-bold text-primary">500+</p>
-                <p className="text-sm text-muted-foreground">Happy Clients</p>
-              </div>
-              <div>
-                <p className="text-4xl font-bold text-primary">50+</p>
-                <p className="text-sm text-muted-foreground">Cities Served</p>
-              </div>
-              <div>
-                <p className="text-4xl font-bold text-primary">99.9%</p>
-                <p className="text-sm text-muted-foreground">Uptime</p>
-              </div>
+        <section className="py-12 border-y border-neutral-200 dark:border-neutral-800">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+              {[
+                { label: "Credentials Issued", value: "2M+" },
+                { label: "Happy Clients", value: "500+" },
+                { label: "Countries", value: "30+" },
+                { label: "Uptime", value: "99.99%" }
+              ].map((stat, i) => (
+                <div key={i} className="text-center">
+                  <p className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-1">{stat.value}</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-500 uppercase tracking-wide">{stat.label}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Who We Serve */}
-        <section className="py-16 bg-muted/30">
-          <div className="container mx-auto px-4 max-w-4xl">
-            <h2 className="text-2xl font-bold text-center mb-10">Who We Serve</h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="flex items-start gap-4">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Award className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-1">Educational Institutions</h3>
-                  <p className="text-sm text-muted-foreground">Schools, colleges, and universities for course completions, workshops, and academic achievements.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Users className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-1">Event Organizers</h3>
-                  <p className="text-sm text-muted-foreground">Conferences, competitions, hackathons, and cultural events requiring participant certificates.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Zap className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-1">Training Companies</h3>
-                  <p className="text-sm text-muted-foreground">Corporate training providers and online course platforms for certification programs.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Shield className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-1">NGOs & Associations</h3>
-                  <p className="text-sm text-muted-foreground">Non-profits and professional associations for volunteer recognition and membership certificates.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Contact CTA */}
-        <section className="py-16">
-          <div className="container mx-auto px-4 text-center max-w-2xl">
-            <h2 className="text-2xl font-bold mb-4">Get in Touch</h2>
-            <p className="text-muted-foreground mb-6">
-              Have questions or want to learn more about how CertiStage can help your organization? We'd love to hear from you.
+        {/* CTA Section */}
+        <section className="py-20 px-6">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
+              Ready to scale your impact?
+            </h2>
+            <p className="text-lg text-neutral-600 dark:text-neutral-400 mb-8">
+              Join thousands of organizers who trust CertiStage.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button asChild>
-                <Link href="/contact">Contact Us</Link>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button size="lg" asChild className="h-11 px-6 text-sm">
+                <Link href="/signup">
+                  Start Free Trial <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </Button>
-              <Button variant="outline" asChild>
-                <Link href="/signup">Start Free Trial</Link>
+              <Button size="lg" variant="outline" asChild className="h-11 px-6 text-sm">
+                <Link href="/contact">Contact Support</Link>
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground mt-6">
-              Email: <a href="mailto:support@certistage.com" className="text-primary hover:underline">support@certistage.com</a>
-            </p>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-border/50 py-6">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} CertiStage. All rights reserved.</p>
+      {/* Footer */}
+      <footer className="py-16 px-6 bg-neutral-50 dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-4">
+                <Image src="/Certistage_icon.svg" alt="CertiStage" width={24} height={24} />
+                <span className="font-semibold text-sm text-neutral-900 dark:text-white">CertiStage</span>
+              </div>
+              <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                Professional certificate generation for events and courses.
+              </p>
+            </div>
+
+            <div>
+              <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Product</h4>
+              <nav className="flex flex-col gap-2">
+                <Link href="/#features" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Features</Link>
+                <Link href="/#pricing" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Pricing</Link>
+              </nav>
+            </div>
+
+            <div>
+              <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Company</h4>
+              <nav className="flex flex-col gap-2">
+                <Link href="/about" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">About</Link>
+                <Link href="/contact" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Contact</Link>
+              </nav>
+            </div>
+
+            <div>
+              <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Legal</h4>
+              <nav className="flex flex-col gap-2">
+                <Link href="/privacy" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Privacy</Link>
+                <Link href="/terms" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Terms</Link>
+              </nav>
+            </div>
+          </div>
+
+          <div className="pt-8 border-t border-neutral-200 dark:border-neutral-800 text-center">
+            <p className="text-xs text-neutral-500 dark:text-neutral-500">
+              © {new Date().getFullYear()} CertiStage. All rights reserved.
+            </p>
+          </div>
         </div>
       </footer>
-      </div>
+    </div>
   )
 }

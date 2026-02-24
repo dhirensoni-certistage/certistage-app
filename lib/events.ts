@@ -1,4 +1,4 @@
-// Event/Batch management for certificates
+﻿// Event/Batch management for certificates
 
 export interface TextField {
   id: string
@@ -10,12 +10,7 @@ export interface TextField {
   fontItalic: boolean
 }
 
-export interface SignatureField {
-  id: string
-  image: string // Base64 image
-  position: { x: number; y: number }
-  width: number // percentage of template width
-}
+
 
 export interface SearchFields {
   name: boolean
@@ -28,6 +23,7 @@ export interface CertificateType {
   id: string
   name: string // e.g., "Participation", "Winner", "Appreciation"
   template?: string // Base64 image
+  templateImage?: string // Alias for template (from MongoDB)
   textPosition: {
     x: number
     y: number
@@ -38,8 +34,8 @@ export interface CertificateType {
   fontItalic: boolean
   textCase?: "none" | "uppercase" | "lowercase" | "capitalize" // text transformation
   showNameField?: boolean // whether to show the NAME field (default true)
+  textFields?: TextField[] // main variables
   customFields?: TextField[] // custom variables
-  signatures?: SignatureField[] // digital signatures
   searchFields?: SearchFields // which fields can be searched on download page
   recipients: EventRecipient[]
   stats: {
@@ -296,7 +292,7 @@ export function addRecipientsToCertType(
     const lastName = (r.lastName || "").trim()
     const fullName = r.name || [prefix, firstName, lastName].filter(Boolean).join(" ")
     const certId = r.certificateId || r.registrationNo || r.regNo || generateRecipientId()
-    
+
     return {
       id: generateRecipientId(),
       prefix,
@@ -387,13 +383,13 @@ export function updateRecipient(
   if (recipientIndex === -1) return null
 
   const recipient = events[eventIndex].certificateTypes[typeIndex].recipients[recipientIndex]
-  
+
   // Update fields
   const prefix = updates.prefix !== undefined ? updates.prefix.trim() : recipient.prefix
   const firstName = updates.firstName !== undefined ? updates.firstName.trim() : recipient.firstName
   const lastName = updates.lastName !== undefined ? updates.lastName.trim() : recipient.lastName
   const fullName = [prefix, firstName, lastName].filter(Boolean).join(" ")
-  
+
   events[eventIndex].certificateTypes[typeIndex].recipients[recipientIndex] = {
     ...recipient,
     prefix,
@@ -552,7 +548,7 @@ export function canUserCreateEvent(userId: string): {
   const planFeatures = getUserPlanFeatures(userId)
   const maxEvents = planFeatures.maxEvents
 
-  // -1 means unlimited (Premium Plus)
+  // -1 means unlimited (Premium)
   if (maxEvents === -1) {
     return {
       canCreate: true,
@@ -605,3 +601,4 @@ export function getCurrentEventId(): string | null {
   if (typeof window === "undefined") return null
   return localStorage.getItem("currentEventId")
 }
+

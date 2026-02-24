@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { AdminHeader } from "@/components/admin/admin-header"
@@ -120,7 +120,7 @@ export default function RevenuePage() {
       return (
         <div className="bg-popover border border-border rounded-lg shadow-lg p-3">
           <p className="text-sm font-medium text-foreground">{label}</p>
-          <p className="text-sm text-emerald-600">₹{payload[0].value.toLocaleString()}</p>
+          <p className="text-sm text-neutral-600">₹{payload[0].value.toLocaleString()}</p>
         </div>
       )
     }
@@ -203,8 +203,8 @@ export default function RevenuePage() {
                       <BarChart data={data.monthlyRevenue}>
                         <defs>
                           <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.9}/>
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.6}/>
+                            <stop offset="5%" stopColor="#171717" stopOpacity={0.9}/>
+                            <stop offset="95%" stopColor="#171717" stopOpacity={0.6}/>
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -289,3 +289,5 @@ export default function RevenuePage() {
     </>
   )
 }
+
+

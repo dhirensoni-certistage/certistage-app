@@ -11,7 +11,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 })
 
-// POST - Upload template image to Cloudinary
+// POST - Upload template image to Cloudinary (original template only)
 export async function POST(request: NextRequest) {
   try {
     await connectDB()
@@ -33,7 +33,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
-    // Upload to Cloudinary
+    // Delete old template from Cloudinary if exists (to save storage)
+    if (certType.templateImage) {
+      try {
+        const urlParts = certType.templateImage.split('/')
+        const uploadIndex = urlParts.indexOf('upload')
+        if (uploadIndex !== -1) {
+          let pathAfterUpload = urlParts.slice(uploadIndex + 1).join('/')
+          pathAfterUpload = pathAfterUpload.replace(/^v\d+\//, '')
+          const publicId = pathAfterUpload.replace(/\.[^.]+$/, '')
+          await cloudinary.uploader.destroy(publicId)
+        }
+      } catch (deleteError) {
+        console.error("Failed to delete old template:", deleteError)
+        // Continue even if deletion fails
+      }
+    }
+
+    // Upload new template to Cloudinary
     const uploadResult = await new Promise<any>((resolve, reject) => {
       cloudinary.uploader.upload(imageData, {
         folder: `certistage/templates/${userId}`,

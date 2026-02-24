@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { AdminHeader } from "@/components/admin/admin-header"
@@ -44,7 +44,7 @@ const activityIcons = {
 
 const activityColors = {
   signup: "bg-blue-500/10 text-blue-600",
-  payment: "bg-green-500/10 text-green-600",
+  payment: "bg-neutral-500/10 text-neutral-600",
   event_created: "bg-purple-500/10 text-purple-600",
   download: "bg-amber-500/10 text-amber-600"
 }
@@ -199,3 +199,4 @@ export default function AdminActivityPage() {
     </>
   )
 }
+

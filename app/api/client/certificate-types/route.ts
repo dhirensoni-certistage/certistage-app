@@ -42,11 +42,24 @@ export async function GET(request: NextRequest) {
       const total = await Recipient.countDocuments({ certificateTypeId: typeId })
       const downloaded = await Recipient.countDocuments({ certificateTypeId: typeId, downloadCount: { $gt: 0 } })
 
+      const certTypeAny = certType as any
+      // Handle signature position migration
+      if (certTypeAny.signatures) {
+        certTypeAny.signatures = certTypeAny.signatures.map((sig: any) => {
+          if (!sig.position && (sig.x !== undefined || sig.y !== undefined)) {
+            return { ...sig, position: { x: sig.x ?? 80, y: sig.y ?? 80 } }
+          }
+          return sig
+        })
+      }
+
       return NextResponse.json({
         certificateType: {
-          id: (certType as any)._id,
-          ...certType,
-          searchFields: (certType as any).searchFields || { name: true, email: false, mobile: false, regNo: false },
+          id: certTypeAny._id.toString(),
+          _id: certTypeAny._id,
+          ...certTypeAny,
+          template: certTypeAny.templateImage || "",
+          searchFields: certTypeAny.searchFields || { name: true, email: false, mobile: false, regNo: false },
           stats: { total, downloaded, pending: total - downloaded }
         }
       })
@@ -73,9 +86,23 @@ export async function GET(request: NextRequest) {
       const total = await Recipient.countDocuments({ certificateTypeId: type._id })
       const downloaded = await Recipient.countDocuments({ certificateTypeId: type._id, downloadCount: { $gt: 0 } })
 
+      const typeAny = type as any
+      // Handle signature position migration
+      if (typeAny.signatures) {
+        typeAny.signatures = typeAny.signatures.map((sig: any) => {
+          if (!sig.position && (sig.x !== undefined || sig.y !== undefined)) {
+            return { ...sig, position: { x: sig.x ?? 80, y: sig.y ?? 80 } }
+          }
+          return sig
+        })
+      }
+
       return {
-        ...type,
-        searchFields: (type as any).searchFields || { name: true, email: false, mobile: false, regNo: false },
+        ...typeAny,
+        id: typeAny._id.toString(),
+        _id: typeAny._id,
+        template: typeAny.templateImage || "",
+        searchFields: typeAny.searchFields || { name: true, email: false, mobile: false, regNo: false },
         stats: {
           total,
           downloaded,
@@ -84,7 +111,18 @@ export async function GET(request: NextRequest) {
       }
     }))
 
-    return NextResponse.json({ certificateTypes: typesWithStats })
+    const event = await Event.findById(eventId).lean()
+    if (!event) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      event: {
+        ...event,
+        id: (event as any)._id.toString(),
+        certificateTypes: typesWithStats
+      }
+    })
   } catch (error) {
     console.error("Certificate types GET error:", error)
     return NextResponse.json({ error: "Failed to fetch certificate types" }, { status: 500 })
@@ -132,9 +170,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       certificateType: {
-        id: certType._id,
+        id: certType._id.toString(),
+        _id: certType._id,
         name: certType.name,
-        createdAt: certType.createdAt
+        createdAt: certType.createdAt,
+        stats: { total: 0, downloaded: 0, pending: 0 }
       }
     })
   } catch (error) {
@@ -172,6 +212,7 @@ export async function PUT(request: NextRequest) {
     // Basic fields
     if (body.name) updateData.name = body.name
     if (body.templateImage !== undefined) updateData.templateImage = body.templateImage
+    if (body.template !== undefined) updateData.templateImage = body.template
     if (body.textFields !== undefined) updateData.textFields = body.textFields
 
     // Font and styling fields (stored in textFields or as separate fields)
@@ -183,7 +224,20 @@ export async function PUT(request: NextRequest) {
     if (body.showNameField !== undefined) updateData.showNameField = body.showNameField
     if (body.textCase !== undefined) updateData.textCase = body.textCase
     if (body.customFields !== undefined) updateData.customFields = body.customFields
-    if (body.signatures !== undefined) updateData.signatures = body.signatures
+    if (body.signatures !== undefined) {
+      // Ensure signatures use the nested position format
+      updateData.signatures = body.signatures.map((sig: any) => {
+        if (!sig.position && (sig.x !== undefined || sig.y !== undefined)) {
+          return {
+            id: sig.id,
+            image: sig.image,
+            width: sig.width,
+            position: { x: sig.x ?? 80, y: sig.y ?? 80 }
+          }
+        }
+        return sig
+      })
+    }
     if (body.searchFields !== undefined) updateData.searchFields = body.searchFields
 
     const updated = await CertificateType.findByIdAndUpdate(

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
@@ -93,8 +93,8 @@ export default function CompleteProfilePage() {
         </CardHeader>
 
         <CardContent>
-          <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg mb-6 border border-green-200 dark:border-green-800">
-            <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
+          <div className="bg-neutral-50 dark:bg-neutral-950/20 p-4 rounded-lg mb-6 border border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center gap-2 text-neutral-800 dark:text-neutral-200">
               <CheckCircle className="h-4 w-4" />
               <span className="text-sm font-medium">Email verified: {session.user?.email}</span>
             </div>

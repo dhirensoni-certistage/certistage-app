@@ -1,4 +1,4 @@
-// Pro-rata upgrade pricing calculations
+﻿// Pro-rata upgrade pricing calculations
 import { PLAN_PRICES, type PlanId } from "./razorpay"
 
 export interface ProRataResult {
@@ -90,3 +90,4 @@ export function isEligibleForProRata(
   // Must have at least 1 day remaining
   return expiryDate > now
 }
+

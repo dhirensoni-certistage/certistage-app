@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -349,8 +349,8 @@ export default function AdminSettingsPage() {
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                <Server className="h-5 w-5 text-emerald-500" />
+              <div className="h-10 w-10 rounded-lg bg-neutral-500/10 flex items-center justify-center">
+                <Server className="h-5 w-5 text-neutral-500" />
               </div>
               <div>
                 <CardTitle>System Health</CardTitle>
@@ -656,9 +656,9 @@ export default function AdminSettingsPage() {
 
           {/* Connection Status */}
           {connectionStatus !== "idle" && (
-            <div className={`flex items-center gap-2 p-3 rounded-lg ${connectionStatus === "success" ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-destructive/10 border border-destructive/20"}`}>
-              {connectionStatus === "success" ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <AlertCircle className="h-4 w-4 text-destructive" />}
-              <span className={`text-sm font-medium ${connectionStatus === "success" ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
+            <div className={`flex items-center gap-2 p-3 rounded-lg ${connectionStatus === "success" ? "bg-neutral-500/10 border border-neutral-500/20" : "bg-destructive/10 border border-destructive/20"}`}>
+              {connectionStatus === "success" ? <CheckCircle2 className="h-4 w-4 text-neutral-500" /> : <AlertCircle className="h-4 w-4 text-destructive" />}
+              <span className={`text-sm font-medium ${connectionStatus === "success" ? "text-neutral-600 dark:text-neutral-400" : "text-destructive"}`}>
                 {connectionStatus === "success" ? "Connection verified successfully" : "Connection failed"}
               </span>
             </div>
@@ -872,3 +872,4 @@ export default function AdminSettingsPage() {
     </>
   )
 }
+

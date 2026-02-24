@@ -112,8 +112,8 @@ export default function ClientLayout({
   // Show loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-[#FDFDFD]">
+        <Loader2 className="h-8 w-8 animate-spin text-black" />
       </div>
     )
   }
@@ -135,22 +135,22 @@ export default function ClientLayout({
   // Minimal layout for events listing (like Evenuefy)
   if (showMinimalLayout) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-[#FDFDFD]">
         {/* Top Header */}
-        <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+        <header className="border-b border-[#E5E5E5] bg-white/80 backdrop-blur sticky top-0 z-50">
           <div className="container flex h-16 items-center justify-between px-4 md:px-8">
             {/* Logo */}
             <Link href="/client/events" className="flex items-center gap-2">
-              <Image src="/Certistage_icon.svg" alt="CertiStage" width={32} height={32} />
-              <span className="font-semibold text-lg">CertiStage</span>
+              <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
+              <span className="font-semibold text-[17px] text-black">CertiStage</span>
             </Link>
 
             {/* Right side - User info & Logout */}
             <div className="flex items-center gap-4">
               {/* Plan Badge */}
-              <div className="hidden sm:flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">{userName}</span>
-                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+              <div className="hidden sm:flex items-center gap-3">
+                <span className="text-sm font-medium text-black">{userName}</span>
+                <span className="px-2.5 py-1 rounded text-xs font-semibold bg-neutral-100 text-[#333] border border-neutral-200">
                   {PLAN_FEATURES[userPlan as keyof typeof PLAN_FEATURES]?.displayName || "Free"}
                 </span>
               </div>
@@ -159,7 +159,7 @@ export default function ClientLayout({
                 variant="ghost"
                 size="sm"
                 onClick={handleLogout}
-                className="gap-2 text-muted-foreground hover:text-foreground"
+                className="gap-2 text-[#666] hover:text-black hover:bg-neutral-100"
               >
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Logout</span>
@@ -178,9 +178,9 @@ export default function ClientLayout({
 
   // Full layout with sidebar (when event is selected)
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-[#FDFDFD] overflow-hidden">
       <ClientSidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden border-l border-[#E5E5E5] bg-[#FDFDFD] scrollbar-minimal">
         <PageTransition>
           {children}
         </PageTransition>

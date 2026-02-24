@@ -7,7 +7,7 @@ export default function ShippingPage() {
       <header className="border-b border-border/50 bg-background">
         <div className="container mx-auto px-4 h-14 flex items-center">
           <Link href="/" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
-            <Image src="/Certistage_icon.svg" alt="CertiStage" width={32} height={32} />
+            <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
             <span className="font-semibold text-lg">CertiStage</span>
           </Link>
         </div>

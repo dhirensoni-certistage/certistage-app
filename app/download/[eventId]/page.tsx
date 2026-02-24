@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
@@ -28,7 +28,11 @@ interface CertificateType {
   fontFamily: string
   fontBold: boolean
   fontItalic: boolean
+  textCase?: "none" | "uppercase" | "lowercase" | "capitalize"
   searchFields: SearchFields
+  showNameField: boolean
+  customFields?: any[]
+  signatures?: any[]
 }
 
 interface EventData {
@@ -59,6 +63,24 @@ export default function EventDownloadPage() {
   const [event, setEvent] = useState<EventData | null>(null)
   const [certTypes, setCertTypes] = useState<CertificateType[]>([])
   const [error, setError] = useState<string | null>(null)
+
+  // Transform text based on textCase setting
+  const transformText = (text: string, textCase?: string): string => {
+    if (!textCase || textCase === "none") return text
+    
+    switch (textCase) {
+      case "uppercase":
+        return text.toUpperCase()
+      case "lowercase":
+        return text.toLowerCase()
+      case "capitalize":
+        return text.split(" ").map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(" ")
+      default:
+        return text
+    }
+  }
 
   const [step, setStep] = useState<Step>("select-type")
   const [selectedType, setSelectedType] = useState<CertificateType | null>(null)
@@ -92,32 +114,38 @@ export default function EventDownloadPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
+        console.log("ðŸ” [Event Download] Fetching data for eventId:", eventId)
         const res = await fetch(`/api/download?eventId=${eventId}`)
         if (!res.ok) {
           const data = await res.json()
+          console.error("âŒ [Event Download] API Error:", data.error)
           setError(data.error || "Event not found")
           setLoading(false)
           return
         }
 
         const data = await res.json()
+        console.log("ðŸ“¦ [Event Download] Event data:", data.event)
         setEvent(data.event)
-        
+
         // Fetch all certificate types with their searchFields
         const typesRes = await fetch(`/api/download/all-types?eventId=${eventId}`)
         if (typesRes.ok) {
           const typesData = await typesRes.json()
+          console.log("ðŸ“¦ [Event Download] Certificate types:", typesData.certificateTypes?.length)
           setCertTypes(typesData.certificateTypes || [])
-          
+
           // If only one type, auto-select it
           if (typesData.certificateTypes?.length === 1) {
             const type = typesData.certificateTypes[0]
+            console.log("âœ… [Event Download] Auto-selecting single certificate type:", type.name)
             setSelectedType(type)
             setDefaultSearchField(type.searchFields)
             setStep("search")
           }
         }
       } catch (err) {
+        console.error("âŒ [Event Download] Fetch error:", err)
         setError("Failed to load event data")
       } finally {
         setLoading(false)
@@ -187,23 +215,23 @@ export default function EventDownloadPage() {
     if (!selectedType?.searchFields) {
       return "Search using your registered details"
     }
-    
+
     const enabledFields = getEnabledSearchFields()
     if (enabledFields.length === 0) {
       return "Search using your registered details"
     }
-    
+
     if (enabledFields.length === 1) {
       const field = enabledFields[0]
       return `Enter your registered ${getSearchFieldLabel(field).toLowerCase()} to find your certificate`
     }
-    
+
     // Multiple fields enabled
     const fieldLabels = enabledFields.map(f => getSearchFieldLabel(f).toLowerCase())
     if (fieldLabels.length === 2) {
       return `Enter your registered ${fieldLabels.join(" or ")} to find your certificate`
     }
-    
+
     const lastField = fieldLabels.pop()
     return `Enter your registered ${fieldLabels.join(", ")} or ${lastField} to find your certificate`
   }
@@ -250,7 +278,7 @@ export default function EventDownloadPage() {
         })
 
         const results = await Promise.all(searchPromises)
-        
+
         // Combine results from both searches
         const allRecipients = new Map()
         results.forEach(result => {
@@ -622,29 +650,111 @@ export default function EventDownloadPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-4">
-                  <div className="relative rounded-lg overflow-hidden border select-none">
-                    <img
-                      src={selectedType.templateImage}
-                      alt="Certificate"
-                      className="w-full h-auto pointer-events-none"
-                      draggable={false}
-                    />
-                    <div
-                      className="absolute"
-                      style={{
-                        left: `${selectedType.textPosition.x}%`,
-                        top: `${selectedType.textPosition.y}%`,
-                        transform: "translate(-50%, -50%)",
-                        fontSize: "clamp(10px, 2.5vw, 18px)",
-                        fontWeight: selectedType.fontBold ? "bold" : "normal",
-                        fontStyle: selectedType.fontItalic ? "italic" : "normal",
-                        fontFamily: selectedType.fontFamily
-                      }}
-                    >
-                      <span className="text-black whitespace-nowrap">
-                        {selectedRecipient.name}
-                      </span>
+                  {!selectedType.templateImage ? (
+                    <div className="text-center p-8 border rounded-lg bg-muted/50">
+                      <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground">Certificate template not available</p>
                     </div>
+                  ) : (
+                    <div className="relative rounded-lg overflow-hidden border select-none bg-white w-full">
+                      <img
+                        src={selectedType.templateImage}
+                        alt="Certificate"
+                        className="w-full h-auto pointer-events-none block"
+                        draggable={false}
+                        style={{ maxHeight: "70vh", maxWidth: "100%" }}
+                        onLoad={() => console.log("âœ… [Event Download] Certificate image loaded")}
+                        onError={() => {
+                          console.error("âŒ [Event Download] Failed to load image:", selectedType.templateImage)
+                          toast.error("Failed to load certificate image")
+                        }}
+                      />
+
+                    {/* Name Field */}
+                    {selectedType.showNameField !== false && (
+                      <div
+                        className="absolute pointer-events-none"
+                        style={{
+                          left: `${selectedType.textPosition.x}%`,
+                          top: `${selectedType.textPosition.y}%`,
+                          transform: "translate(-50%, -50%)",
+                        }}
+                      >
+                        <span
+                          className="whitespace-nowrap leading-none select-none"
+                          style={{
+                            fontSize: `clamp(8px, ${(selectedType.fontSize || 24) * 0.04}vw, ${(selectedType.fontSize || 24) * 0.7}px)`,
+                            fontFamily: `"${selectedType.fontFamily || 'Arial'}", sans-serif`,
+                            fontWeight: selectedType.fontBold ? 'bold' : 'normal',
+                            fontStyle: selectedType.fontItalic ? 'italic' : 'normal',
+                            color: "#000"
+                          }}
+                        >
+                          {transformText(selectedRecipient.name, selectedType.textCase)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Custom Fields */}
+                    {selectedType.customFields?.map((field: any, i: number) => {
+                      let value = ""
+                      switch (field.variable) {
+                        case "EMAIL": value = selectedRecipient.email || ""; break
+                        case "MOBILE": value = selectedRecipient.mobile || ""; break
+                        case "REG_NO": value = selectedRecipient.certificateId || ""; break
+                        default: value = ""
+                      }
+                      if (!value) return null
+
+                      return (
+                        <div
+                          key={i}
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: `${field.position.x}%`,
+                            top: `${field.position.y}%`,
+                            transform: "translate(-50%, -50%)",
+                          }}
+                        >
+                          <span
+                            className="whitespace-nowrap leading-none select-none"
+                            style={{
+                              fontSize: `clamp(6px, ${(field.fontSize || 24) * 0.04}vw, ${(field.fontSize || 24) * 0.7}px)`,
+                              fontFamily: `"${field.fontFamily || 'Arial'}", sans-serif`,
+                              fontWeight: field.fontBold ? 'bold' : 'normal',
+                              fontStyle: field.fontItalic ? 'italic' : 'normal',
+                              color: "#000"
+                            }}
+                          >
+                            {value}
+                          </span>
+                        </div>
+                      )
+                    })}
+
+                    {/* Signatures */}
+                    {selectedType.signatures?.map((sig: any, i: number) => {
+                      const sigPos = sig.position || { x: sig.x ?? 50, y: sig.y ?? 50 }
+                      return (
+                        <div
+                          key={i}
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: `${sigPos.x}%`,
+                            top: `${sigPos.y}%`,
+                            transform: "translate(-50%, -50%)",
+                            width: `calc(${sig.width || 20}vw * 0.4)`
+                          }}
+                        >
+                          <img
+                            src={sig.image}
+                            alt="Signature"
+                            className="w-full h-auto object-contain select-none"
+                            draggable={false}
+                          />
+                        </div>
+                      )
+                    })}
                     {!downloaded && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <span className="text-4xl md:text-6xl font-bold text-foreground/5 rotate-[-30deg]">
@@ -652,11 +762,12 @@ export default function EventDownloadPage() {
                         </span>
                       </div>
                     )}
-                  </div>
+                    </div>
+                  )}
 
                   <div className="mt-4 flex justify-center">
                     {downloaded ? (
-                      <div className="flex items-center gap-2 px-6 py-3 rounded-lg bg-emerald-500/10 text-emerald-600">
+                      <div className="flex items-center gap-2 px-6 py-3 rounded-lg bg-neutral-500/10 text-neutral-600">
                         <Check className="h-5 w-5" />
                         <span className="font-medium">Downloaded!</span>
                       </div>
@@ -708,3 +819,4 @@ function Footer() {
     </footer>
   )
 }
+

@@ -8,9 +8,9 @@ import bcrypt from "bcryptjs"
 export async function POST(request: NextRequest) {
   try {
     await connectDB()
-    
+
     const { token, password } = await request.json()
-    
+
     if (!token || !password) {
       return NextResponse.json({ error: "Token and password are required" }, { status: 400 })
     }
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find and validate the verification token
-    const verificationRecord = await EmailVerificationToken.findOne({ 
+    const verificationRecord = await EmailVerificationToken.findOne({
       token,
       used: false
     })
@@ -87,9 +87,9 @@ export async function POST(request: NextRequest) {
     try {
       const { sendEmail, emailTemplates } = await import('@/lib/email')
       const adminCCEmail = process.env.ADMIN_CC_EMAIL
-      
+
       // Welcome email with CC
-      const welcomeTemplate = emailTemplates.welcome(user.name, user.email)
+      const welcomeTemplate = emailTemplates.welcome(user.name)
       await sendEmail({
         to: user.email,
         subject: welcomeTemplate.subject,
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
           type: "signup_welcome"
         }
       })
-      
+
       // Admin notification
       if (process.env.ADMIN_EMAIL) {
         const adminTemplate = emailTemplates.adminNotification('signup', {
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       // Don't fail signup if email fails
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user._id.toString(),
@@ -143,6 +143,16 @@ export async function POST(request: NextRequest) {
       pendingPlan: user.pendingPlan || null,
       message: "Account created successfully"
     })
+
+    // Set cookie for middleware to recognize authenticated session
+    response.cookies.set('clientSession', 'true', {
+      path: '/',
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7 // 7 days
+    })
+
+    return response
   } catch (error) {
     console.error("Complete signup error:", error)
     return NextResponse.json({ error: "Failed to complete signup" }, { status: 500 })

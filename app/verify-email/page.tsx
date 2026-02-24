@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -107,7 +107,7 @@ export default function VerifyEmailPage() {
           router.push('/client/complete-payment')
         } else {
           // Free plan - go directly to events/dashboard
-          toast.success(`Welcome to CertiStage, ${data.user.name}! 🎉`)
+          toast.success(`Welcome to CertiStage, ${data.user.name}! ðŸŽ‰`)
           router.push('/client/events')
         }
       } else {
@@ -141,7 +141,7 @@ export default function VerifyEmailPage() {
         <CardHeader className="text-center">
           {verificationStatus === 'success' ? (
             <>
-              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+              <CheckCircle className="h-12 w-12 text-neutral-500 mx-auto mb-4" />
               <CardTitle className="text-2xl">Email Verified!</CardTitle>
               <CardDescription>
                 Now set your password to complete your registration

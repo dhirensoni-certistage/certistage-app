@@ -4,6 +4,10 @@ export interface IPayment extends Document {
   userId: mongoose.Types.ObjectId
   orderId: string
   paymentId?: string
+  invoiceNumber?: string
+  invoiceIssuedAt?: Date
+  invoiceBaseAmount?: number
+  invoiceGatewayFee?: number
   plan: "professional" | "enterprise" | "premium"
   amount: number
   currency: string
@@ -22,6 +26,10 @@ const PaymentSchema = new Schema<IPayment>(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     orderId: { type: String, required: true, unique: true },
     paymentId: { type: String },
+    invoiceNumber: { type: String, sparse: true, unique: true },
+    invoiceIssuedAt: { type: Date },
+    invoiceBaseAmount: { type: Number },
+    invoiceGatewayFee: { type: Number, default: 0 },
     plan: { 
       type: String, 
       enum: ["professional", "enterprise", "premium"],
@@ -48,5 +56,6 @@ PaymentSchema.index({ userId: 1 })
 PaymentSchema.index({ status: 1 })
 PaymentSchema.index({ status: 1, createdAt: -1 })
 PaymentSchema.index({ userId: 1, status: 1 })
+PaymentSchema.index({ invoiceNumber: 1 }, { sparse: true, unique: true })
 
 export default mongoose.models.Payment || mongoose.model<IPayment>("Payment", PaymentSchema)

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -148,7 +148,7 @@ export default function EmailLogsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "sent":
-        return <Badge className="bg-emerald-100 text-emerald-700"><CheckCircle className="h-3 w-3 mr-1" />Sent</Badge>
+        return <Badge className="bg-neutral-100 text-neutral-700"><CheckCircle className="h-3 w-3 mr-1" />Sent</Badge>
       case "failed":
         return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Failed</Badge>
       case "initiated":
@@ -213,10 +213,10 @@ export default function EmailLogsPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-emerald-500" />
+              <CheckCircle className="h-4 w-4 text-neutral-500" />
               <span className="text-sm text-muted-foreground">Sent</span>
             </div>
-            <p className="text-2xl font-bold mt-1 text-emerald-600">{stats.sent}</p>
+            <p className="text-2xl font-bold mt-1 text-neutral-600">{stats.sent}</p>
           </CardContent>
         </Card>
         <Card>
@@ -475,3 +475,4 @@ export default function EmailLogsPage() {
     </div>
   )
 }
+

@@ -13,7 +13,6 @@ export interface PlanLimits {
   canCreateEvent: boolean
   canImportData: boolean
   canExportReport: boolean
-  canDigitalSignature: boolean
 }
 
 // Plan limits configuration - must match frontend lib/auth.ts
@@ -24,8 +23,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     maxCertificates: 50,
     canCreateEvent: true,
     canImportData: false,
-    canExportReport: false,
-    canDigitalSignature: false
+    canExportReport: false
   },
   professional: {
     maxEvents: 3,
@@ -33,8 +31,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     maxCertificates: 2000,
     canCreateEvent: true,
     canImportData: true,
-    canExportReport: true,
-    canDigitalSignature: true
+    canExportReport: true
   },
   enterprise: {
     maxEvents: 10,
@@ -42,8 +39,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     maxCertificates: 25000,
     canCreateEvent: true,
     canImportData: true,
-    canExportReport: true,
-    canDigitalSignature: true
+    canExportReport: true
   },
   premium: {
     maxEvents: 25,
@@ -51,8 +47,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     maxCertificates: 50000,
     canCreateEvent: true,
     canImportData: true,
-    canExportReport: true,
-    canDigitalSignature: true
+    canExportReport: true
   }
 }
 

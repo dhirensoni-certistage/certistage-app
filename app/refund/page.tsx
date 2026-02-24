@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import Image from "next/image"
 import { AlertCircle } from "lucide-react"
 import type { Metadata } from "next"
@@ -18,7 +18,7 @@ export default function RefundPage() {
       <header className="border-b border-border/50 bg-background">
         <div className="container mx-auto px-4 h-14 flex items-center">
           <Link href="/" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
-            <Image src="/Certistage_icon.svg" alt="CertiStage" width={32} height={32} />
+            <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
             <span className="font-semibold text-lg">CertiStage</span>
           </Link>
         </div>
@@ -43,7 +43,7 @@ export default function RefundPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3">1. No Refund Policy</h2>
             <p className="text-muted-foreground">
-              CertiStage operates on a strict <strong>No Refund Policy</strong>. Once a subscription plan is purchased, the payment is final and non-refundable under any circumstances. This policy applies to all subscription plans including Professional, Enterprise Gold, and Premium Plus.
+              CertiStage operates on a strict <strong>No Refund Policy</strong>. Once a subscription plan is purchased, the payment is final and non-refundable under any circumstances. This policy applies to all subscription plans including Professional, Enterprise, and Premium.
             </p>
           </section>
 
@@ -153,3 +153,4 @@ export default function RefundPage() {
     </div>
   )
 }
+

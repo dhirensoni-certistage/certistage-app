@@ -18,15 +18,23 @@ import {
   getEvent, addRecipientsToCertType, clearCertTypeRecipients, updateRecipient, deleteRecipient,
   type CertificateType
 } from "@/lib/events"
-import { ArrowLeft, Users, FileSpreadsheet, Plus, Search, Trash2, Download, UserPlus, Lock, Pencil, MoreHorizontal } from "lucide-react"
+import { ArrowLeft, Users, FileSpreadsheet, Plus, Search, Trash2, Download, UserPlus, Lock, Pencil, MoreHorizontal, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import * as XLSX from "xlsx"
+import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { motion, AnimatePresence } from "framer-motion"
+
+// Animation variants
+const fadeIn = {
+  hidden: { opacity: 0, y: 10 },
+  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.03, duration: 0.3 } })
+}
 
 export default function CertTypeRecipientsPage() {
   const params = useParams()
@@ -185,7 +193,7 @@ export default function CertTypeRecipientsPage() {
   // Handle delete recipient
   const handleDeleteRecipient = (recipientId: string, recipientName: string) => {
     if (!eventId) return
-    
+
     if (confirm(`Are you sure you want to delete "${recipientName}"?`)) {
       const result = deleteRecipient(eventId, typeId, recipientId)
       if (result) {
@@ -311,201 +319,248 @@ export default function CertTypeRecipientsPage() {
     r.certificateId?.toLowerCase().includes(searchQuery.toLowerCase())
   ) || []
 
-  if (!certType) return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>
+  if (!certType) return <div className="p-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-neutral-400" /></div>
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push(`/client/certificates/${typeId}`)}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{certType.name} - Attendees</h1>
-          <p className="text-muted-foreground">{eventName}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">{certType.stats.total} attendees</Badge>
-          {maxCertificates !== -1 && (
-            <Badge variant={remainingSlots <= 10 ? "destructive" : "outline"}>
-              {remainingSlots} / {maxCertificates} remaining
-            </Badge>
+    <div className="min-h-screen w-full bg-[#FDFDFD] text-[#171717] relative">
+      {/* Background Texture */}
+      <div className="absolute inset-0 z-0 opacity-[0.4] pointer-events-none"
+        style={{ backgroundImage: 'radial-gradient(#D4D4D4 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
+      </div>
+
+      <div className="relative z-10 p-8 space-y-8 max-w-[1400px] mx-auto">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-[#F0F0F0]"
+        >
+          <div className="flex items-start gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => router.push(`/client/certificates/${typeId}`)}
+              className="mt-1 h-9 w-9 border-[#E5E5E5] bg-white text-[#666] hover:text-black hover:border-black/20 hover:bg-white shadow-sm transition-all rounded-full"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-[24px] font-semibold text-[#171717] tracking-tight">{certType.name}</h1>
+                <span className="px-2 py-0.5 rounded-full bg-[#F5F5F5] text-[#666] text-[11px] font-medium border border-[#EBEBEB]">
+                  {certType.stats.total} Attendees
+                </span>
+              </div>
+              <p className="text-[14px] text-[#888] font-medium flex items-center gap-2">
+                {eventName}
+                <span className="w-1 h-1 rounded-full bg-[#D4D4D4]" />
+                <span className={cn("text-[12px]", remainingSlots <= 10 ? "text-amber-600" : "text-[#888]")}>
+                  {maxCertificates === -1 ? "Unlimited Plan" : `${remainingSlots} / ${maxCertificates} slots remaining`}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex gap-2">
+              <Button onClick={openAddDialog} disabled={!canAddMore} className="h-9 bg-black hover:bg-[#333] text-white text-[13px] font-medium shadow-sm border border-transparent transition-all">
+                <UserPlus className="h-3.5 w-3.5 mr-2" />
+                Add Attendee
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleExcelUpload}
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!canAddMore || !canImportData}
+                className="h-9 bg-white border-[#E5E5E5] text-[#333] hover:bg-[#FAFAFA] hover:text-black hover:border-[#D4D4D4] text-[13px] font-medium shadow-sm transition-all"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 mr-2 text-[#666]" />
+                Import Excel
+                {!canImportData && <Lock className="h-3 w-3 ml-1.5 opacity-50" />}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-9 w-9 border-[#E5E5E5] text-[#666] hover:text-black hover:bg-[#FAFAFA]">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={downloadSampleExcel}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Sample
+                  </DropdownMenuItem>
+                  {certType.recipients.length > 0 && (
+                    <DropdownMenuItem onClick={handleClearRecipients} className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear All
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Search & Content */}
+        <div className="space-y-4">
+          {certType.recipients.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+              className="relative max-w-sm"
+            >
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#999]" />
+              <Input
+                placeholder="Filter by name, email, or Reg ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-10 bg-white border-[#E5E5E5] focus-visible:ring-1 focus-visible:ring-black focus-visible:border-black text-[13px] shadow-sm transition-all placeholder:text-[#AAA]"
+              />
+            </motion.div>
+          )}
+
+          {certType.recipients.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
+              className="bg-white rounded-xl border border-[#E5E5E5] border-dashed p-16 text-center shadow-sm"
+            >
+              <div className="w-16 h-16 bg-[#FAFAFA] rounded-full flex items-center justify-center mx-auto mb-4 border border-[#F0F0F0]">
+                <Users className="h-8 w-8 text-[#DDD]" />
+              </div>
+              <h3 className="text-lg font-semibold text-[#171717] mb-2 tracking-tight">No attendees yet</h3>
+              <p className="text-[#888] text-[14px] mb-8 max-w-sm mx-auto">
+                Get started by adding recipients manually or importing a bulk list from Excel.
+              </p>
+              <div className="flex justify-center gap-3">
+                <Button onClick={openAddDialog} disabled={!canAddMore} className="bg-black hover:bg-[#333] text-white">
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add First Attendee
+                </Button>
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={!canAddMore || !canImportData} className="border-[#E5E5E5] text-[#333] hover:bg-[#FAFAFA]">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Import
+                </Button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
+              className="bg-white rounded-xl border border-[#E5E5E5] shadow-sm overflow-hidden"
+            >
+              <div className="max-h-[600px] overflow-auto">
+                <Table>
+                  <TableHeader className="bg-[#FAFAFA] sticky top-0 z-10">
+                    <TableRow className="hover:bg-[#FAFAFA] border-b border-[#EBEBEB]">
+                      <TableHead className="w-12 text-[11px] font-bold uppercase tracking-wider text-[#888] pl-6">#</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-[#888]">Attendee</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-[#888]">Contact</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-[#888]">Reg ID</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-[#888]">Status</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-[#888] text-right">Downloads</TableHead>
+                      <TableHead className="w-16"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <AnimatePresence initial={false}>
+                      {filteredRecipients.map((r, i) => (
+                        <motion.tr
+                          key={r.id}
+                          initial="hidden"
+                          animate="visible"
+                          exit={{ opacity: 0 }}
+                          variants={fadeIn}
+                          custom={i}
+                          className="group hover:bg-[#FAFAFA] transition-colors border-b border-[#F5F5F5] last:border-0"
+                        >
+                          <TableCell className="text-[#888] font-medium text-[12px] pl-6">{i + 1}</TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-semibold text-[13px] text-[#171717]">{r.prefix} {r.firstName} {r.lastName}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              {r.email && <span className="text-[12px] text-[#666]">{r.email}</span>}
+                              {r.mobile && <span className="text-[11px] text-[#999]">{r.mobile}</span>}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <code className="text-[11px] bg-[#F5F5F5] px-1.5 py-0.5 rounded text-[#555] font-mono border border-[#EBEBEB]">
+                              {r.certificateId || r.regNo}
+                            </code>
+                          </TableCell>
+                          <TableCell>
+                            {r.status === "downloaded" ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F0FDF4] text-[#166534] border border-[#DCFCE7] uppercase tracking-wide">
+                                Downloaded
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F5F5] text-[#666] border border-[#EBEBEB] uppercase tracking-wide">
+                                Pending
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right text-[13px] font-medium text-[#171717]">{r.downloadCount}</TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#E5E5E5] rounded-full">
+                                  <MoreHorizontal className="h-4 w-4 text-[#666]" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="text-[13px]">
+                                <DropdownMenuItem onClick={() => openEditDialog(r)}>
+                                  <Pencil className="h-3.5 w-3.5 mr-2" />
+                                  Edit Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteRecipient(r.id, r.name)}
+                                  className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                  Remove
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </motion.tr>
+                      ))}
+                    </AnimatePresence>
+                  </TableBody>
+                </Table>
+              </div>
+            </motion.div>
           )}
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex gap-2 flex-wrap">
-          <Button onClick={openAddDialog} disabled={!canAddMore}>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add Attendee
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            className="hidden"
-            onChange={handleExcelUpload}
-          />
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={!canAddMore || !canImportData}>
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
-            Import Excel
-            {!canImportData && <Lock className="h-3 w-3 ml-1 inline" />}
-          </Button>
-          <Button variant="outline" onClick={downloadSampleExcel}>
-            <Download className="h-4 w-4 mr-2" />
-            Sample Excel
-          </Button>
-        </div>
-        {certType.recipients.length > 0 && (
-          <Button variant="outline" className="text-destructive hover:text-destructive" onClick={handleClearRecipients}>
-            <Trash2 className="h-4 w-4 mr-2" />
-            Clear All
-          </Button>
-        )}
-      </div>
-
-      {/* Recipients List */}
-      {certType.recipients.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Attendees Yet</h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Add attendees one by one or import multiple from an Excel file
-            </p>
-            <div className="flex justify-center gap-3">
-              <Button onClick={openAddDialog} disabled={!canAddMore}>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add Attendee
-              </Button>
-              <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={!canAddMore || !canImportData}>
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Import Excel
-                {!canImportData && <Lock className="h-3 w-3 ml-1 inline" />}
-              </Button>
-            </div>
-            {!canAddMore && (
-              <p className="text-sm text-destructive mt-4">
-                {planFeatures.displayName} plan limit reached ({maxCertificates} certificates). <a href="/client/upgrade" className="underline">Upgrade</a> to add more.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Attendees</CardTitle>
-                <CardDescription>
-                  {filteredRecipients.length} of {certType.recipients.length} shown
-                </CardDescription>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name, email, mobile..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-64"
-                />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-lg border overflow-hidden">
-              <div className="max-h-[500px] overflow-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-background">
-                    <TableRow>
-                      <TableHead className="w-12">#</TableHead>
-                      <TableHead className="w-16">Prefix</TableHead>
-                      <TableHead>First Name</TableHead>
-                      <TableHead>Last Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Mobile</TableHead>
-                      <TableHead>Registration No</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Downloads</TableHead>
-                      <TableHead className="w-16">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredRecipients.map((r, i) => (
-                      <TableRow key={r.id}>
-                        <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                        <TableCell className="text-muted-foreground">{r.prefix || "-"}</TableCell>
-                        <TableCell className="font-medium">{r.firstName || r.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{r.lastName || "-"}</TableCell>
-                        <TableCell className="text-muted-foreground">{r.email || "-"}</TableCell>
-                        <TableCell className="text-muted-foreground">{r.mobile || "-"}</TableCell>
-                        <TableCell>
-                          <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
-                            {r.certificateId || r.regNo}
-                          </code>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={r.status === "downloaded" ? "default" : "outline"}
-                            className={r.status === "downloaded" ? "bg-emerald-500" : ""}
-                          >
-                            {r.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">{r.downloadCount}</TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openEditDialog(r)}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleDeleteRecipient(r.id, r.name)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Add Recipient Dialog */}
+      {/* Add Recipient Dialog - Styled */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-white border-[#E5E5E5] shadow-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5" />
-              Add New Attendee
+            <DialogTitle className="flex items-center gap-2 text-[18px] font-semibold text-[#171717]">
+              <div className="p-1.5 bg-[#FAFAFA] rounded-md border border-[#EBEBEB]">
+                <UserPlus className="h-4 w-4 text-[#171717]" />
+              </div>
+              Add Attendee
             </DialogTitle>
-            <DialogDescription>
-              Enter the attendee details for the certificate
+            <DialogDescription className="text-[13px] text-[#666]">
+              Enter the attendee's details manually.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="prefix">Prefix (Optional)</Label>
+              <Label htmlFor="prefix" className="text-[12px] font-medium text-[#666]">Prefix (Optional)</Label>
               <select
                 id="prefix"
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
+                className="flex h-9 w-full items-center justify-between rounded-md border border-[#E5E5E5] bg-white px-3 py-2 text-sm placeholder:text-[#BBB] focus:outline-none focus:ring-1 focus:ring-black focus:border-black transition-all"
                 value={formPrefix}
                 onChange={(e) => setFormPrefix(e.target.value)}
               >
@@ -521,96 +576,99 @@ export default function CertTypeRecipientsPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">
-                  First Name <span className="text-destructive">*</span>
+                <Label htmlFor="firstName" className="text-[12px] font-medium text-[#171717]">
+                  First Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="firstName"
-                  placeholder="First name"
+                  placeholder="e.g. John"
                   value={formFirstName}
                   onChange={(e) => setFormFirstName(e.target.value)}
                   autoFocus
+                  className="h-9 border-[#E5E5E5] focus-visible:ring-black"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
+                <Label htmlFor="lastName" className="text-[12px] font-medium text-[#666]">Last Name</Label>
                 <Input
                   id="lastName"
-                  placeholder="Last name"
+                  placeholder="e.g. Doe"
                   value={formLastName}
                   onChange={(e) => setFormLastName(e.target.value)}
+                  className="h-9 border-[#E5E5E5] focus-visible:ring-black"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email" className="text-[12px] font-medium text-[#666]">Email Address</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="Enter email address"
+                placeholder="john@example.com"
                 value={formEmail}
                 onChange={(e) => setFormEmail(e.target.value)}
+                className="h-9 border-[#E5E5E5] focus-visible:ring-black"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="mobile">Mobile Number</Label>
+              <Label htmlFor="mobile" className="text-[12px] font-medium text-[#666]">Mobile Number</Label>
               <Input
                 id="mobile"
                 type="tel"
-                placeholder="Enter mobile number (e.g., +91-9876543210)"
+                placeholder="+1 234 567 8900"
                 value={formMobile}
                 onChange={(e) => setFormMobile(e.target.value)}
+                className="h-9 border-[#E5E5E5] focus-visible:ring-black"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="regNo">Registration No</Label>
+            <div className="space-y-2 pt-2 border-t border-[#F5F5F5]">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="regNo" className="text-[12px] font-medium text-[#666]">Registration ID</Label>
+                <span className="text-[10px] text-[#999] uppercase tracking-wider font-semibold">Auto-Generated</span>
+              </div>
               <Input
                 id="regNo"
-                placeholder="Enter registration number"
+                placeholder="REG-..."
                 value={formRegNo}
                 onChange={(e) => setFormRegNo(e.target.value)}
-                className="font-mono"
+                className="h-9 border-[#E5E5E5] bg-[#FAFAFA] font-mono text-[12px] text-[#555] focus-visible:ring-black"
               />
-              <p className="text-xs text-muted-foreground">
-                Unique identifier for this attendee
-              </p>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="h-9 border-[#E5E5E5] text-[#333] hover:bg-[#FAFAFA]">
               Cancel
             </Button>
-            <Button onClick={handleAddRecipient}>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button onClick={handleAddRecipient} className="h-9 bg-black text-white hover:bg-[#333]">
+              <Plus className="h-3.5 w-3.5 mr-2" />
               Add Attendee
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Recipient Dialog */}
+      {/* Edit Dialog - Styled similarly */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-white border-[#E5E5E5] shadow-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="h-5 w-5" />
+            <DialogTitle className="flex items-center gap-2 text-[18px] font-semibold text-[#171717]">
+              <div className="p-1.5 bg-[#FAFAFA] rounded-md border border-[#EBEBEB]">
+                <Pencil className="h-4 w-4 text-[#171717]" />
+              </div>
               Edit Attendee
             </DialogTitle>
-            <DialogDescription>
-              Update the attendee details
-            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-prefix">Prefix (Optional)</Label>
+              <Label htmlFor="edit-prefix">Prefix</Label>
               <select
                 id="edit-prefix"
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
+                className="flex h-9 w-full items-center justify-between rounded-md border border-[#E5E5E5] bg-white px-3 py-2 text-sm placeholder:text-[#BBB] focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
                 value={formPrefix}
                 onChange={(e) => setFormPrefix(e.target.value)}
               >
@@ -626,23 +684,21 @@ export default function CertTypeRecipientsPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-firstName">
-                  First Name <span className="text-destructive">*</span>
-                </Label>
+                <Label htmlFor="edit-firstName">First Name</Label>
                 <Input
                   id="edit-firstName"
-                  placeholder="First name"
                   value={formFirstName}
                   onChange={(e) => setFormFirstName(e.target.value)}
+                  className="h-9 border-[#E5E5E5] focus-visible:ring-black"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-lastName">Last Name</Label>
                 <Input
                   id="edit-lastName"
-                  placeholder="Last name"
                   value={formLastName}
                   onChange={(e) => setFormLastName(e.target.value)}
+                  className="h-9 border-[#E5E5E5] focus-visible:ring-black"
                 />
               </div>
             </div>
@@ -652,9 +708,9 @@ export default function CertTypeRecipientsPage() {
               <Input
                 id="edit-email"
                 type="email"
-                placeholder="Enter email address"
                 value={formEmail}
                 onChange={(e) => setFormEmail(e.target.value)}
+                className="h-9 border-[#E5E5E5] focus-visible:ring-black"
               />
             </div>
 
@@ -663,31 +719,29 @@ export default function CertTypeRecipientsPage() {
               <Input
                 id="edit-mobile"
                 type="tel"
-                placeholder="Enter mobile number (e.g., +91-9876543210)"
                 value={formMobile}
                 onChange={(e) => setFormMobile(e.target.value)}
+                className="h-9 border-[#E5E5E5] focus-visible:ring-black"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-regNo">Registration No</Label>
+            <div className="space-y-2 pt-2 border-t border-[#F5F5F5]">
+              <Label htmlFor="edit-regNo">Registration ID</Label>
               <Input
                 id="edit-regNo"
-                placeholder="Enter registration number"
                 value={formRegNo}
                 onChange={(e) => setFormRegNo(e.target.value)}
-                className="font-mono"
+                className="h-9 border-[#E5E5E5] bg-[#FAFAFA] font-mono text-[12px] text-[#555] focus-visible:ring-black"
               />
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setEditingRecipient(null); resetForm(); }}>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setEditingRecipient(null); resetForm(); }} className="h-9 border-[#E5E5E5] text-[#333]">
               Cancel
             </Button>
-            <Button onClick={handleUpdateRecipient}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Update Attendee
+            <Button onClick={handleUpdateRecipient} className="h-9 bg-black text-white hover:bg-[#333]">
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -14,7 +14,7 @@ import {
   getDownloadLink, getCertTypePublicLink,
   type CertificateType
 } from "@/lib/events"
-import { ArrowLeft, Copy, Download, ExternalLink, Link as LinkIcon, Search, Share2 } from "lucide-react"
+import { ArrowLeft, Copy, Download, ExternalLink, Link as LinkIcon, Search, Share2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { jsPDF } from "jspdf"
 
@@ -104,7 +104,7 @@ export default function CertTypeLinksPage() {
 
       ctx.font = `600 ${fontSize}px sans-serif`
       ctx.fillStyle = "#000000"
-      ctx.textAlign = certType.alignment || "center"
+      ctx.textAlign = "center"
       ctx.textBaseline = "middle"
       ctx.fillText(recipientName, textX, textY)
 
@@ -130,7 +130,11 @@ export default function CertTypeLinksPage() {
     r.certificateId?.toLowerCase().includes(searchQuery.toLowerCase())
   ) || []
 
-  if (isLoading) return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>
+  if (isLoading) return (
+    <div className="flex bg-[#FDFDFD] h-[80vh] w-full items-center justify-center">
+      <Loader2 className="h-10 w-10 animate-spin text-neutral-200" />
+    </div>
+  )
   if (!certType) return <div className="p-6"><p className="text-muted-foreground">Certificate type not found</p></div>
 
   return (
@@ -229,7 +233,7 @@ export default function CertTypeLinksPage() {
                       <TableCell className="font-medium">{r.name}</TableCell>
                       <TableCell><code className="text-xs bg-muted px-2 py-1 rounded">{r.certificateId}</code></TableCell>
                       <TableCell>
-                        <Badge variant={r.status === "downloaded" ? "default" : "outline"} className={r.status === "downloaded" ? "bg-emerald-500" : ""}>
+                        <Badge variant={r.status === "downloaded" ? "default" : "outline"} className={r.status === "downloaded" ? "bg-black text-white" : ""}>
                           {r.status}
                         </Badge>
                       </TableCell>

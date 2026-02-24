@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -162,7 +162,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <QuickStat label="Today's Signups" value={data?.metrics?.newUsersToday ?? 0} icon={UserPlus} loading={loading} color="blue" />
             <QuickStat label="Pending Payments" value={data?.metrics?.pendingPayments ?? 0} icon={Clock} loading={loading} color="yellow" />
-            <QuickStat label="Conversion Rate" value={`${data?.metrics?.conversionRate ?? 0}%`} icon={TrendingUp} loading={loading} color="green" />
+            <QuickStat label="Conversion Rate" value={`${data?.metrics?.conversionRate ?? 0}%`} icon={TrendingUp} loading={loading} color="neutral" />
             <QuickStat label="Active Events" value={data?.metrics?.activeEvents ?? 0} icon={Calendar} loading={loading} color="purple" />
           </div>
 
@@ -194,12 +194,12 @@ function QuickStat({ label, value, icon: Icon, loading, color }: {
   value: string | number
   icon: any
   loading: boolean
-  color: "blue" | "yellow" | "green" | "purple"
+  color: "blue" | "yellow" | "neutral" | "purple"
 }) {
   const colorClasses = {
     blue: "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
     yellow: "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400",
-    green: "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400",
+    neutral: "bg-neutral-50 dark:bg-neutral-900/20 text-neutral-600 dark:text-neutral-400",
     purple: "bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
   }
 
@@ -222,3 +222,5 @@ function QuickStat({ label, value, icon: Icon, loading, color }: {
     </div>
   )
 }
+
+

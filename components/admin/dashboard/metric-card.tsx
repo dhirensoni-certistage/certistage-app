@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -58,13 +58,13 @@ export function MetricCard({
                 <TrendIcon 
                   className={cn(
                     "h-3 w-3",
-                    isPositiveTrend ? "text-emerald-500" : "text-red-500"
+                    isPositiveTrend ? "text-neutral-500" : "text-red-500"
                   )} 
                 />
                 <span 
                   className={cn(
                     "text-xs font-medium",
-                    isPositiveTrend ? "text-emerald-500" : "text-red-500"
+                    isPositiveTrend ? "text-neutral-500" : "text-red-500"
                   )}
                 >
                   {isPositiveTrend ? "+" : ""}{trend}%
@@ -85,3 +85,4 @@ export function MetricCard({
     </Card>
   )
 }
+

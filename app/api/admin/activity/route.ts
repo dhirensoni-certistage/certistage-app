@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import Payment from "@/models/Payment"
@@ -115,3 +115,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch activities" }, { status: 500 })
   }
 }
+

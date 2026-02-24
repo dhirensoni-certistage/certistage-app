@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { AdminHeader } from "@/components/admin/admin-header"
@@ -104,8 +104,8 @@ export default function AnalyticsPage() {
                     }))}>
                       <defs>
                         <linearGradient id="colorCert" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#14b8a6" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#171717" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#171717" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -124,7 +124,7 @@ export default function AnalyticsPage() {
                       <Area 
                         type="monotone" 
                         dataKey="count" 
-                        stroke="#14b8a6" 
+                        stroke="#171717" 
                         strokeWidth={2}
                         fill="url(#colorCert)" 
                       />
@@ -212,3 +212,4 @@ export default function AnalyticsPage() {
     </>
   )
 }
+

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import Link from "next/link"
@@ -54,8 +54,8 @@ export default function ForgotPasswordPage() {
         <main className="flex-1 flex items-center justify-center p-4">
           <Card className="w-full max-w-md">
             <CardContent className="py-12 text-center">
-              <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
-                <Check className="h-8 w-8 text-emerald-500" />
+              <div className="h-16 w-16 rounded-full bg-neutral-500/10 flex items-center justify-center mx-auto mb-4">
+                <Check className="h-8 w-8 text-neutral-500" />
               </div>
               <h2 className="text-2xl font-bold text-foreground mb-2">Check Your Email</h2>
               <p className="text-muted-foreground mb-6">
@@ -164,3 +164,4 @@ function Footer() {
     </footer>
   )
 }
+

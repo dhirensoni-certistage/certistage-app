@@ -8,9 +8,9 @@ import bcrypt from "bcryptjs"
 export async function POST(request: NextRequest) {
   try {
     await connectDB()
-    
+
     const { email, password } = await request.json()
-    
+
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 })
     }
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       .sort({ createdAt: 1 })
       .lean()
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user._id.toString(),
@@ -65,6 +65,16 @@ export async function POST(request: NextRequest) {
         name: firstEvent.name
       } : null
     })
+
+    // Set cookie for middleware to recognize authenticated session
+    response.cookies.set('clientSession', 'true', {
+      path: '/',
+      httpOnly: false, // Accessible by client-side if needed, but middleware needs it
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7 // 7 days
+    })
+
+    return response
   } catch (error) {
     console.error("Login error:", error)
     return NextResponse.json({ error: "Login failed" }, { status: 500 })

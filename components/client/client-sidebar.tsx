@@ -2,35 +2,31 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { motion } from "framer-motion"
 import {
   LayoutDashboard,
   BarChart3,
-  Moon,
-  Sun,
   LogOut,
   FileText,
   Users,
   HelpCircle,
   Crown,
   ChevronLeft,
-  Settings
+  Settings,
+  FolderOpen
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { useTheme } from "next-themes"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getClientSession, clearClientSession, clearSessionEvent, PLAN_FEATURES, getTrialStatus, type PlanType } from "@/lib/auth"
 import { toast } from "sonner"
 import { Progress } from "@/components/ui/progress"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+ 
 
 export function ClientSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [eventName, setEventName] = useState("")
   const [userPlan, setUserPlan] = useState<PlanType | null>(null)
@@ -44,48 +40,38 @@ export function ClientSidebar() {
 
   useEffect(() => {
     setMounted(true)
-    const loadSession = () => {
-      const session = getClientSession()
-      if (session) {
-        if (session.loginType === "event") {
-          setEventName(session.eventName || "CertiStage")
-          setIsUserLogin(false)
+    const session = getClientSession()
+    if (session) {
+      if (session.loginType === "event") {
+        setEventName(session.eventName || "CertiStage")
+        setIsUserLogin(false)
+        setHasEventSelected(true)
+      } else {
+        setUserName(session.userName || "")
+        const validPlans: PlanType[] = ["free", "professional", "enterprise", "premium"]
+        const sessionPlan = session.userPlan || "free"
+        setUserPlan(validPlans.includes(sessionPlan) ? sessionPlan : "free")
+        setIsUserLogin(true)
+
+        if (session.eventId) {
+          setEventName(session.eventName || "Event")
           setHasEventSelected(true)
         } else {
-          setUserName(session.userName || "")
-          // Ensure plan is valid, default to "free" if invalid
-          const validPlans: PlanType[] = ["free", "professional", "enterprise", "premium"]
-          const sessionPlan = session.userPlan || "free"
-          setUserPlan(validPlans.includes(sessionPlan) ? sessionPlan : "free")
-          setIsUserLogin(true)
+          setEventName(session.userName || "CertiStage")
+          setHasEventSelected(false)
+        }
 
-          if (session.eventId) {
-            setEventName(session.eventName || "Event")
-            setHasEventSelected(true)
-          } else {
-            setEventName(session.userName || "CertiStage")
-            setHasEventSelected(false)
-          }
-
-          const trialStatus = getTrialStatus(session.userId)
-          if (trialStatus.isOnTrial) {
-            setTrialDays(trialStatus.daysRemaining)
-            setTrialTotalDays(trialStatus.totalDays)
-            setIsOnTrial(true)
-          }
+        const trialStatus = getTrialStatus(session.userId)
+        if (trialStatus.isOnTrial) {
+          setTrialDays(trialStatus.daysRemaining)
+          setTrialTotalDays(trialStatus.totalDays)
+          setIsOnTrial(true)
         }
       }
     }
+  }, [pathname])
 
-    loadSession()
-  }, [pathname]) // Re-load session when pathname changes
 
-  const handleBackToList = () => {
-    clearSessionEvent()
-    setHasEventSelected(false)
-    setEventName("CertiStage")
-    router.push("/client/events")
-  }
 
   const handleLogout = () => {
     clearClientSession()
@@ -94,8 +80,9 @@ export function ClientSidebar() {
   }
 
   const navItems = [
+    { href: "/client/events", label: "Events", icon: FolderOpen, requiresEvent: false },
     { href: "/client/dashboard", label: "Dashboard", icon: LayoutDashboard, requiresEvent: true },
-    { href: "/client/certificates", label: "Manage Certificates", icon: FileText, requiresEvent: true },
+    { href: "/client/certificates", label: "Certificates", icon: FileText, requiresEvent: true },
     { href: "/client/recipients", label: "Attendees", icon: Users, requiresEvent: true },
     { href: "/client/reports", label: "Reports", icon: BarChart3, requiresEvent: true },
     { href: "/client/settings", label: "Settings", icon: Settings, requiresEvent: false },
@@ -108,244 +95,127 @@ export function ClientSidebar() {
   })
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <div className="relative">
-        <motion.aside
-          initial={false}
-          animate={{ width: collapsed ? 72 : 260 }}
-          transition={{ duration: 0.2, ease: "easeInOut" }}
-          className="h-screen bg-sidebar border-r border-sidebar-border flex flex-col overflow-hidden"
-        >
-          {/* Back to List - Only for user login when event is selected */}
-          {isUserLogin && hasEventSelected && (
-            <div className="border-b border-sidebar-border">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    onClick={handleBackToList}
-                    className={cn(
-                      "w-full h-auto rounded-none text-sm text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent",
-                      collapsed ? "justify-center py-3" : "justify-start gap-2 px-4 py-3"
-                    )}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    {!collapsed && "Back to List"}
-                  </Button>
-                </TooltipTrigger>
-                {collapsed && <TooltipContent side="right" sideOffset={12}>Back to List</TooltipContent>}
-              </Tooltip>
+      <aside
+        className={cn(
+          "h-screen bg-white border-r border-neutral-200 flex flex-col transition-all duration-200 ease-in-out relative z-30",
+          collapsed ? "w-[72px]" : "w-[260px]"
+        )}
+      >
+
+
+        {/* Brand / Event Logo */}
+        <div className={cn(
+          "h-16 flex items-center border-b border-neutral-200 dark:border-neutral-800",
+          collapsed ? "justify-center" : "px-4"
+        )}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0">
+              <Image src="/Certistage_icon.svg" alt="CertiStage" width={28} height={28} />
             </div>
-          )}
-
-          {/* Logo & Event Name */}
-          <div className={cn(
-            "h-16 border-b border-sidebar-border flex items-center",
-            collapsed ? "justify-center px-2" : "px-4"
-          )}>
-            <Link href="/client/dashboard" className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0">
-                <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
+            {!collapsed && (
+              <div className="flex flex-col min-w-0">
+                <span className="font-bold text-[15px] text-neutral-900 dark:text-white truncate">
+                  {eventName || "CertiStage"}
+                </span>
+                <span className="text-[11px] text-neutral-400 font-medium tracking-tight">
+                  {hasEventSelected && isUserLogin ? "Event Workspace" : "Management Portal"}
+                </span>
               </div>
-              {!collapsed && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="min-w-0"
-                >
-                  <span className="font-semibold text-sidebar-foreground block truncate">
-                    {eventName || "CertiStage"}
-                  </span>
-                  <span className="text-xs text-sidebar-muted">
-                    {hasEventSelected && isUserLogin ? "Event" : "Client Portal"}
-                  </span>
-                </motion.div>
-              )}
-            </Link>
+            )}
           </div>
+        </div>
 
-          {/* Floating Collapse/Expand Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <motion.button
-                initial={false}
-                animate={{
-                  right: collapsed ? -12 : -12,
-                  rotate: collapsed ? 180 : 0
-                }}
-                transition={{ duration: 0.2 }}
-                onClick={() => setCollapsed(!collapsed)}
-                className="absolute top-20 -right-3 z-50 h-6 w-6 rounded-full bg-sidebar border border-sidebar-border shadow-md flex items-center justify-center text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+        {/* Dynamic Nav Indicator handled by active classes below */}
+
+        {/* Navigation */}
+        <nav className="flex-1 p-2 space-y-1 overflow-y-auto mt-2 scrollbar-minimal">
+          {filteredNavItems.map((item) => {
+            const isActive = item.href === "/client/certificates"
+              ? pathname.startsWith("/client/certificates")
+              : pathname === item.href
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={collapsed ? item.label : undefined}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all group relative",
+                  isActive
+                    ? "bg-neutral-100 text-neutral-900 shadow-sm ring-1 ring-neutral-200/60"
+                    : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50",
+                  collapsed && "justify-center px-0 h-10 w-10 mx-auto"
+                )}
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </motion.button>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8}>
-              {collapsed ? "Expand" : "Collapse"}
-            </TooltipContent>
-          </Tooltip>
+                {isActive && !collapsed && (
+                  <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-neutral-900" />
+                )}
+                <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-neutral-900" : "text-neutral-400 group-hover:text-neutral-900")} />
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </Link>
+            )
+          })}
+        </nav>
 
-          {/* Plan Badge & Trial - Only when expanded */}
-          {userPlan && !collapsed && (
-            <div className="px-4 py-3 border-b border-sidebar-border">
-              <div className="flex items-center gap-2">
-                <div className={cn(
-                  "px-2.5 py-1 rounded-full text-xs font-medium",
-                  (userPlan === "free" || !PLAN_FEATURES[userPlan]) && "bg-gray-500/10 text-gray-600 dark:text-gray-400",
-                  userPlan === "professional" && "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-                  userPlan === "enterprise" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                  userPlan === "premium" && "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                )}>
-                  {PLAN_FEATURES[userPlan]?.displayName || "Free"}
+        {/* Trial / Plan Details - Simplified */}
+        {userPlan && !collapsed && (
+          <div className="mx-2 mb-2 p-4 rounded-xl border border-neutral-100 dark:border-neutral-900 bg-neutral-50/50 dark:bg-neutral-900/50">
+            <div className="flex items-center justify-between mb-3">
+              <span className={cn(
+                "px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider",
+                userPlan === "free" && "bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400",
+                userPlan === "professional" && "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400",
+                userPlan === "enterprise" && "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400",
+                userPlan === "premium" && "bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400"
+              )}>
+                {PLAN_FEATURES[userPlan]?.displayName || "Free"}
+              </span>
+              <span className="text-[11px] text-neutral-400 truncate max-w-[100px]">{userName}</span>
+            </div>
+
+            {isOnTrial && trialDays >= 0 ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-medium">
+                  <span className="text-neutral-500 font-normal">Trial Ending</span>
+                  <span className={cn(trialDays <= 2 ? "text-red-500" : "text-neutral-900 dark:text-white")}>
+                    {trialDays} {trialDays === 1 ? 'day' : 'days'}
+                  </span>
                 </div>
-                {userName && <span className="text-xs text-sidebar-muted truncate">{userName}</span>}
+                <Progress
+                  value={Math.max(0, Math.min(100, ((trialTotalDays - trialDays) / trialTotalDays) * 100))}
+                  className="h-1 bg-neutral-200 dark:bg-neutral-800"
+                />
               </div>
-
-              {isOnTrial && trialDays >= 0 && (
-                <div className="mt-3 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-medium text-sidebar-muted">
-                    <span>Trial</span>
-                    <span className={cn(
-                      "font-semibold",
-                      trialDays <= 2 ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
-                    )}>
-                      {trialDays} day{trialDays !== 1 ? "s" : ""} left
-                    </span>
-                  </div>
-                  <Progress
-                    value={Math.max(0, Math.min(100, ((trialTotalDays - trialDays) / trialTotalDays) * 100))}
-                    className="h-2 bg-sidebar-border"
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Upgrade CTA for free users */}
-          {userPlan === "free" && (
-            <div className={cn("border-b border-sidebar-border", collapsed ? "p-2" : "px-3 py-3")}>
-              {collapsed ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      asChild
-                      size="icon"
-                      className="w-full h-10 bg-gradient-to-r from-purple-500 via-blue-500 to-sky-400 text-white"
-                    >
-                      <Link href="/client/upgrade">
-                        <Crown className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={12}>Upgrade now</TooltipContent>
-                </Tooltip>
-              ) : (
-                <>
-                  <Button
-                    asChild
-                    className="w-full justify-center gap-2 bg-gradient-to-r from-purple-500 via-blue-500 to-sky-400 text-white shadow-md hover:shadow-lg"
-                  >
-                    <Link href="/client/upgrade">
-                      <Crown className="h-4 w-4" />
-                      Upgrade now
-                    </Link>
-                  </Button>
-                  <p className="mt-1.5 text-[11px] text-sidebar-muted text-center">
-                    Unlock unlimited certificates and exports.
-                  </p>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Main Navigation */}
-          <nav className="flex-1 p-3 overflow-hidden">
-            <div className="space-y-1">
-              {filteredNavItems.map((item) => {
-                const isActive = item.href === "/client/certificates"
-                  ? pathname.startsWith("/client/certificates")
-                  : pathname === item.href
-
-                return (
-                  <Tooltip key={item.href}>
-                    <TooltipTrigger asChild>
-                      <Link
-                        href={item.href}
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative",
-                          isActive
-                            ? "bg-sidebar-accent text-sidebar-foreground"
-                            : "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50",
-                          collapsed && "justify-center px-0"
-                        )}
-                      >
-                        {isActive && (
-                          <motion.div
-                            layoutId="client-sidebar-indicator"
-                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-sidebar-primary rounded-r-full"
-                          />
-                        )}
-                        <item.icon className="h-5 w-5 shrink-0" />
-                        {!collapsed && <span className="truncate">{item.label}</span>}
-                      </Link>
-                    </TooltipTrigger>
-                    {collapsed && (
-                      <TooltipContent side="right" sideOffset={12}>
-                        {item.label}
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                )
-              })}
-            </div>
-          </nav>
-
-          {/* Bottom Actions */}
-          <div className={cn("p-3 border-t border-sidebar-border space-y-1", collapsed && "flex flex-col items-center")}>
-            {/* Theme Toggle */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size={collapsed ? "icon" : "default"}
-                  className={cn(
-                    "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent",
-                    collapsed ? "h-10 w-10" : "w-full justify-start gap-3"
-                  )}
-                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                >
-                  {mounted && theme === "dark" ? (
-                    <Sun className="h-5 w-5 shrink-0" />
-                  ) : (
-                    <Moon className="h-5 w-5 shrink-0" />
-                  )}
-                  {!collapsed && <span>Toggle Theme</span>}
-                </Button>
-              </TooltipTrigger>
-              {collapsed && <TooltipContent side="right" sideOffset={12}>Toggle Theme</TooltipContent>}
-            </Tooltip>
-
-            {/* Logout */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size={collapsed ? "icon" : "default"}
-                  className={cn(
-                    "text-destructive hover:text-destructive hover:bg-destructive/10",
-                    collapsed ? "h-10 w-10" : "w-full justify-start gap-3"
-                  )}
-                  onClick={handleLogout}
-                >
-                  <LogOut className="h-5 w-5 shrink-0" />
-                  {!collapsed && <span>Logout</span>}
-                </Button>
-              </TooltipTrigger>
-              {collapsed && <TooltipContent side="right" sideOffset={12}>Logout</TooltipContent>}
-            </Tooltip>
+            ) : userPlan === "free" && (
+              <Button asChild size="sm" className="w-full h-8 text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity">
+                <Link href="/client/upgrade">Upgrade Plan</Link>
+              </Button>
+            )}
           </div>
-        </motion.aside>
-      </div>
-    </TooltipProvider>
+        )}
+
+        {/* Footer Actions */}
+        <div className="p-2 border-t border-neutral-200 space-y-1">
+          <Button
+            variant="ghost"
+            className={cn(
+              "w-full h-10 text-red-500 hover:bg-red-50",
+              collapsed ? "justify-center p-0" : "justify-start gap-3 px-3"
+            )}
+            onClick={handleLogout}
+          >
+            <LogOut className="h-5 w-5" />
+            {!collapsed && <span className="text-sm font-medium">Log out</span>}
+          </Button>
+        </div>
+
+        {/* Toggle Collapse Button - Inset */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="absolute -right-3 top-20 bg-white border border-neutral-200 rounded-full p-1 shadow-sm text-neutral-400 hover:text-neutral-900 transition-colors z-50"
+        >
+          <ChevronLeft className={cn("h-3.5 w-3.5 transition-transform duration-200", collapsed && "rotate-180")} />
+        </button>
+      </aside>
   )
 }

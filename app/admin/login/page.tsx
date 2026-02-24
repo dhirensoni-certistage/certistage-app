@@ -56,7 +56,7 @@ export default function AdminLoginPage() {
       <Card className="max-w-md w-full">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Image src="/Certistage_icon.svg" alt="CertiStage" width={40} height={40} />
+            <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
             <span className="font-semibold text-xl">CertiStage</span>
           </div>
           <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">

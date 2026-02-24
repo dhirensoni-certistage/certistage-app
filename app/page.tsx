@@ -1,505 +1,383 @@
+﻿"use client"
+
 import Link from "next/link"
 import Image from "next/image"
-import { Award, ArrowRight, Shield, Zap, Users, Check, FileText, BarChart3, Download, Star, Gift, Briefcase, Crown, Gem } from "lucide-react"
+import { ArrowRight, Shield, Users, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/50 bg-background/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
+    <div className="min-h-screen bg-white dark:bg-[#0a0a0a]">
+      {/* Simple Header */}
+      <header className="sticky top-0 z-50 border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
             <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
-            <span className="font-semibold text-lg text-foreground">CertiStage</span>
-          </div>
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Features
-            </Link>
-            <Link href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Pricing
-            </Link>
-            <Link href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              How it Works
-            </Link>
+            <span className="font-semibold text-[17px] text-neutral-900 dark:text-white">CertiStage</span>
+          </Link>
+
+          <nav className="hidden md:flex items-center gap-7">
+            <Link href="#features" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Features</Link>
+            <Link href="#pricing" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Pricing</Link>
+            <Link href="/contact" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Contact</Link>
           </nav>
+
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/client/login">Login</Link>
+            <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex text-sm">
+              <Link href="/client/login">Sign In</Link>
             </Button>
-            <Button size="sm" asChild>
+            <Button size="sm" asChild className="text-sm h-9 px-4">
               <Link href="/signup">Get Started</Link>
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="py-20 md:py-28 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
-        <div className="container mx-auto px-4 relative">
-          <div className="max-w-3xl mx-auto text-center">
-            <Badge variant="secondary" className="mb-6 px-4 py-1.5">
-              <Zap className="h-3.5 w-3.5 mr-1.5" />
-              Trusted by 500+ Organizations
-            </Badge>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground mb-6">
-              Professional Certificates
-              <span className="text-primary block mt-2">Made Simple</span>
-            </h1>
-            <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Create, customize, and distribute beautiful certificates for your events,
-              courses, and achievements. Simple for you, seamless for recipients.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button size="lg" asChild className="min-w-[180px]">
-                <Link href="/signup" className="gap-2">
-                  Get Started Free <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="#how-it-works">See How It Works</Link>
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground mt-4">No credit card required • Free trial with 50 certificates</p>
-          </div>
-        </div>
-      </section>
+      {/* Hero Section - Clean & Minimal */}
+      <section className="pt-16 md:pt-20 pb-16 md:pb-24 px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-[42px] md:text-[64px] font-bold tracking-tight text-neutral-900 dark:text-white leading-[1.1] mb-6">
+            Built to make you<br />
+            <span className="text-neutral-400 dark:text-neutral-600">extraordinarily productive</span>
+          </h1>
 
-      {/* Stats Section */}
-      <section className="py-12 border-y border-border/50 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto text-center">
-            <div>
-              <p className="text-3xl font-bold text-foreground">10K+</p>
-              <p className="text-sm text-muted-foreground">Certificates Generated</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-foreground">500+</p>
-              <p className="text-sm text-muted-foreground">Happy Clients</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-foreground">99.9%</p>
-              <p className="text-sm text-muted-foreground">Uptime</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-foreground">4.9</p>
-              <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> Rating
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-14">
-            <Badge variant="outline" className="mb-4">Features</Badge>
-            <h2 className="text-3xl font-bold text-foreground mb-4">Everything you need</h2>
-            <p className="text-muted-foreground max-w-xl mx-auto">
-              Powerful features designed for modern certificate management
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            <Card className="border-border/50 hover:border-primary/30 transition-colors">
-              <CardContent className="p-6">
-                <div className="h-11 w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Award className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">Custom Templates</h3>
-                <p className="text-sm text-muted-foreground">
-                  Upload your own designs and customize text placement with our visual drag-and-drop editor.
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="border-border/50 hover:border-primary/30 transition-colors">
-              <CardContent className="p-6">
-                <div className="h-11 w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Users className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">Bulk Generation</h3>
-                <p className="text-sm text-muted-foreground">
-                  Import recipient data via CSV or Excel and generate certificates for thousands at once.
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="border-border/50 hover:border-primary/30 transition-colors">
-              <CardContent className="p-6">
-                <div className="h-11 w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Download className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">Easy Download</h3>
-                <p className="text-sm text-muted-foreground">
-                  Recipients can search and download their certificates using email or mobile number.
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="border-border/50 hover:border-primary/30 transition-colors">
-              <CardContent className="p-6">
-                <div className="h-11 w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <FileText className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">Multiple Certificate Types</h3>
-                <p className="text-sm text-muted-foreground">
-                  Create different certificate types for one event - Participation, Winner, Appreciation & more.
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="border-border/50 hover:border-primary/30 transition-colors">
-              <CardContent className="p-6">
-                <div className="h-11 w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <BarChart3 className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">Analytics & Reports</h3>
-                <p className="text-sm text-muted-foreground">
-                  Track download statistics, export reports, and monitor certificate distribution in real-time.
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="border-border/50 hover:border-primary/30 transition-colors">
-              <CardContent className="p-6">
-                <div className="h-11 w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Shield className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">Secure & Reliable</h3>
-                <p className="text-sm text-muted-foreground">
-                  Your data is safe with us. Secure authentication and reliable certificate delivery.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-14">
-            <Badge variant="outline" className="mb-4">Pricing</Badge>
-            <h2 className="text-3xl font-bold text-foreground mb-4">Simple, transparent pricing</h2>
-            <p className="text-muted-foreground max-w-xl mx-auto">
-              Choose the plan that fits your needs. No hidden fees. Annual billing.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto items-stretch">
-            {/* Free Plan */}
-            <Card className="border-border/50 relative flex flex-col">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-2">
-                  <Gift className="h-5 w-5 text-muted-foreground" />
-                  <CardTitle className="text-lg">Free</CardTitle>
-                </div>
-                <CardDescription>Trial / Demo</CardDescription>
-                <div className="mt-4">
-                  <span className="text-4xl font-bold">₹0</span>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-1">
-                <ul className="space-y-2 text-sm flex-1">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Up to 50 certificates</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Certificate design & creation</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>1 certificate template</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Manual participant entry</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Download page link</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>1 time download only</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Email support (limited)</span>
-                  </li>
-                </ul>
-                <Button variant="outline" className="w-full mt-4" asChild>
-                  <Link href="/signup?plan=free">Try Free</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Professional Plan */}
-            <Card className="border-primary relative shadow-lg flex flex-col">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <Badge className="bg-primary">Most Popular</Badge>
-              </div>
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Professional</CardTitle>
-                </div>
-                <CardDescription>Up to 3 events</CardDescription>
-                <div className="mt-4">
-                  <span className="text-4xl font-bold">₹2,999</span>
-                  <span className="text-muted-foreground">/year</span>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-1">
-                <ul className="space-y-2 text-sm flex-1">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Event creation</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Up to 2,000 certificates/year</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Up to 5 certificate types</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Excel import</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Multiple downloads</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Digital signature</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Basic analytics & export</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Online support</span>
-                  </li>
-                </ul>
-                <Button className="w-full mt-4" asChild>
-                  <Link href="/signup?plan=professional">Get Started</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Enterprise Gold Plan */}
-            <Card className="border-amber-500/50 relative flex flex-col">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-amber-500" />
-                  <CardTitle className="text-lg">Enterprise Gold</CardTitle>
-                </div>
-                <CardDescription>Up to 10 events</CardDescription>
-                <div className="mt-4">
-                  <span className="text-4xl font-bold">₹6,999</span>
-                  <span className="text-muted-foreground">/year</span>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-1">
-                <ul className="space-y-2 text-sm flex-1">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Up to 25,000 certificates/year</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Up to 100 certificate types</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Custom branding</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Bulk import</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Priority support</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Advanced analytics</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Event-wise export</span>
-                  </li>
-                </ul>
-                <Button variant="outline" className="w-full mt-4" asChild>
-                  <Link href="/signup?plan=enterprise">Get Started</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Premium Plus Plan */}
-            <Card className="border-violet-500/50 relative bg-gradient-to-b from-background to-muted/30 flex flex-col">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-2">
-                  <Gem className="h-5 w-5 text-violet-500" />
-                  <CardTitle className="text-lg">Premium Plus</CardTitle>
-                </div>
-                <CardDescription>Up to 25 events</CardDescription>
-                <div className="mt-4">
-                  <span className="text-4xl font-bold">₹11,999</span>
-                  <span className="text-muted-foreground">/year</span>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-1">
-                <ul className="space-y-2 text-sm flex-1">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Up to 50,000 certificates/year</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Up to 200 certificate types</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Custom branding</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Dedicated support</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>White-label (logo + footer)</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span>Advanced & summary reports</span>
-                  </li>
-                </ul>
-                <Button variant="outline" className="w-full mt-4" asChild>
-                  <Link href="/signup?plan=premium">Get Started</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* How it Works */}
-      <section id="how-it-works" className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-14">
-            <Badge variant="outline" className="mb-4">How it Works</Badge>
-            <h2 className="text-3xl font-bold text-foreground mb-4">Get started in 3 simple steps</h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            <div className="text-center">
-              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 text-xl font-bold text-primary">
-                1
-              </div>
-              <h3 className="font-semibold text-foreground mb-2">Create Event</h3>
-              <p className="text-sm text-muted-foreground">
-                Set up your event and upload your certificate template design.
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 text-xl font-bold text-primary">
-                2
-              </div>
-              <h3 className="font-semibold text-foreground mb-2">Add Attendees</h3>
-              <p className="text-sm text-muted-foreground">
-                Import your attendee list via Excel or add them manually.
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 text-xl font-bold text-primary">
-                3
-              </div>
-              <h3 className="font-semibold text-foreground mb-2">Share & Download</h3>
-              <p className="text-sm text-muted-foreground">
-                Share the unique download page link via WhatsApp, Email or SMS. Recipients verify with their email/mobile to download PDF.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-primary">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-primary-foreground mb-4">
-            Ready to create professional certificates?
-          </h2>
-          <p className="text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-            Join hundreds of organizations using CertiStage to manage their certificates.
+          <p className="text-lg md:text-xl text-neutral-600 dark:text-neutral-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+            The enterprise standard for digital credentialing. Design, issue, and track certificates at scale.
           </p>
-          <Button size="lg" variant="secondary" asChild>
-            <Link href="/signup" className="gap-2">
-              Start Free Trial <ArrowRight className="h-4 w-4" />
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
+            <Button size="lg" asChild className="h-11 px-6 text-sm font-medium rounded-lg">
+              <Link href="/signup">
+                Try CertiStage <ArrowRight className="h-4 w-4 ml-1.5" />
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" asChild className="h-11 px-6 text-sm font-medium rounded-lg">
+              <Link href="/client/login">
+                View Demo
+              </Link>
+            </Button>
+          </div>
+
+          {/* Dashboard Preview - Simple Border */}
+          <div className="relative mx-auto max-w-5xl mt-12">
+            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden shadow-2xl shadow-neutral-900/10 dark:shadow-black/50">
+              <div className="h-9 border-b border-neutral-200 dark:border-neutral-800 flex items-center px-4 gap-2 bg-neutral-50 dark:bg-neutral-900">
+                <div className="flex gap-1.5">
+                  <div className="h-2.5 w-2.5 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+                </div>
+                <div className="ml-3 h-5 flex-1 max-w-md rounded bg-neutral-100 dark:bg-neutral-800 flex items-center px-2.5 text-[11px] text-neutral-500 dark:text-neutral-500 font-mono">
+                  app.certistage.com/dashboard
+                </div>
+              </div>
+              <div className="relative w-full aspect-[16/9] bg-white dark:bg-neutral-950">
+                <Image
+                  src="/dashboard-preview-v2.png"
+                  alt="CertiStage Dashboard"
+                  fill
+                  className="object-cover object-top"
+                  priority
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats - Minimal */}
+      <section className="py-12 border-y border-neutral-200 dark:border-neutral-800">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {[
+              { label: "Certificates Issued", value: "2M+" },
+              { label: "Organizations", value: "1,500+" },
+              { label: "Delivery Rate", value: "99.9%" },
+              { label: "Support Rating", value: "4.9/5" }
+            ].map((stat, i) => (
+              <div key={i} className="text-center">
+                <p className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-1">{stat.value}</p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-500 uppercase tracking-wide">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features - Clean Boxes */}
+      <section id="features" className="py-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold text-neutral-900 dark:text-white mb-4">
+              Built for scale
+            </h2>
+            <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
+              Everything you need to issue professional certificates to thousands of attendees
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-4">
+            {/* Feature 1 - Large */}
+            <div className="md:col-span-2 p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
+                <LayoutTemplate className="w-5 h-5" />
+              </div>
+              <h3 className="text-xl font-semibold text-neutral-900 dark:text-white mb-3">
+                Visual Template Studio
+              </h3>
+              <p className="text-neutral-600 dark:text-neutral-400 text-[15px] leading-relaxed">
+                Design pixel-perfect certificates with dynamic variables. Upload custom fonts, logos, and signatures. Map CSV columns automatically.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+                Recipient Portal
+              </h3>
+              <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
+                Self-service portal for attendees. Search by email, mobile, or registration number.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
+                <Users className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+                Bulk Operations
+              </h3>
+              <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
+                Upload 10,000+ recipients via Excel. Automatic column mapping and validation.
+              </p>
+            </div>
+
+            {/* Feature 4 */}
+            <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
+                <BarChart3 className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+                Real-time Analytics
+              </h3>
+              <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
+                Track downloads, engagement, and completion rates with live dashboards.
+              </p>
+            </div>
+
+            {/* Feature 5 */}
+            <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
+                <Shield className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+                Enterprise Security
+              </h3>
+              <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
+                Audit logs, role-based access, and secure authentication for authenticity.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How it Works - Simple Steps */}
+      <section className="py-24 px-6 bg-neutral-50 dark:bg-neutral-950">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
+              How it works
+            </h2>
+            <p className="text-lg text-neutral-600 dark:text-neutral-400">
+              From setup to delivery in three simple steps
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              { step: "01", title: "Configure Event", icon: PenTool, desc: "Create your workspace and set up branding" },
+              { step: "02", title: "Design & Map", icon: LayoutTemplate, desc: "Build templates and map CSV columns" },
+              { step: "03", title: "Launch", icon: Check, desc: "Generate and distribute certificates instantly" }
+            ].map((item, i) => (
+              <div key={i} className="text-center">
+                <div className="inline-flex w-12 h-12 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
+                  <item.icon className="w-5 h-5" />
+                </div>
+                <div className="text-xs font-mono text-neutral-400 dark:text-neutral-600 mb-2">{item.step}</div>
+                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">{item.title}</h3>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing - Clean Cards */}
+      <section id="pricing" className="py-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
+              Simple, transparent pricing
+            </h2>
+            <p className="text-lg text-neutral-600 dark:text-neutral-400">
+              Choose the plan that fits your needs
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-4">
+            {[
+              {
+                name: "Free",
+                price: "₹0",
+                period: "/year",
+                features: ["50 certificates", "1 template", "Email support"],
+                icon: Gift,
+                cta: "Start Free",
+                href: "/signup?plan=free"
+              },
+              {
+                name: "Professional",
+                price: "₹2,999",
+                period: "/year",
+                features: ["2,000 certificates/year", "5 certificate types", "Excel import", "Priority email support"],
+                icon: Briefcase,
+                cta: "Get Started",
+                href: "/signup?plan=professional",
+                popular: true
+              },
+              {
+                name: "Enterprise",
+                price: "₹6,999",
+                period: "/year",
+                features: ["25,000 certificates/year", "100 certificate types", "Bulk import & processing", "Advanced report filtering"],
+                icon: Crown,
+                cta: "Get Started",
+                href: "/signup?plan=enterprise"
+              },
+              {
+                name: "Premium",
+                price: "₹11,999",
+                period: "/year",
+                features: ["50,000 certificates/year", "Unlimited certificate types", "Full white-label branding", "API & Webhook access"],
+                icon: Gem,
+                cta: "Contact Sales",
+                href: "/contact"
+              }
+            ].map((plan, i) => (
+              <div
+                key={i}
+                className={`p-6 rounded-xl border ${plan.popular
+                  ? "border-neutral-900 dark:border-white shadow-lg"
+                  : "border-neutral-200 dark:border-neutral-800"
+                  } bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors relative`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-[10px] font-semibold rounded-full uppercase tracking-wide">
+                    Popular
+                  </div>
+                )}
+
+                <div className="mb-6">
+                  <plan.icon className="w-8 h-8 text-neutral-700 dark:text-neutral-300 mb-4" />
+                  <h3 className="font-semibold text-lg text-neutral-900 dark:text-white mb-1">{plan.name}</h3>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-bold text-neutral-900 dark:text-white">{plan.price}</span>
+                    <span className="text-sm text-neutral-500 dark:text-neutral-500">{plan.period}</span>
+                  </div>
+                </div>
+
+                <ul className="space-y-2.5 mb-6">
+                  {plan.features.map((feature, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                      <Check className="w-4 h-4 text-neutral-900 dark:text-white shrink-0 mt-0.5" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Button
+                  variant={plan.popular ? "default" : "outline"}
+                  className="w-full text-sm h-9"
+                  asChild
+                >
+                  <Link href={plan.href}>{plan.cta}</Link>
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA - Minimal */}
+      <section className="py-24 px-6 border-y border-neutral-200 dark:border-neutral-800">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
+            Ready to get started?
+          </h2>
+          <p className="text-lg text-neutral-600 dark:text-neutral-400 mb-8">
+            Join 1,500+ organizations using CertiStage
+          </p>
+          <Button size="lg" asChild className="h-11 px-6 text-sm">
+            <Link href="/signup">
+              Start for free
             </Link>
           </Button>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border/50 py-16 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
-            {/* Brand */}
-            <div className="md:col-span-1">
-              <div className="flex items-center gap-1.5 mb-4">
-                <Image src="/Certistage_icon.svg" alt="CertiStage" width={32} height={32} />
-                <span className="font-semibold text-foreground">CertiStage</span>
+      {/* Footer - Clean */}
+      <footer className="py-16 px-6 bg-neutral-50 dark:bg-neutral-950">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-4">
+                <Image src="/Certistage_icon.svg" alt="CertiStage" width={24} height={24} />
+                <span className="font-semibold text-sm text-neutral-900 dark:text-white">CertiStage</span>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Professional certificate generation platform for events, courses, and achievements.
+              <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                Professional certificate generation for events and courses.
               </p>
             </div>
 
-            {/* Quick Links */}
             <div>
-              <h4 className="font-medium text-foreground mb-4">Quick Links</h4>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
-                <Link href="#features" className="hover:text-foreground transition-colors">Features</Link>
-                <Link href="#pricing" className="hover:text-foreground transition-colors">Pricing</Link>
-                <Link href="#how-it-works" className="hover:text-foreground transition-colors">How it Works</Link>
+              <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Product</h4>
+              <nav className="flex flex-col gap-2">
+                <Link href="#features" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Features</Link>
+                <Link href="#pricing" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Pricing</Link>
               </nav>
             </div>
 
-            {/* Account */}
             <div>
-              <h4 className="font-medium text-foreground mb-4">Account</h4>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
-                <Link href="/client/login" className="hover:text-foreground transition-colors">Login</Link>
-                <Link href="/signup" className="hover:text-foreground transition-colors">Sign Up</Link>
-                <Link href="/contact" className="hover:text-foreground transition-colors">Contact Sales</Link>
+              <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Company</h4>
+              <nav className="flex flex-col gap-2">
+                <Link href="/about" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">About</Link>
+                <Link href="/contact" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Contact</Link>
               </nav>
             </div>
 
-            {/* Legal */}
             <div>
-              <h4 className="font-medium text-foreground mb-4">Legal</h4>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
-                <Link href="/about" className="hover:text-foreground transition-colors">About Us</Link>
-                <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
-                <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
-                <Link href="/refund" className="hover:text-foreground transition-colors">Refund Policy</Link>
+              <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Legal</h4>
+              <nav className="flex flex-col gap-2">
+                <Link href="/privacy" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Privacy</Link>
+                <Link href="/terms" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Terms</Link>
               </nav>
             </div>
           </div>
 
-          <div className="border-t border-border/50 pt-8 text-center text-sm text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} CertiStage. All rights reserved.</p>
+          <div className="pt-8 border-t border-neutral-200 dark:border-neutral-800 text-center">
+            <p className="text-xs text-neutral-500 dark:text-neutral-500">
+              © {new Date().getFullYear()} CertiStage. All rights reserved.
+            </p>
           </div>
         </div>
       </footer>
     </div>
   )
 }
+
+
+
