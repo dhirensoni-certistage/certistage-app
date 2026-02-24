@@ -73,7 +73,7 @@ export default function HomePage() {
               </div>
               <div className="relative w-full aspect-[16/9] bg-white dark:bg-neutral-950">
                 <Image
-                  src="/dashboard-preview-v2.png"
+                  src="/dashboard-preview.png"
                   alt="CertiStage Dashboard"
                   fill
                   className="object-cover object-top"
@@ -378,6 +378,5 @@ export default function HomePage() {
     </div>
   )
 }
-
 
 
