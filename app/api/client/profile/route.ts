@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
             phone: user.phone,
             organization: user.organization,
             plan: user.plan,
+            pendingPlan: user.pendingPlan || null,
             planExpiresAt: user.planExpiresAt,
             isActive: user.isActive,
             createdAt: user.createdAt
@@ -73,6 +74,7 @@ export async function GET(request: NextRequest) {
         phone: user.phone,
         organization: user.organization,
         plan: user.plan,
+        pendingPlan: user.pendingPlan || null,
         planExpiresAt: user.planExpiresAt,
         isActive: user.isActive,
         createdAt: user.createdAt

@@ -3,6 +3,7 @@ import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import EmailVerificationToken from "@/models/EmailVerificationToken"
 import crypto from "crypto"
+import { isDisposableEmail } from "@/lib/disposable-email"
 
 // POST - User signup (Email verification step)
 export async function POST(request: NextRequest) {
@@ -19,6 +20,13 @@ export async function POST(request: NextRequest) {
     
     if (!name || !email || !phone) {
       return NextResponse.json({ error: "Name, email and phone are required" }, { status: 400 })
+    }
+
+    if (isDisposableEmail(email)) {
+      return NextResponse.json(
+        { error: "Disposable email addresses are not allowed. Please use your real email address." },
+        { status: 400 }
+      )
     }
 
     // Validate plan
@@ -52,10 +60,19 @@ export async function POST(request: NextRequest) {
     // Create verification link
     const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`
 
-    // Send verification email asynchronously (don't wait for it)
-    sendVerificationEmailAsync(email, name, verificationLink).catch(err => {
-      console.error('Background email sending failed:', err)
-    })
+    // In serverless, fire-and-forget can get dropped after response.
+    // Send email in-request so delivery and logging are reliable.
+    const emailResult = await sendVerificationEmail(email, name, verificationLink)
+
+    if (!emailResult.success) {
+      return NextResponse.json(
+        {
+          error: "Account created, but verification email could not be sent. Please try again in a minute.",
+          emailSent: false
+        },
+        { status: 502 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
@@ -73,15 +90,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Background email sending function (async - doesn't block signup)
-async function sendVerificationEmailAsync(email: string, name: string, verificationLink: string) {
+async function sendVerificationEmail(email: string, name: string, verificationLink: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { sendEmail, emailTemplates } = await import('@/lib/email')
-    const adminCCEmail = process.env.ADMIN_CC_EMAIL
+    const adminCCEmail = process.env.ADMIN_CC_EMAIL?.trim()
     const verificationTemplate = emailTemplates.emailVerification(name, verificationLink)
-    
-    // Send with timeout
-    const emailPromise = sendEmail({
+
+    const result = await sendEmail({
       to: email,
       subject: verificationTemplate.subject,
       html: verificationTemplate.html,
@@ -92,14 +107,15 @@ async function sendVerificationEmailAsync(email: string, name: string, verificat
         type: "signup_verification"
       }
     })
-    
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Email sending timeout')), 25000)
-    )
-    
-    const result = await Promise.race([emailPromise, timeoutPromise])
-    console.log('Verification email sent to:', email, result)
+
+    if (!result.success) {
+      return { success: false, error: typeof result.error === "string" ? result.error : "Email send failed" }
+    }
+
+    console.log('Verification email sent to:', email)
+    return { success: true }
   } catch (error) {
     console.error('Verification email failed:', error)
+    return { success: false, error: error instanceof Error ? error.message : "Email send failed" }
   }
 }

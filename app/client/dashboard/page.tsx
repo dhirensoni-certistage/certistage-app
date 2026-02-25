@@ -120,6 +120,12 @@ export default function ClientDashboard() {
   const [session, setSession] = useState<ReturnType<typeof getClientSession>>(null)
   const [showUpgradeBanner, setShowUpgradeBanner] = useState(false)
 
+  const normalizePlan = (plan?: string): "free" | "professional" | "enterprise" | "premium" => {
+    const candidate = String(plan || "free").toLowerCase()
+    const validPlans = ["free", "professional", "enterprise", "premium"]
+    return validPlans.includes(candidate) ? (candidate as "free" | "professional" | "enterprise" | "premium") : "free"
+  }
+
   const fetchEventData = async (eventId: string) => {
     try {
       const res = await fetch(`/api/client/dashboard?eventId=${eventId}`)
@@ -140,6 +146,30 @@ export default function ClientDashboard() {
       setIsLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    const syncPlanFromServer = async () => {
+      if (!session?.userId || session.loginType !== "user") return
+      try {
+        const res = await fetch(`/api/client/profile?userId=${encodeURIComponent(session.userId)}`)
+        if (!res.ok) return
+        const data = await res.json()
+        const serverPlan = normalizePlan(data.user?.plan)
+        const updatedSession = {
+          ...session,
+          userPlan: serverPlan,
+          planExpiresAt: data.user?.planExpiresAt,
+          pendingPlan: data.user?.pendingPlan || session.pendingPlan || null
+        }
+        localStorage.setItem("clientSession", JSON.stringify(updatedSession))
+        setSession(updatedSession)
+      } catch (error) {
+        console.error("Failed to sync dashboard plan:", error)
+      }
+    }
+
+    syncPlanFromServer()
+  }, [session?.userId, session?.loginType])
 
   useEffect(() => {
     if (!session || session.loginType !== "user") {
@@ -193,7 +223,7 @@ export default function ClientDashboard() {
     )
   }
 
-  const planId = session?.loginType === "user" ? (session.userPlan || "free") : "enterprise"
+  const planId = session?.loginType === "user" ? normalizePlan(session.userPlan) : "enterprise"
   const planFeatures = PLAN_FEATURES[planId]
   const hasCertificateLimit = planFeatures.maxCertificates > 0
   const certLimit = planFeatures.maxCertificates

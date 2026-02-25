@@ -3,6 +3,7 @@ import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import Event from "@/models/Event"
 import bcrypt from "bcryptjs"
+import { isDisposableEmail } from "@/lib/disposable-email"
 
 // POST - User login
 export async function POST(request: NextRequest) {
@@ -13,6 +14,13 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 })
+    }
+
+    if (isDisposableEmail(email)) {
+      return NextResponse.json(
+        { error: "Disposable email addresses are not supported. Please use your registered real email address." },
+        { status: 400 }
+      )
     }
 
     // Find user

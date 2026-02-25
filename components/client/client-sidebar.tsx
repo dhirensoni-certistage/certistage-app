@@ -38,6 +38,12 @@ export function ClientSidebar() {
   const [hasEventSelected, setHasEventSelected] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
 
+  const normalizePlan = (plan?: string): PlanType => {
+    const candidate = String(plan || "free").toLowerCase()
+    const validPlans: PlanType[] = ["free", "professional", "enterprise", "premium"]
+    return validPlans.includes(candidate as PlanType) ? (candidate as PlanType) : "free"
+  }
+
   useEffect(() => {
     setMounted(true)
     const session = getClientSession()
@@ -48,9 +54,7 @@ export function ClientSidebar() {
         setHasEventSelected(true)
       } else {
         setUserName(session.userName || "")
-        const validPlans: PlanType[] = ["free", "professional", "enterprise", "premium"]
-        const sessionPlan = session.userPlan || "free"
-        setUserPlan(validPlans.includes(sessionPlan) ? sessionPlan : "free")
+        setUserPlan(normalizePlan(session.userPlan))
         setIsUserLogin(true)
 
         if (session.eventId) {
@@ -70,6 +74,32 @@ export function ClientSidebar() {
       }
     }
   }, [pathname])
+
+  useEffect(() => {
+    const syncPlanFromServer = async () => {
+      const session = getClientSession()
+      if (!session?.userId || session.loginType !== "user") return
+      try {
+        const res = await fetch(`/api/client/profile?userId=${encodeURIComponent(session.userId)}`)
+        if (!res.ok) return
+        const data = await res.json()
+        const serverPlan = normalizePlan(data.user?.plan)
+        setUserPlan(serverPlan)
+
+        const updatedSession = {
+          ...session,
+          userPlan: serverPlan,
+          planExpiresAt: data.user?.planExpiresAt,
+          pendingPlan: data.user?.pendingPlan || session.pendingPlan || null
+        }
+        localStorage.setItem("clientSession", JSON.stringify(updatedSession))
+      } catch (error) {
+        console.error("Failed to sync sidebar plan:", error)
+      }
+    }
+
+    syncPlanFromServer()
+  }, [])
 
 
 

@@ -50,6 +50,32 @@ export default function EventsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [usage, setUsage] = useState<{ events: number; maxEvents: number } | null>(null)
 
+  const normalizePlan = (plan?: string): PlanType => {
+    const candidate = String(plan || "free").toLowerCase()
+    const validPlans: PlanType[] = ["free", "professional", "enterprise", "premium"]
+    return validPlans.includes(candidate as PlanType) ? (candidate as PlanType) : "free"
+  }
+
+  const syncPlanFromServer = async (uid: string) => {
+    try {
+      const res = await fetch(`/api/client/profile?userId=${encodeURIComponent(uid)}`)
+      if (!res.ok) return
+      const data = await res.json()
+      const serverPlan = normalizePlan(data.user?.plan)
+      setUserPlan(serverPlan)
+
+      const sessionStr = localStorage.getItem("clientSession")
+      if (sessionStr) {
+        const session = JSON.parse(sessionStr)
+        session.userPlan = serverPlan
+        session.planExpiresAt = data.user?.planExpiresAt
+        localStorage.setItem("clientSession", JSON.stringify(session))
+      }
+    } catch (error) {
+      console.error("Failed to sync plan:", error)
+    }
+  }
+
   useEffect(() => {
     const sessionStr = localStorage.getItem("clientSession")
     if (!sessionStr) {
@@ -64,9 +90,10 @@ export default function EventsPage() {
     }
 
     setUserId(session.userId)
-    setUserPlan(session.userPlan || "free")
+    setUserPlan(normalizePlan(session.userPlan))
     setActiveEventId(session.eventId || null)
     loadEvents(session.userId)
+    syncPlanFromServer(session.userId)
 
     if (searchParams.get("create") === "true") {
       setCreateDialogOpen(true)

@@ -106,6 +106,12 @@ export interface UserAccount {
 const CLIENT_SESSION_KEY = "clientSession"
 const USERS_KEY = "certistage_users"
 
+function normalizePlanId(plan: unknown): PlanType {
+  const candidate = String(plan || "free").toLowerCase()
+  const validPlans: PlanType[] = ["free", "professional", "enterprise", "premium"]
+  return validPlans.includes(candidate as PlanType) ? (candidate as PlanType) : "free"
+}
+
 // ============ PLAN FUNCTIONS ============
 
 // Get plan features for a user
@@ -422,7 +428,34 @@ export function createClientSession(data: {
 export function getClientSession(): ClientSession | null {
   if (typeof window === "undefined") return null
   const sessionStr = localStorage.getItem(CLIENT_SESSION_KEY)
-  return sessionStr ? JSON.parse(sessionStr) : null
+  if (!sessionStr) return null
+
+  try {
+    const parsed = JSON.parse(sessionStr) as ClientSession
+    if (parsed.loginType === "user") {
+      const normalizedUserPlan = normalizePlanId(parsed.userPlan)
+      const pendingCandidate = parsed.pendingPlan ? normalizePlanId(parsed.pendingPlan) : null
+      const normalizedPendingPlan =
+        pendingCandidate && ["professional", "enterprise", "premium"].includes(pendingCandidate)
+          ? (pendingCandidate as PlanType)
+          : null
+
+      // Keep localStorage consistent so every page reads same plan values
+      if (parsed.userPlan !== normalizedUserPlan || parsed.pendingPlan !== normalizedPendingPlan) {
+        const normalizedSession: ClientSession = {
+          ...parsed,
+          userPlan: normalizedUserPlan,
+          pendingPlan: normalizedPendingPlan
+        }
+        localStorage.setItem(CLIENT_SESSION_KEY, JSON.stringify(normalizedSession))
+        return normalizedSession
+      }
+    }
+    return parsed
+  } catch {
+    localStorage.removeItem(CLIENT_SESSION_KEY)
+    return null
+  }
 }
 
 // Clear client session

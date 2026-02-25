@@ -36,6 +36,12 @@ export default function ClientLayout({
   const [userName, setUserName] = useState("")
   const [userPlan, setUserPlan] = useState<string>("free")
 
+  const normalizePlan = (plan?: string): "free" | "professional" | "enterprise" | "premium" => {
+    const candidate = String(plan || "free").toLowerCase()
+    const validPlans = ["free", "professional", "enterprise", "premium"]
+    return validPlans.includes(candidate) ? (candidate as "free" | "professional" | "enterprise" | "premium") : "free"
+  }
+
   // Set page title
   useEffect(() => {
     const baseTitle = pageTitles[pathname] || "CertiStage"
@@ -44,22 +50,21 @@ export default function ClientLayout({
 
   // Sync session with server to get latest plan
   const syncSessionWithServer = async (session: ReturnType<typeof getClientSession>) => {
-    if (!session || session.loginType !== "user") return
+    if (!session || session.loginType !== "user" || !session.userId) return
 
     try {
-      const res = await fetch("/api/client/profile")
+      const res = await fetch(`/api/client/profile?userId=${encodeURIComponent(session.userId)}`)
       if (res.ok) {
         const data = await res.json()
-        // Update session if plan changed
-        if (data.user?.plan && data.user.plan !== session.userPlan) {
-          const updatedSession = {
-            ...session,
-            userPlan: data.user.plan,
-            planExpiresAt: data.user.planExpiresAt
-          }
-          localStorage.setItem("clientSession", JSON.stringify(updatedSession))
-          setUserPlan(data.user.plan)
+        const serverPlan = normalizePlan(data.user?.plan)
+        const updatedSession = {
+          ...session,
+          userPlan: serverPlan,
+          planExpiresAt: data.user?.planExpiresAt,
+          pendingPlan: data.user?.pendingPlan || session.pendingPlan || null
         }
+        localStorage.setItem("clientSession", JSON.stringify(updatedSession))
+        setUserPlan(serverPlan)
       }
     } catch (error) {
       console.error("Failed to sync session:", error)
@@ -78,30 +83,30 @@ export default function ClientLayout({
       return
     }
 
-    const session = getClientSession()
+    const initialize = async () => {
+      const session = getClientSession()
 
-    if (!session) {
-      // Not logged in - redirect to login
-      router.replace("/client/login")
-      return // Don't set isLoading to false, keep showing loader until redirect
-    } else {
+      if (!session) {
+        // Not logged in - redirect to login
+        router.replace("/client/login")
+        return
+      }
+
       setIsAuthenticated(true)
       setUserName(session.userName || "")
-      setUserPlan(session.userPlan || "free")
+      setUserPlan(normalizePlan(session.userPlan))
+
       // Check if user has selected an event
       const eventSelected = !!(session.eventId && session.loginType === "user")
       setHasEventSelected(eventSelected)
+
+      // Always sync plan from DB before rendering child pages
+      await syncSessionWithServer(session)
       setIsLoading(false)
     }
-  }, [pathname, router])
 
-  // Sync session with server only once on mount
-  useEffect(() => {
-    const session = getClientSession()
-    if (session?.loginType === "user" && session.userId && !isStandalonePage) {
-      syncSessionWithServer(session)
-    }
-  }, [])
+    initialize()
+  }, [pathname, router])
 
   const handleLogout = () => {
     clearClientSession()
