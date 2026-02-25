@@ -94,7 +94,7 @@ async function sendVerificationEmailAsync(email: string, name: string, verificat
     })
     
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Email sending timeout')), 10000)
+      setTimeout(() => reject(new Error('Email sending timeout')), 25000)
     )
     
     const result = await Promise.race([emailPromise, timeoutPromise])

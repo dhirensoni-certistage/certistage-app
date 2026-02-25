@@ -7,31 +7,28 @@ const EMAIL_BRAND = {
   textMuted: '#6b7280'
 } as const
 
-// Create SMTP transporter with better settings for serverless
-function createTransporter() {
-  const port = parseInt(process.env.SMTP_PORT || '587')
+// Create SMTP transporter with resilient settings for serverless
+function createTransporter(port: number) {
   const isPort465 = port === 465
-  
+
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-    port: port,
+    port,
     secure: isPort465, // true for 465 (SSL), false for 587 (STARTTLS)
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS
     },
-    // Optimized settings for faster email sending
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000,
-    socketTimeout: 12000,
-    pool: false, // Don't use connection pooling in serverless
+    // More tolerant timeouts to reduce transient provider timeout failures
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 30000,
+    pool: false,
     maxConnections: 1,
-    // TLS settings for port 587 (STARTTLS)
-    requireTLS: !isPort465, // Force TLS upgrade for port 587
+    requireTLS: !isPort465, // Force STARTTLS upgrade on 587
     tls: {
       rejectUnauthorized: false,
-      minVersion: 'TLSv1.2',
-      ciphers: 'SSLv3'
+      minVersion: 'TLSv1.2'
     }
   } as nodemailer.TransportOptions)
 }
@@ -125,58 +122,62 @@ export async function sendEmail({ to, subject, html, template = "custom", cc, me
     return { success: false, error: 'SMTP not configured' }
   }
 
-  try {
-    const transporter = createTransporter()
-    const port = process.env.SMTP_PORT || '587'
-    
-    console.log(`Attempting to send email via SMTP port ${port}...`)
-    
-    const mailOptions: any = {
-      from: process.env.FROM_EMAIL || `CertiStage <${process.env.SMTP_USER}>`,
-      to,
-      subject,
-      html
-    }
-    
-    // Add CC if provided
-    if (cc) {
-      mailOptions.cc = cc
-    }
-    
-    const info = await transporter.sendMail(mailOptions)
-    
-    console.log('Email sent successfully:', info.messageId, `(port ${port})`)
-    
-    // Log successful email
-    await logEmail({
-      to,
-      subject,
-      template,
-      htmlContent: html,
-      status: "sent",
-      metadata
-    })
-    
-    // Close connection
-    transporter.close()
-    
-    return { success: true, data: info }
-  } catch (error: any) {
-    console.error('Email sending failed:', error.message || error)
-    
-    // Log failed email with detailed error
-    await logEmail({
-      to,
-      subject,
-      template,
-      htmlContent: html,
-      status: "failed",
-      errorMessage: error.message || 'Email sending failed',
-      metadata
-    })
-    
-    return { success: false, error: error.message || 'Email sending failed' }
+  const configuredPort = parseInt(process.env.SMTP_PORT || '587')
+  const fallbackPort = configuredPort === 465 ? 587 : 465
+  const portsToTry = Array.from(new Set([configuredPort, fallbackPort]))
+
+  const mailOptions: any = {
+    from: process.env.FROM_EMAIL || `CertiStage <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html
   }
+
+  if (cc) {
+    mailOptions.cc = cc
+  }
+
+  let lastError: any = null
+
+  for (const port of portsToTry) {
+    const transporter = createTransporter(port)
+    try {
+      console.log(`Attempting to send email via SMTP port ${port}...`)
+      const info = await transporter.sendMail(mailOptions)
+      console.log('Email sent successfully:', info.messageId, `(port ${port})`)
+
+      await logEmail({
+        to,
+        subject,
+        template,
+        htmlContent: html,
+        status: "sent",
+        metadata: {
+          ...metadata,
+          smtpPort: port
+        }
+      })
+
+      transporter.close()
+      return { success: true, data: info }
+    } catch (error: any) {
+      lastError = error
+      console.error(`SMTP send failed on port ${port}:`, error.message || error)
+      transporter.close()
+    }
+  }
+
+  await logEmail({
+    to,
+    subject,
+    template,
+    htmlContent: html,
+    status: "failed",
+    errorMessage: lastError?.message || 'Email sending failed',
+    metadata
+  })
+
+  return { success: false, error: lastError?.message || 'Email sending failed' }
 }
 
 // Email header helper function
@@ -248,10 +249,11 @@ export const emailTemplates = {
               <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${EMAIL_BRAND.accent};">
                 <h3 style="color: #171717; margin-top: 0; font-size: 18px;">Get Started:</h3>
                 <ul style="padding-left: 20px; margin: 10px 0;">
-                  <li style="margin: 8px 0;">Create your first event</li>
-                  <li style="margin: 8px 0;">Design certificate templates</li>
-                  <li style="margin: 8px 0;">Add recipients and generate certificates</li>
-                  <li style="margin: 8px 0;">Share and download certificates</li>
+                  <li style="margin: 8px 0;">Create and manage events</li>
+                  <li style="margin: 8px 0;">Upload digital certificate templates</li>
+                  <li style="margin: 8px 0;">Upload or add recipient data</li>
+                  <li style="margin: 8px 0;">Generate certificate links</li>
+                  <li style="margin: 8px 0;">Share individual or public link and download certificates instantly</li>
                 </ul>
               </div>
               <div style="text-align: center; margin: 30px 0;">
@@ -295,9 +297,10 @@ export const emailTemplates = {
                 <p style="margin: 10px 0; font-size: 14px;">Once verified, you'll be able to:</p>
                 <ul style="padding-left: 20px; margin: 10px 0;">
                   <li style="margin: 8px 0;">Create and manage events</li>
-                  <li style="margin: 8px 0;">Design custom certificate templates</li>
-                  <li style="margin: 8px 0;">Generate certificates for recipients</li>
-                  <li style="margin: 8px 0;">Share and download certificates instantly</li>
+                  <li style="margin: 8px 0;">Upload digital certificate templates</li>
+                  <li style="margin: 8px 0;">Upload or add recipient data</li>
+                  <li style="margin: 8px 0;">Generate certificate links</li>
+                  <li style="margin: 8px 0;">Share individual or public link and download certificates instantly</li>
                 </ul>
               </div>
               <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">Need help? Contact us at <a href="mailto:support@certistage.com" style="color: ${EMAIL_BRAND.accent}; text-decoration: none;">support@certistage.com</a></p>
