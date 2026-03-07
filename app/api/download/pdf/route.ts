@@ -50,13 +50,24 @@ export async function GET(request: NextRequest) {
     const templateBufferNode = Buffer.from(templateBuffer)
     const templateBase64 = templateBufferNode.toString('base64')
     const templateMimeType = templateResponse.headers.get('content-type') || 'image/jpeg'
-    const sharp = (await import('sharp')).default
-    const templateMeta = await sharp(templateBufferNode).metadata()
-    const templateWidth = templateMeta.width || 1200
-    const templateHeight = templateMeta.height || 900
 
     // Generate PDF using jsPDF (server-side compatible)
     const { jsPDF } = await import('jspdf')
+    const templateDataUrl = `data:${templateMimeType};base64,${templateBase64}`
+
+    // Resolve template dimensions without external native dependencies.
+    let templateWidth = 1200
+    let templateHeight = 900
+    try {
+      const probePdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [297, 210] })
+      const imageProps = probePdf.getImageProperties(templateDataUrl)
+      if (imageProps?.width && imageProps?.height) {
+        templateWidth = imageProps.width
+        templateHeight = imageProps.height
+      }
+    } catch (dimensionError) {
+      console.warn('Template dimension detection failed, using fallback ratio:', dimensionError)
+    }
 
     // Preserve existing landscape behavior; auto-fit portrait templates.
     const isLandscapeTemplate = templateWidth >= templateHeight
@@ -73,7 +84,7 @@ export async function GET(request: NextRequest) {
     // Add template image
     const imgFormat = templateMimeType.includes('png') ? 'PNG' : 'JPEG'
     pdf.addImage(
-      `data:${templateMimeType};base64,${templateBase64}`,
+      templateDataUrl,
       imgFormat,
       0,
       0,
@@ -181,9 +192,16 @@ export async function GET(request: NextRequest) {
             const sigWidthMm = (signature.width / 100) * pdfWidth
 
             // Get actual image dimensions to maintain correct aspect ratio
-            const imageBuffer = Buffer.from(sigBuffer)
-            const metadata = await sharp(imageBuffer).metadata()
-            const aspectRatio = metadata.width && metadata.height ? metadata.height / metadata.width : 0.3
+            let aspectRatio = 0.3
+            try {
+              const sigDataUrl = `data:${sigMimeType};base64,${sigBase64}`
+              const sigProps = pdf.getImageProperties(sigDataUrl)
+              if (sigProps?.width && sigProps?.height) {
+                aspectRatio = sigProps.height / sigProps.width
+              }
+            } catch (signatureDimensionError) {
+              console.warn('Signature dimension detection failed, using fallback ratio:', signatureDimensionError)
+            }
             const sigHeight = sigWidthMm * aspectRatio
 
             // Center the signature at the given position
