@@ -114,38 +114,38 @@ export default function EventDownloadPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log("ðŸ” [Event Download] Fetching data for eventId:", eventId)
+        console.log("[INFO] [Event Download] Fetching data for eventId:", eventId)
         const res = await fetch(`/api/download?eventId=${eventId}`)
         if (!res.ok) {
           const data = await res.json()
-          console.error("âŒ [Event Download] API Error:", data.error)
+          console.error("[ERROR] [Event Download] API Error:", data.error)
           setError(data.error || "Event not found")
           setLoading(false)
           return
         }
 
         const data = await res.json()
-        console.log("ðŸ“¦ [Event Download] Event data:", data.event)
+        console.log("[INFO] [Event Download] Event data:", data.event)
         setEvent(data.event)
 
         // Fetch all certificate types with their searchFields
         const typesRes = await fetch(`/api/download/all-types?eventId=${eventId}`)
         if (typesRes.ok) {
           const typesData = await typesRes.json()
-          console.log("ðŸ“¦ [Event Download] Certificate types:", typesData.certificateTypes?.length)
+          console.log("[INFO] [Event Download] Certificate types:", typesData.certificateTypes?.length)
           setCertTypes(typesData.certificateTypes || [])
 
           // If only one type, auto-select it
           if (typesData.certificateTypes?.length === 1) {
             const type = typesData.certificateTypes[0]
-            console.log("âœ… [Event Download] Auto-selecting single certificate type:", type.name)
+            console.log("[OK] [Event Download] Auto-selecting single certificate type:", type.name)
             setSelectedType(type)
             setDefaultSearchField(type.searchFields)
             setStep("search")
           }
         }
       } catch (err) {
-        console.error("âŒ [Event Download] Fetch error:", err)
+        console.error("[ERROR] [Event Download] Fetch error:", err)
         setError("Failed to load event data")
       } finally {
         setLoading(false)
@@ -656,16 +656,19 @@ export default function EventDownloadPage() {
                       <p className="text-sm text-muted-foreground">Certificate template not available</p>
                     </div>
                   ) : (
-                    <div className="relative rounded-lg overflow-hidden border select-none bg-white w-full">
+                    <div className="w-full flex justify-center">
+                      <div
+                        className="relative inline-block max-w-full rounded-lg overflow-hidden border select-none bg-white"
+                      >
                       <img
                         src={selectedType.templateImage}
                         alt="Certificate"
-                        className="w-full h-auto pointer-events-none block"
+                        className="block w-auto max-w-full h-auto pointer-events-none"
                         draggable={false}
-                        style={{ maxHeight: "70vh", maxWidth: "100%" }}
-                        onLoad={() => console.log("âœ… [Event Download] Certificate image loaded")}
+                        style={{ maxHeight: "70vh" }}
+                        onLoad={() => console.log("[OK] [Event Download] Certificate image loaded")}
                         onError={() => {
-                          console.error("âŒ [Event Download] Failed to load image:", selectedType.templateImage)
+                          console.error("[ERROR] [Event Download] Failed to load image:", selectedType.templateImage)
                           toast.error("Failed to load certificate image")
                         }}
                       />
@@ -683,7 +686,7 @@ export default function EventDownloadPage() {
                         <span
                           className="whitespace-nowrap leading-none select-none"
                           style={{
-                            fontSize: `clamp(8px, ${(selectedType.fontSize || 24) * 0.04}vw, ${(selectedType.fontSize || 24) * 0.7}px)`,
+                            fontSize: `clamp(8px, ${(selectedType.fontSize || 24) * 0.04}cqw, ${(selectedType.fontSize || 24) * 0.7}px)`,
                             fontFamily: `"${selectedType.fontFamily || 'Arial'}", sans-serif`,
                             fontWeight: selectedType.fontBold ? 'bold' : 'normal',
                             fontStyle: selectedType.fontItalic ? 'italic' : 'normal',
@@ -719,7 +722,7 @@ export default function EventDownloadPage() {
                           <span
                             className="whitespace-nowrap leading-none select-none"
                             style={{
-                              fontSize: `clamp(6px, ${(field.fontSize || 24) * 0.04}vw, ${(field.fontSize || 24) * 0.7}px)`,
+                              fontSize: `clamp(6px, ${(field.fontSize || 24) * 0.04}cqw, ${(field.fontSize || 24) * 0.7}px)`,
                               fontFamily: `"${field.fontFamily || 'Arial'}", sans-serif`,
                               fontWeight: field.fontBold ? 'bold' : 'normal',
                               fontStyle: field.fontItalic ? 'italic' : 'normal',
@@ -743,7 +746,7 @@ export default function EventDownloadPage() {
                             left: `${sigPos.x}%`,
                             top: `${sigPos.y}%`,
                             transform: "translate(-50%, -50%)",
-                            width: `calc(${sig.width || 20}vw * 0.4)`
+                            width: `${sig.width || 20}%`
                           }}
                         >
                           <img
@@ -762,6 +765,7 @@ export default function EventDownloadPage() {
                         </span>
                       </div>
                     )}
+                      </div>
                     </div>
                   )}
 

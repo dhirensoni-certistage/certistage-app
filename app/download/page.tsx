@@ -111,12 +111,12 @@ export default function DownloadPage() {
 
     const fetchData = async () => {
       try {
-        console.log("ðŸ” Fetching certificate data for:", { eventId, certId })
+        console.log("[INFO] Fetching certificate data for:", { eventId, certId })
         const res = await fetch(`/api/download?event=${eventId}&cert=${certId}`)
         const data = await res.json()
         
-        console.log("ðŸ“¦ API Response:", data)
-        console.log("ðŸ–¼ï¸ Template Image URL:", data.certificateType?.templateImage)
+        console.log("[INFO] API Response:", data)
+        console.log("[INFO] Template Image URL:", data.certificateType?.templateImage)
         
         if (!res.ok) {
           setError(data.error || "Certificate not found. This link may be invalid or expired.")
@@ -124,14 +124,14 @@ export default function DownloadPage() {
           return
         }
         
-        console.log("âœ… Setting certificate data...")
+        console.log("[OK] Setting certificate data...")
         setRecipient(data.recipient)
         setCertType(data.certificateType)
         setEvent(data.event)
         
         setLoading(false)
       } catch (err) {
-        console.error("âŒ Fetch error:", err)
+        console.error("[ERROR] Fetch error:", err)
         setError("Failed to load certificate. Please try again.")
         setLoading(false)
       }
@@ -156,11 +156,12 @@ export default function DownloadPage() {
       canvas.width = img.width
       canvas.height = img.height
       ctx.drawImage(img, 0, 0)
+      const scaleBase = canvas.width >= canvas.height ? canvas.width : canvas.height
       if (certType.showNameField !== false) {
         const textX = (certType.textPosition.x / 100) * canvas.width
         const textY = (certType.textPosition.y / 100) * canvas.height
-        // Match preview: fontSize / 10 cqw = fontSize / 10 / 100 * container_width
-        const fontSize = Math.max(10, ((certType.fontSize || 24) / 10 / 100) * canvas.width)
+        // Keep landscape output unchanged, but make portrait scale against the longer side.
+        const fontSize = Math.max(10, ((certType.fontSize || 24) / 10 / 100) * scaleBase)
 
         ctx.font = `${certType.fontBold ? "bold" : "normal"} ${certType.fontItalic ? "italic" : "normal"} ${fontSize}px ${certType.fontFamily || "Arial"}, sans-serif`
         ctx.fillStyle = "#000000"
@@ -176,7 +177,7 @@ export default function DownloadPage() {
         certType.customFields.forEach((field: any) => {
           const fieldX = (field.position.x / 100) * canvas.width
           const fieldY = (field.position.y / 100) * canvas.height
-          const fieldFontSize = Math.max(10, ((field.fontSize || 24) / 10 / 100) * canvas.width)
+          const fieldFontSize = Math.max(10, ((field.fontSize || 24) / 10 / 100) * scaleBase)
 
           ctx.font = `${field.fontBold ? "bold" : "normal"} ${field.fontItalic ? "italic" : "normal"} ${fieldFontSize}px ${field.fontFamily || "Arial"}, sans-serif`
           ctx.fillStyle = "#000000"
@@ -194,7 +195,7 @@ export default function DownloadPage() {
         })
       }
 
-      const pdfWidth = 297
+      const pdfWidth = canvas.width >= canvas.height ? 297 : 210
       const pdfHeight = (canvas.height / canvas.width) * pdfWidth
       const pdf = new jsPDF({
         orientation: pdfWidth > pdfHeight ? "landscape" : "portrait",
@@ -261,19 +262,19 @@ export default function DownloadPage() {
 
           <div className="bg-white dark:bg-neutral-950 rounded-xl border border-neutral-200 dark:border-neutral-800 p-2 md:p-3 shadow-sm mb-10 mx-auto w-full max-w-4xl">
             {certType?.templateImage ? (
-              <div className="relative w-full">
+              <div className="w-full flex justify-center">
+                <div className="relative inline-block max-w-full">
                 <img
                   src={certType.templateImage}
                   alt="Certificate"
-                  className="w-full h-auto block mx-auto rounded-lg"
+                  className="block w-auto max-w-full h-auto mx-auto rounded-lg"
                   draggable={false}
                   style={{
                     maxHeight: 'calc(100vh - 320px)',
-                    objectFit: 'contain'
                   }}
-                  onLoad={() => console.log("âœ… Certificate image loaded successfully")}
+                  onLoad={() => console.log("[OK] Certificate image loaded successfully")}
                   onError={() => {
-                    console.error("âŒ Certificate image failed to load:", certType.templateImage)
+                    console.error("[ERROR] Certificate image failed to load:", certType.templateImage)
                     toast.error("Failed to load certificate image")
                   }}
                 />
@@ -287,10 +288,10 @@ export default function DownloadPage() {
                       transform: "translate(-50%, -50%)",
                     }}
                   >
-                    <span
-                      className="whitespace-nowrap leading-none select-none"
-                      style={{
-                        fontSize: `clamp(8px, ${(certType.fontSize || 24) * 0.04}vw, ${(certType.fontSize || 24) * 0.7}px)`,
+                      <span
+                        className="whitespace-nowrap leading-none select-none"
+                        style={{
+                        fontSize: `clamp(8px, ${(certType.fontSize || 24) * 0.04}cqw, ${(certType.fontSize || 24) * 0.7}px)`,
                         fontFamily: `"${certType.fontFamily || 'Arial'}", sans-serif`,
                         fontWeight: certType.fontBold ? 'bold' : 'normal',
                         fontStyle: certType.fontItalic ? 'italic' : 'normal',
@@ -326,7 +327,7 @@ export default function DownloadPage() {
                       <span
                         className="whitespace-nowrap leading-none select-none"
                         style={{
-                          fontSize: `clamp(6px, ${(field.fontSize || 24) * 0.04}vw, ${(field.fontSize || 24) * 0.7}px)`,
+                          fontSize: `clamp(6px, ${(field.fontSize || 24) * 0.04}cqw, ${(field.fontSize || 24) * 0.7}px)`,
                           fontFamily: `"${field.fontFamily || 'Arial'}", sans-serif`,
                           fontWeight: field.fontBold ? 'bold' : 'normal',
                           fontStyle: field.fontItalic ? 'italic' : 'normal',
@@ -347,6 +348,7 @@ export default function DownloadPage() {
                     </span>
                   </div>
                 )}
+                </div>
               </div>
             ) : (
               <div className="text-center p-8">
@@ -418,8 +420,8 @@ function Footer() {
       <div className="max-w-7xl mx-auto px-6 text-center">
         <div className="flex flex-col md:flex-row items-center justify-center gap-1.5 text-xs text-neutral-400">
           <span>Powered by <Link href="/" className="font-bold text-neutral-900 dark:text-white hover:underline">CertiStage</Link> Digital Credentialing Platform</span>
-          <span className="hidden md:inline">â€¢</span>
-          <span>Â© {new Date().getFullYear()} All rights reserved</span>
+          <span className="hidden md:inline">|</span>
+          <span>(c) {new Date().getFullYear()} All rights reserved</span>
         </div>
       </div>
     </footer>

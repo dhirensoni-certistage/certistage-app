@@ -47,21 +47,25 @@ export async function GET(request: NextRequest) {
     }
 
     const templateBuffer = await templateResponse.arrayBuffer()
-    const templateBase64 = Buffer.from(templateBuffer).toString('base64')
+    const templateBufferNode = Buffer.from(templateBuffer)
+    const templateBase64 = templateBufferNode.toString('base64')
     const templateMimeType = templateResponse.headers.get('content-type') || 'image/jpeg'
+    const sharp = (await import('sharp')).default
+    const templateMeta = await sharp(templateBufferNode).metadata()
+    const templateWidth = templateMeta.width || 1200
+    const templateHeight = templateMeta.height || 900
 
     // Generate PDF using jsPDF (server-side compatible)
     const { jsPDF } = await import('jspdf')
 
-    // Create canvas-like rendering using sharp or just use the image directly
-    // For server-side, we'll create PDF with the template and overlay text
-
-    // Get image dimensions (approximate for PDF sizing)
-    const pdfWidth = 297 // A4 landscape width in mm
-    const pdfHeight = 210 // A4 landscape height in mm
+    // Preserve existing landscape behavior; auto-fit portrait templates.
+    const isLandscapeTemplate = templateWidth >= templateHeight
+    const pdfWidth = isLandscapeTemplate ? 297 : 210
+    const pdfHeight = isLandscapeTemplate ? 210 : (templateHeight / templateWidth) * pdfWidth
+    const orientation = pdfWidth >= pdfHeight ? 'landscape' : 'portrait'
 
     const pdf = new jsPDF({
-      orientation: 'landscape',
+      orientation,
       unit: 'mm',
       format: [pdfWidth, pdfHeight],
     })
@@ -177,7 +181,6 @@ export async function GET(request: NextRequest) {
             const sigWidthMm = (signature.width / 100) * pdfWidth
 
             // Get actual image dimensions to maintain correct aspect ratio
-            const sharp = (await import('sharp')).default
             const imageBuffer = Buffer.from(sigBuffer)
             const metadata = await sharp(imageBuffer).metadata()
             const aspectRatio = metadata.width && metadata.height ? metadata.height / metadata.width : 0.3

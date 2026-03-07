@@ -444,7 +444,7 @@ export default function CertificatesPage() {
     img.onload = async () => {
       const canvas = document.createElement("canvas")
       const maxWidth = 1200
-      const maxHeight = 900
+      const maxHeight = 1200
       let { width, height } = img
       if (width > maxWidth || height > maxHeight) {
         const ratio = Math.min(maxWidth / width, maxHeight / height)
@@ -868,7 +868,7 @@ export default function CertificatesPage() {
               <div className="flex-1">
                 <h3 className="font-semibold text-foreground mb-1">Certificate Type Limit Reached</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  You've created {maxCertificateTypes} certificate type{maxCertificateTypes > 1 ? 's' : ''} â€” the maximum for your {getCurrentPlanFeatures().displayName} plan.
+                  You've created {maxCertificateTypes} certificate type{maxCertificateTypes > 1 ? 's' : ''} - the maximum for your {getCurrentPlanFeatures().displayName} plan.
                   Upgrade to create more certificate types and unlock premium features.
                 </p>
                 <div className="flex items-center gap-3">
@@ -1147,7 +1147,7 @@ function TemplateEditor({
           Choose Image
         </Button>
         <input id="template-input" type="file" accept="image/*" className="hidden" onChange={onFileInput} />
-        <p className="text-xs text-[#999] mt-6">Recommended size: 1920 x 1080px</p>
+        <p className="text-xs text-[#999] mt-6">Recommended size: 1920 x 1080 (landscape) or 1080 x 1920 (portrait)</p>
       </div>
     )
   }

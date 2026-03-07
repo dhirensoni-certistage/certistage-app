@@ -108,7 +108,7 @@ export default function CertTypeLinksPage() {
       ctx.textBaseline = "middle"
       ctx.fillText(recipientName, textX, textY)
 
-      const pdfWidth = 297
+      const pdfWidth = canvas.width >= canvas.height ? 297 : 210
       const pdfHeight = (canvas.height / canvas.width) * pdfWidth
 
       const pdf = new jsPDF({

@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
         folder: `certistage/templates/${userId}`,
         resource_type: 'image',
         transformation: [
-          { width: 1200, height: 900, crop: 'limit' },
+          { width: 1200, height: 1200, crop: 'limit' },
           { quality: 'auto:good' }
         ]
       }, (error, result) => {

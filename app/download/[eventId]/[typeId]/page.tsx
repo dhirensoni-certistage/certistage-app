@@ -123,20 +123,20 @@ export default function CertTypeDownloadPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log("ðŸ” [Type Download] Loading data for eventId:", eventId, "typeId:", typeId)
+        console.log("[INFO] [Type Download] Loading data for eventId:", eventId, "typeId:", typeId)
         const res = await fetch(`/api/download?eventId=${eventId}&typeId=${typeId}`)
         if (!res.ok) {
           const data = await res.json()
-          console.error("âŒ [Type Download] API Error:", data.error)
+          console.error("[ERROR] [Type Download] API Error:", data.error)
           setError(data.error || "Failed to load certificate")
           setLoading(false)
           return
         }
 
         const data = await res.json()
-        console.log("ðŸ“¦ [Type Download] API Response:", data)
-        console.log("ðŸ–¼ï¸ [Type Download] Template Image:", data.certificateType?.templateImage)
-        console.log("ðŸ” [Type Download] Search Fields:", data.certificateType?.searchFields)
+        console.log("[INFO] [Type Download] API Response:", data)
+        console.log("[INFO] [Type Download] Template Image:", data.certificateType?.templateImage)
+        console.log("[INFO] [Type Download] Search Fields:", data.certificateType?.searchFields)
         
         setEvent(data.event)
         setCertType(data.certificateType)
@@ -149,7 +149,7 @@ export default function CertTypeDownloadPage() {
         else if (sf.mobile) setSearchField("mobile")
         else if (sf.regNo) setSearchField("regNo")
       } catch (err) {
-        console.error("âŒ [Type Download] Fetch error:", err)
+        console.error("[ERROR] [Type Download] Fetch error:", err)
         setError("Failed to load certificate data")
       } finally {
         setLoading(false)
@@ -222,7 +222,7 @@ export default function CertTypeDownloadPage() {
       })
 
       const data = await res.json()
-      console.log("ðŸ” [Search Response]:", data)
+      console.log("[INFO] [Search Response]:", data)
 
       if (!data.found || data.recipients.length === 0) {
         toast.error("No certificate found. Please check your details and try again.")
@@ -250,16 +250,16 @@ export default function CertTypeDownloadPage() {
           regNo: data.recipients[0].regNo,
           downloadCount: data.recipients[0].downloadCount || 0
         }
-        console.log("âœ… [Single Match] Setting recipient:", recipient)
-        console.log("ðŸ“‹ [CertType Check] Current certType:", certType)
-        console.log("ðŸ–¼ï¸ [Template Check] Template Image:", certType?.templateImage)
+        console.log("[OK] [Single Match] Setting recipient:", recipient)
+        console.log("[INFO] [CertType Check] Current certType:", certType)
+        console.log("[INFO] [Template Check] Template Image:", certType?.templateImage)
         setSelectedRecipient(recipient)
         setStep("preview")
       } else {
         setStep("select")
       }
     } catch (err) {
-      console.error("âŒ [Search Error]:", err)
+      console.error("[ERROR] [Search Error]:", err)
       toast.error("Search failed. Please try again.")
     } finally {
       setIsSearching(false)
@@ -517,16 +517,19 @@ export default function CertTypeDownloadPage() {
                       <p className="text-xs text-muted-foreground mt-2">Template URL is missing from database</p>
                     </div>
                   ) : (
-                    <div className="relative rounded-lg overflow-hidden border select-none bg-white w-full">
+                    <div className="w-full flex justify-center">
+                      <div
+                        className="relative inline-block max-w-full rounded-lg overflow-hidden border select-none bg-white"
+                      >
                       <img
                         src={certType.templateImage}
                         alt="Certificate"
-                        className="w-full h-auto pointer-events-none block"
+                        className="block w-auto max-w-full h-auto pointer-events-none"
                         draggable={false}
-                        style={{ maxHeight: "70vh", maxWidth: "100%" }}
-                        onLoad={() => console.log("âœ… [Type Download] Certificate image loaded")}
+                        style={{ maxHeight: "70vh" }}
+                        onLoad={() => console.log("[OK] [Type Download] Certificate image loaded")}
                         onError={() => {
-                          console.error("âŒ [Type Download] Failed to load image:", certType.templateImage)
+                          console.error("[ERROR] [Type Download] Failed to load image:", certType.templateImage)
                           toast.error("Failed to load certificate image")
                         }}
                       />
@@ -542,7 +545,7 @@ export default function CertTypeDownloadPage() {
                       <span
                         className="whitespace-nowrap leading-none select-none"
                         style={{
-                          fontSize: `clamp(8px, ${(certType.fontSize || 24) * 0.04}vw, ${(certType.fontSize || 24) * 0.7}px)`,
+                          fontSize: `clamp(8px, ${(certType.fontSize || 24) * 0.04}cqw, ${(certType.fontSize || 24) * 0.7}px)`,
                           fontFamily: `"${certType.fontFamily || 'Arial'}", sans-serif`,
                           fontWeight: certType.fontBold ? 'bold' : 'normal',
                           fontStyle: certType.fontItalic ? 'italic' : 'normal',
@@ -577,7 +580,7 @@ export default function CertTypeDownloadPage() {
                           <span
                             className="whitespace-nowrap leading-none select-none"
                             style={{
-                              fontSize: `clamp(6px, ${(field.fontSize || 24) * 0.04}vw, ${(field.fontSize || 24) * 0.7}px)`,
+                              fontSize: `clamp(6px, ${(field.fontSize || 24) * 0.04}cqw, ${(field.fontSize || 24) * 0.7}px)`,
                               fontFamily: `"${field.fontFamily || 'Arial'}", sans-serif`,
                               fontWeight: field.fontBold ? 'bold' : 'normal',
                               fontStyle: field.fontItalic ? 'italic' : 'normal',
@@ -601,7 +604,7 @@ export default function CertTypeDownloadPage() {
                             left: `${sigPos.x}%`,
                             top: `${sigPos.y}%`,
                             transform: "translate(-50%, -50%)",
-                            width: `calc(${sig.width || 20}vw * 0.4)`
+                            width: `${sig.width || 20}%`
                           }}
                         >
                           <img
@@ -622,7 +625,8 @@ export default function CertTypeDownloadPage() {
                         </span>
                       </div>
                     )}
-                  </div>
+                      </div>
+                    </div>
                   )}
 
                   <div className="mt-4 flex justify-center">
