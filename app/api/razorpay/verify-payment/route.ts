@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
     const planConfig = await getPlanConfigFromDb()
     const planMap = getPlanMap(planConfig)
-    const amount = planMap[plan]?.price ?? PLAN_PRICES_MAP[plan] || 0
+    const amount = planMap[plan]?.price ?? PLAN_PRICES_MAP[plan] ?? 0
     const gatewayFeePercent = 2
     const baseAmount = Math.round(amount / (1 + gatewayFeePercent / 100))
     const gatewayFee = amount - baseAmount
