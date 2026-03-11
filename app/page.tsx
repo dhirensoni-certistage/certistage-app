@@ -1,11 +1,78 @@
-﻿"use client"
+"use client"
 
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { ArrowRight, Shield, Users, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
+
+const planIcons: Record<string, any> = {
+  free: Gift,
+  professional: Briefcase,
+  enterprise: Crown,
+  premium: Gem
+}
+
+const formatPrice = (amountInPaise: number, currency: string) => {
+  const amount = amountInPaise / 100
+  try {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: amount % 1 === 0 ? 0 : 2,
+    }).format(amount)
+  } catch {
+    return `${currency} ${amount.toLocaleString("en-IN")}`
+  }
+}
 
 export default function HomePage() {
+  const [planConfig, setPlanConfig] = useState<PlanConfig[]>(() =>
+    mergePlanConfigWithDefaults([])
+  )
+
+  useEffect(() => {
+    let mounted = true
+
+    const cached = typeof window !== "undefined" ? localStorage.getItem("plan_config") : null
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        if (mounted) {
+          setPlanConfig(mergePlanConfigWithDefaults(parsed))
+        }
+      } catch {
+        // ignore cache errors
+      }
+    }
+
+    const loadPlans = async () => {
+      try {
+        const res = await fetch("/api/plan-config")
+        if (!res.ok) return
+        const data = await res.json()
+        if (mounted) {
+          setPlanConfig(mergePlanConfigWithDefaults(data.plans))
+          localStorage.setItem("plan_config", JSON.stringify(data.plans))
+        }
+      } catch {
+        // ignore network errors
+      }
+    }
+
+    loadPlans()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const visiblePlans = useMemo(
+    () => planConfig.filter((plan) => plan.enabled !== false),
+    [planConfig]
+  )
+
   return (
     <div className="min-h-screen bg-white dark:bg-[#0a0a0a]">
       {/* Simple Header */}
@@ -227,87 +294,70 @@ export default function HomePage() {
               Choose the plan that fits your needs
             </p>
           </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {visiblePlans.map((plan) => {
+              const Icon = planIcons[plan.id] || Sparkles
+              const badge = plan.badge || (plan.highlight ? "Popular" : "")
+              const priceLabel = formatPrice(plan.price, plan.currency || "INR")
+              const showPeriod =
+                plan.price > 0 && plan.billingPeriod && plan.billingPeriod !== "one-time"
+              const periodLabel = showPeriod ? `/${plan.billingPeriod}` : ""
+              const features = (plan.features || []).slice(0, 4)
+              const ctaLabel = plan.price === 0
+                ? "Start Free"
+                : plan.limits?.canUpgrade === false
+                  ? "Contact Sales"
+                  : "Get Started"
+              const ctaHref = plan.price === 0
+                ? "/signup?plan=free"
+                : plan.limits?.canUpgrade === false
+                  ? "/contact"
+                  : `/signup?plan=${plan.id}`
 
-          <div className="grid md:grid-cols-4 gap-4">
-            {[
-              {
-                name: "Free",
-                price: "₹0",
-                period: "/year",
-                features: ["50 certificates", "1 template", "Email support"],
-                icon: Gift,
-                cta: "Start Free",
-                href: "/signup?plan=free"
-              },
-              {
-                name: "Professional",
-                price: "₹2,999",
-                period: "/year",
-                features: ["2,000 certificates/year", "5 certificate types", "Excel import", "Priority email support"],
-                icon: Briefcase,
-                cta: "Get Started",
-                href: "/signup?plan=professional",
-                popular: true
-              },
-              {
-                name: "Enterprise",
-                price: "₹6,999",
-                period: "/year",
-                features: ["25,000 certificates/year", "100 certificate types", "Bulk import & processing", "Advanced report filtering"],
-                icon: Crown,
-                cta: "Get Started",
-                href: "/signup?plan=enterprise"
-              },
-              {
-                name: "Premium",
-                price: "₹11,999",
-                period: "/year",
-                features: ["50,000 certificates/year", "Unlimited certificate types", "Full white-label branding", "API & Webhook access"],
-                icon: Gem,
-                cta: "Contact Sales",
-                href: "/contact"
-              }
-            ].map((plan, i) => (
-              <div
-                key={i}
-                className={`p-6 rounded-xl border ${plan.popular
-                  ? "border-neutral-900 dark:border-white shadow-lg"
-                  : "border-neutral-200 dark:border-neutral-800"
-                  } bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors relative`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-[10px] font-semibold rounded-full uppercase tracking-wide">
-                    Popular
-                  </div>
-                )}
-
-                <div className="mb-6">
-                  <plan.icon className="w-8 h-8 text-neutral-700 dark:text-neutral-300 mb-4" />
-                  <h3 className="font-semibold text-lg text-neutral-900 dark:text-white mb-1">{plan.name}</h3>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-bold text-neutral-900 dark:text-white">{plan.price}</span>
-                    <span className="text-sm text-neutral-500 dark:text-neutral-500">{plan.period}</span>
-                  </div>
-                </div>
-
-                <ul className="space-y-2.5 mb-6">
-                  {plan.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-                      <Check className="w-4 h-4 text-neutral-900 dark:text-white shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Button
-                  variant={plan.popular ? "default" : "outline"}
-                  className="w-full text-sm h-9"
-                  asChild
+              return (
+                <div
+                  key={plan.id}
+                  className={`p-6 rounded-xl border ${plan.highlight
+                    ? "border-neutral-900 dark:border-white shadow-lg"
+                    : "border-neutral-200 dark:border-neutral-800"
+                    } bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors relative`}
                 >
-                  <Link href={plan.href}>{plan.cta}</Link>
-                </Button>
-              </div>
-            ))}
+                  {badge && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-[10px] font-semibold rounded-full uppercase tracking-wide">
+                      {badge}
+                    </div>
+                  )}
+
+                  <div className="mb-6">
+                    <Icon className="w-8 h-8 text-neutral-700 dark:text-neutral-300 mb-4" />
+                    <h3 className="font-semibold text-lg text-neutral-900 dark:text-white mb-1">{plan.name}</h3>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-bold text-neutral-900 dark:text-white">{priceLabel}</span>
+                      {periodLabel && (
+                        <span className="text-sm text-neutral-500 dark:text-neutral-500">{periodLabel}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <ul className="space-y-2.5 mb-6">
+                    {features.map((feature, idx) => (
+                      <li key={`${plan.id}-feature-${idx}`} className="flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                        <Check className="w-4 h-4 text-neutral-900 dark:text-white shrink-0 mt-0.5" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button
+                    variant={plan.highlight ? "default" : "outline"}
+                    className="w-full text-sm h-9"
+                    asChild
+                  >
+                    <Link href={ctaHref}>{ctaLabel}</Link>
+                  </Button>
+                </div>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -370,7 +420,7 @@ export default function HomePage() {
 
           <div className="pt-8 border-t border-neutral-200 dark:border-neutral-800 text-center">
             <p className="text-xs text-neutral-500 dark:text-neutral-500">
-              © {new Date().getFullYear()} CertiStage. All rights reserved.
+              � {new Date().getFullYear()} CertiStage. All rights reserved.
             </p>
           </div>
         </div>
@@ -378,5 +428,9 @@ export default function HomePage() {
     </div>
   )
 }
+
+
+
+
 
 
