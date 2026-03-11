@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
@@ -420,7 +420,7 @@ export default function HomePage() {
 
           <div className="pt-8 border-t border-neutral-200 dark:border-neutral-800 text-center">
             <p className="text-xs text-neutral-500 dark:text-neutral-500">
-              � {new Date().getFullYear()} CertiStage. All rights reserved.
+              © {new Date().getFullYear()} CertiStage. All rights reserved.
             </p>
           </div>
         </div>
@@ -428,6 +428,7 @@ export default function HomePage() {
     </div>
   )
 }
+
 
 
 
