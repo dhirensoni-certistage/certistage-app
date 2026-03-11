@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react"
 import { 
   loadRazorpayScript, 
-  PLAN_DETAILS, 
+  getPlanDisplayDetails,
   type PlanId,
   type RazorpayPaymentResponse
 } from "@/lib/razorpay"
@@ -59,7 +59,7 @@ export function useRazorpay(options: UseRazorpayOptions = {}) {
       }
 
       const { order, razorpayKeyId, proRata } = orderData
-      const planDetails = PLAN_DETAILS[plan]
+      const planDetails = getPlanDisplayDetails(plan)
       
       // Build description with pro-rata info if applicable
       let description = `${planDetails.name} Plan - Annual Subscription`

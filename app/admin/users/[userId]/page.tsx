@@ -59,6 +59,7 @@ interface UserDetails {
 
 const planColors: Record<string, string> = {
   free: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+  test: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
   professional: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   enterprise: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
   premium: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
@@ -194,6 +195,7 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="free">Free</SelectItem>
+                        <SelectItem value="test">Test</SelectItem>
                         <SelectItem value="professional">Professional</SelectItem>
                         <SelectItem value="enterprise">Enterprise</SelectItem>
                         <SelectItem value="premium">Premium</SelectItem>
@@ -346,7 +348,7 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
                         <div>
                           <p className="font-medium">{event.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {event.certificateTypesCount} types â€¢ {event.recipientsCount} recipients
+                            {event.certificateTypesCount} types | {event.recipientsCount} recipients
                           </p>
                         </div>
                       </div>

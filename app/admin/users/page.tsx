@@ -44,6 +44,7 @@ const planFilters: FilterConfig[] = [
     label: "Plan",
     options: [
       { value: "free", label: "Free" },
+      { value: "test", label: "Test" },
       { value: "professional", label: "Professional" },
       { value: "enterprise", label: "Enterprise" },
       { value: "premium", label: "Premium" },
@@ -53,6 +54,7 @@ const planFilters: FilterConfig[] = [
 
 const planColors: Record<string, string> = {
   free: "bg-gray-100 text-gray-800",
+  test: "bg-emerald-100 text-emerald-800",
   professional: "bg-blue-100 text-blue-800",
   enterprise: "bg-purple-100 text-purple-800",
   premium: "bg-amber-100 text-amber-800",
@@ -348,6 +350,7 @@ export default function UsersPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="free">Free</SelectItem>
+                    <SelectItem value="test">Test (₹1)</SelectItem>
                     <SelectItem value="professional">Professional (₹2,999)</SelectItem>
                     <SelectItem value="enterprise">Enterprise (₹6,999)</SelectItem>
                     <SelectItem value="premium">Premium (₹11,999)</SelectItem>

@@ -8,7 +8,7 @@ export interface IPayment extends Document {
   invoiceIssuedAt?: Date
   invoiceBaseAmount?: number
   invoiceGatewayFee?: number
-  plan: "professional" | "enterprise" | "premium"
+  plan: string
   amount: number
   currency: string
   status: "pending" | "success" | "failed" | "refunded"
@@ -30,11 +30,7 @@ const PaymentSchema = new Schema<IPayment>(
     invoiceIssuedAt: { type: Date },
     invoiceBaseAmount: { type: Number },
     invoiceGatewayFee: { type: Number, default: 0 },
-    plan: { 
-      type: String, 
-      enum: ["professional", "enterprise", "premium"],
-      required: true
-    },
+    plan: { type: String, required: true },
     amount: { type: Number, required: true },
     currency: { type: String, default: "INR" },
     status: { 

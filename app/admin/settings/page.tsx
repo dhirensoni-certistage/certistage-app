@@ -195,8 +195,6 @@ export default function AdminSettingsPage() {
     }
   }
 
-  
-
   const handleSave = async () => {
     const gateway = config.activeGateway
     if (gateway === "razorpay") {

@@ -1,6 +1,6 @@
 ﻿// Authentication for Client Portal
 
-export type PlanType = "free" | "professional" | "enterprise" | "premium"
+export type PlanType = string
 
 export interface PlanFeatures {
   canCreateEvent: boolean
@@ -31,6 +31,20 @@ export const PLAN_FEATURES: Record<PlanType, PlanFeatures> = {
     price: "₹0",
     priceYearly: "₹0",
     color: "gray"
+  },
+  "test": {
+    canCreateEvent: true,
+    canImportData: true,
+    canExportReport: true,
+    downloadLimit: -1,
+    maxCertificateTypes: 5,
+    maxCertificates: 2000,
+    maxEvents: 3,
+    canUpgrade: true,
+    displayName: "Test",
+    price: "₹1/year",
+    priceYearly: "₹1",
+    color: "emerald"
   },
   "professional": {
     canCreateEvent: true,
@@ -76,6 +90,70 @@ export const PLAN_FEATURES: Record<PlanType, PlanFeatures> = {
   }
 }
 
+interface StoredPlanConfig {
+  id: string
+  enabled?: boolean
+  name?: string
+  price?: number
+  limits?: {
+    maxEvents?: number
+    maxCertificateTypes?: number
+    maxCertificates?: number
+    canCreateEvent?: boolean
+    canImportData?: boolean
+    canExportReport?: boolean
+    downloadLimit?: number
+    canUpgrade?: boolean
+  }
+}
+
+function getPlanConfigFromStorage(): StoredPlanConfig[] | null {
+  if (typeof window === "undefined") return null
+  const raw = localStorage.getItem("plan_config")
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function formatRupees(amountInPaise: number): string {
+  return `₹${(amountInPaise / 100).toLocaleString("en-IN")}`
+}
+
+export function getPlanFeaturesMap(): Record<string, PlanFeatures> {
+  const stored = getPlanConfigFromStorage()
+  if (!stored) return PLAN_FEATURES
+
+  const map: Record<string, PlanFeatures> = { ...PLAN_FEATURES }
+
+  for (const plan of stored) {
+    if (!plan?.id) continue
+    const base = map[plan.id] || PLAN_FEATURES.free
+    const price = typeof plan.price === "number" ? plan.price : undefined
+    const displayName = plan.name || base.displayName
+
+    map[plan.id] = {
+      ...base,
+      canCreateEvent: plan.limits?.canCreateEvent ?? base.canCreateEvent,
+      canImportData: plan.limits?.canImportData ?? base.canImportData,
+      canExportReport: plan.limits?.canExportReport ?? base.canExportReport,
+      downloadLimit: plan.limits?.downloadLimit ?? base.downloadLimit,
+      maxCertificateTypes: plan.limits?.maxCertificateTypes ?? base.maxCertificateTypes,
+      maxCertificates: plan.limits?.maxCertificates ?? base.maxCertificates,
+      maxEvents: plan.limits?.maxEvents ?? base.maxEvents,
+      canUpgrade: plan.limits?.canUpgrade ?? base.canUpgrade,
+      displayName,
+      price: price !== undefined ? `${formatRupees(price)}${price > 0 ? "/year" : ""}` : base.price,
+      priceYearly: price !== undefined ? formatRupees(price) : base.priceYearly
+    }
+  }
+
+  return map
+}
+
 export interface ClientSession {
   eventId?: string
   eventName?: string
@@ -106,22 +184,23 @@ export interface UserAccount {
 const CLIENT_SESSION_KEY = "clientSession"
 const USERS_KEY = "certistage_users"
 
-function normalizePlanId(plan: unknown): PlanType {
+export function normalizePlanId(plan: unknown): PlanType {
   const candidate = String(plan || "free").toLowerCase()
-  const validPlans: PlanType[] = ["free", "professional", "enterprise", "premium"]
-  return validPlans.includes(candidate as PlanType) ? (candidate as PlanType) : "free"
+  const featuresMap = getPlanFeaturesMap()
+  return featuresMap[candidate] ? candidate : "free"
 }
 
 // ============ PLAN FUNCTIONS ============
 
 // Get plan features for a user
 export function getUserPlanFeatures(userId?: string): PlanFeatures {
+  const featuresMap = getPlanFeaturesMap()
   if (!userId) return PLAN_FEATURES["free"]
   
   // First check session for plan (most up-to-date from server)
   const session = getClientSession()
   if (session?.userId === userId && session.userPlan) {
-    return PLAN_FEATURES[session.userPlan] || PLAN_FEATURES["free"]
+    return featuresMap[session.userPlan] || PLAN_FEATURES["free"]
   }
   
   // Fallback to localStorage users
@@ -137,20 +216,21 @@ export function getUserPlanFeatures(userId?: string): PlanFeatures {
   }
   const mappedPlan = planMap[user.plan] || user.plan
   
-  return PLAN_FEATURES[mappedPlan as PlanType] || PLAN_FEATURES["free"]
+  return featuresMap[mappedPlan as PlanType] || PLAN_FEATURES["free"]
 }
 
 // Get current session plan features
 export function getCurrentPlanFeatures(): PlanFeatures {
+  const featuresMap = getPlanFeaturesMap()
   const session = getClientSession()
   if (!session || session.loginType !== "user") {
     // Event login = full access (admin assigned)
-    return PLAN_FEATURES["enterprise"]
+    return featuresMap["enterprise"] || PLAN_FEATURES["enterprise"]
   }
   
   // Use session's userPlan directly if available
   if (session.userPlan) {
-    return PLAN_FEATURES[session.userPlan] || PLAN_FEATURES["free"]
+    return featuresMap[session.userPlan] || PLAN_FEATURES["free"]
   }
   
   return getUserPlanFeatures(session.userId)
@@ -433,12 +513,11 @@ export function getClientSession(): ClientSession | null {
   try {
     const parsed = JSON.parse(sessionStr) as ClientSession
     if (parsed.loginType === "user") {
+      const featuresMap = getPlanFeaturesMap()
       const normalizedUserPlan = normalizePlanId(parsed.userPlan)
       const pendingCandidate = parsed.pendingPlan ? normalizePlanId(parsed.pendingPlan) : null
       const normalizedPendingPlan =
-        pendingCandidate && ["professional", "enterprise", "premium"].includes(pendingCandidate)
-          ? (pendingCandidate as PlanType)
-          : null
+        pendingCandidate && featuresMap[pendingCandidate] ? (pendingCandidate as PlanType) : null
 
       // Keep localStorage consistent so every page reads same plan values
       if (parsed.userPlan !== normalizedUserPlan || parsed.pendingPlan !== normalizedPendingPlan) {
@@ -496,7 +575,7 @@ export function getEventDownloadLimit(eventOwnerId?: string): number {
   const owner = getUserById(eventOwnerId)
   if (!owner) return -1
   
-  const planFeatures = PLAN_FEATURES[owner.plan]
+  const planFeatures = getPlanFeaturesMap()[owner.plan] || PLAN_FEATURES.free
   return planFeatures.downloadLimit
 }
 

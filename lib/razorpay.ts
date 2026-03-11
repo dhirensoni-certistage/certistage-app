@@ -37,10 +37,13 @@ export function getRazorpayConfig() {
 // Plan pricing in paise (Razorpay uses smallest currency unit)
 export const PLAN_PRICES = {
   free: 0,
+  test: 100,            // ₹1 (test plan)
   professional: 299900, // ₹2,999
   enterprise: 699900,   // ₹6,999
   premium: 1199900      // ₹11,999
 } as const
+
+export const PLAN_PRICES_MAP: Record<string, number> = PLAN_PRICES
 
 export const PLAN_DETAILS = {
   free: {
@@ -48,6 +51,12 @@ export const PLAN_DETAILS = {
     price: 0,
     displayPrice: "₹0",
     description: "Trial - 50 certificates"
+  },
+  test: {
+    name: "Test",
+    price: 100,
+    displayPrice: "₹1",
+    description: "Test payments only"
   },
   professional: {
     name: "Professional",
@@ -69,7 +78,27 @@ export const PLAN_DETAILS = {
   }
 } as const
 
-export type PlanId = keyof typeof PLAN_PRICES
+export function getPlanDisplayDetails(plan: PlanId): { name: string; description?: string } {
+  if (typeof window !== "undefined") {
+    const raw = localStorage.getItem("plan_config")
+    if (raw) {
+      try {
+        const plans = JSON.parse(raw)
+        const match = Array.isArray(plans) ? plans.find((p: any) => p.id === plan) : null
+        if (match?.name) {
+          return { name: match.name, description: match.description }
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  }
+
+  const fallback = (PLAN_DETAILS as Record<string, { name: string; description?: string }>)[plan]
+  return { name: fallback?.name || String(plan), description: fallback?.description }
+}
+
+export type PlanId = string
 
 export interface RazorpayOrder {
   id: string
@@ -172,7 +201,7 @@ export async function openRazorpayCheckout(
     return
   }
   
-  const planDetails = PLAN_DETAILS[plan]
+  const planDetails = getPlanDisplayDetails(plan)
   
   const options = {
     key: config.keyId,

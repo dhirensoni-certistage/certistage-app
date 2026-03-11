@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { getClientSession, updateSessionEvent, PLAN_FEATURES, type PlanType } from "@/lib/auth"
+import { getClientSession, updateSessionEvent, getPlanFeaturesMap, type PlanType } from "@/lib/auth"
 import { getUserEvents, getEvent, type CertificateEvent } from "@/lib/events"
 
 interface EventSwitcherProps {
@@ -53,7 +53,8 @@ export function EventSwitcher({ onEventChange }: EventSwitcherProps) {
     router.refresh()
   }
 
-  const planFeatures = PLAN_FEATURES[userPlan]
+  const planFeaturesMap = getPlanFeaturesMap()
+  const planFeatures = planFeaturesMap[userPlan] || planFeaturesMap.free
   const canCreateEvent = planFeatures.canCreateEvent && 
     (planFeatures.maxEvents === -1 || events.length < planFeatures.maxEvents)
 

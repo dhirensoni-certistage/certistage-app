@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { ClientSidebar } from "@/components/client/client-sidebar"
-import { getClientSession, clearClientSession, PLAN_FEATURES } from "@/lib/auth"
+import { getClientSession, clearClientSession, getPlanFeaturesMap, normalizePlanId } from "@/lib/auth"
 import { Loader2, LogOut } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -36,11 +36,7 @@ export default function ClientLayout({
   const [userName, setUserName] = useState("")
   const [userPlan, setUserPlan] = useState<string>("free")
 
-  const normalizePlan = (plan?: string): "free" | "professional" | "enterprise" | "premium" => {
-    const candidate = String(plan || "free").toLowerCase()
-    const validPlans = ["free", "professional", "enterprise", "premium"]
-    return validPlans.includes(candidate) ? (candidate as "free" | "professional" | "enterprise" | "premium") : "free"
-  }
+  const normalizePlan = (plan?: string) => normalizePlanId(plan)
 
   // Set page title
   useEffect(() => {
@@ -76,6 +72,21 @@ export default function ClientLayout({
   const isStandalonePage = standalonePages.includes(pathname)
 
   useEffect(() => {
+    const seedPlanConfig = async () => {
+      try {
+        const res = await fetch("/api/plan-config")
+        if (!res.ok) return
+        const data = await res.json()
+        if (Array.isArray(data?.plans)) {
+          localStorage.setItem("plan_config", JSON.stringify(data.plans))
+        }
+      } catch {
+        // Ignore plan config failures
+      }
+    }
+
+    seedPlanConfig()
+
     // Skip everything for standalone pages (login, payment completion)
     if (isStandalonePage) {
       setIsLoading(false)
@@ -139,6 +150,7 @@ export default function ClientLayout({
 
   // Minimal layout for events listing (like Evenuefy)
   if (showMinimalLayout) {
+    const planFeatures = getPlanFeaturesMap()
     return (
       <div className="min-h-screen bg-[#FDFDFD]">
         {/* Top Header */}
@@ -156,7 +168,7 @@ export default function ClientLayout({
               <div className="hidden sm:flex items-center gap-3">
                 <span className="text-sm font-medium text-black">{userName}</span>
                 <span className="px-2.5 py-1 rounded text-xs font-semibold bg-neutral-100 text-[#333] border border-neutral-200">
-                  {PLAN_FEATURES[userPlan as keyof typeof PLAN_FEATURES]?.displayName || "Free"}
+                  {planFeatures[userPlan]?.displayName || "Free"}
                 </span>
               </div>
 

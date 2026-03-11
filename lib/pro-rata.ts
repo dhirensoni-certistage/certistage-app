@@ -1,5 +1,5 @@
 ﻿// Pro-rata upgrade pricing calculations
-import { PLAN_PRICES, type PlanId } from "./razorpay"
+import { PLAN_PRICES_MAP, type PlanId } from "./razorpay"
 
 export interface ProRataResult {
   originalPrice: number      // Full price of new plan (in paise)
@@ -19,10 +19,11 @@ export function calculateProRataUpgrade(
   currentPlan: PlanId,
   newPlan: PlanId,
   planStartDate: Date | null,
-  planExpiresAt: Date | null
+  planExpiresAt: Date | null,
+  priceMap: Record<string, number> = PLAN_PRICES_MAP
 ): ProRataResult {
-  const newPlanPrice = PLAN_PRICES[newPlan]
-  const currentPlanPrice = PLAN_PRICES[currentPlan]
+  const newPlanPrice = priceMap[newPlan] ?? PLAN_PRICES_MAP[newPlan] ?? 0
+  const currentPlanPrice = priceMap[currentPlan] ?? PLAN_PRICES_MAP[currentPlan] ?? 0
   
   // If free plan or no dates, pay full price
   if (currentPlan === "free" || !planStartDate || !planExpiresAt) {

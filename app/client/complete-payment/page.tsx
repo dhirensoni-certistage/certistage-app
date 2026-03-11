@@ -6,24 +6,33 @@ import Image from "next/image"
 import { Crown, Building2, Sparkles, Check, Loader2, CreditCard, Shield, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { getClientSession, PLAN_FEATURES, type PlanType } from "@/lib/auth"
+import { getClientSession, getPlanFeaturesMap, type PlanType } from "@/lib/auth"
 import { useRazorpay } from "@/hooks/use-razorpay"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
+const testPlanEnabled = process.env.NEXT_PUBLIC_ENABLE_TEST_PLAN === "true"
+
 const planIcons: Record<string, any> = {
+  test: Shield,
   professional: Crown,
   enterprise: Building2,
   premium: Sparkles
 }
 
 const planColors: Record<string, string> = {
+  test: "from-emerald-500 to-teal-600",
   professional: "from-blue-500 to-indigo-600",
   enterprise: "from-amber-500 to-orange-600",
   premium: "from-purple-500 to-violet-600"
 }
 
-const planFeatures: Record<string, string[]> = {
+const defaultPlanFeatures: Record<string, string[]> = {
+  test: [
+    "Test payments only",
+    "Instant activation",
+    "Safe to delete later"
+  ],
   professional: [
     "Up to 2,000 certificates/year",
     "Up to 3 events",
@@ -54,6 +63,7 @@ export default function CompletePaymentPage() {
   const [userEmail, setUserEmail] = useState("")
   const [userPhone, setUserPhone] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [featureMap, setFeatureMap] = useState<Record<string, string[]>>(defaultPlanFeatures)
 
   const { initiatePayment, isLoading: isPaymentLoading, isProcessing } = useRazorpay({
     onSuccess: (data) => {
@@ -65,7 +75,7 @@ export default function CompletePaymentPage() {
         localStorage.setItem("clientSession", JSON.stringify(session))
       }
       
-      const planName = PLAN_FEATURES[data.plan as PlanType]?.displayName || data.plan
+      const planName = getPlanFeaturesMap()[data.plan]?.displayName || data.plan
       toast.success("Payment successful! Welcome to " + planName)
       
       // Redirect to events page
@@ -92,6 +102,28 @@ export default function CompletePaymentPage() {
       return
     }
 
+    if (session.pendingPlan === "test" && !testPlanEnabled) {
+      session.pendingPlan = null
+      localStorage.setItem("clientSession", JSON.stringify(session))
+      router.push("/client/events")
+      return
+    }
+
+    try {
+      const stored = localStorage.getItem("plan_config")
+      if (stored) {
+        const plans = JSON.parse(stored)
+        const blocked = Array.isArray(plans) &&
+          plans.some((p: any) => p.id === session.pendingPlan && p.enabled === false)
+        if (blocked) {
+          session.pendingPlan = null
+          localStorage.setItem("clientSession", JSON.stringify(session))
+          router.push("/client/events")
+          return
+        }
+      }
+    } catch { }
+
     setPendingPlan(session.pendingPlan as PlanType)
     setUserId(session.userId || "")
     setUserName(session.userName || "")
@@ -99,6 +131,22 @@ export default function CompletePaymentPage() {
     setUserPhone(session.userPhone || "")
     setIsLoading(false)
   }, [router])
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("plan_config")
+      if (!stored) return
+      const plans = JSON.parse(stored)
+      if (!Array.isArray(plans)) return
+      const next: Record<string, string[]> = { ...defaultPlanFeatures }
+      for (const plan of plans) {
+        if (plan?.id && Array.isArray(plan.features)) {
+          next[plan.id] = plan.features
+        }
+      }
+      setFeatureMap(next)
+    } catch { }
+  }, [])
 
   const handlePayment = () => {
     if (!pendingPlan || !userId) return
@@ -132,8 +180,8 @@ export default function CompletePaymentPage() {
   if (!pendingPlan) return null
 
   const Icon = planIcons[pendingPlan] || Crown
-  const planDetails = PLAN_FEATURES[pendingPlan]
-  const features = planFeatures[pendingPlan] || []
+  const planDetails = getPlanFeaturesMap()[pendingPlan]
+  const features = featureMap[pendingPlan] || []
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
@@ -151,7 +199,7 @@ export default function CompletePaymentPage() {
           {/* Welcome Message */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white mb-2">
-              Welcome, {userName}! ðŸŽ‰
+              Welcome, {userName}! {"\u{1F389}"}
             </h1>
             <p className="text-slate-400">
               Complete your payment to activate your plan

@@ -4,7 +4,8 @@ import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import Payment from "@/models/Payment"
 import Settings from "@/models/Settings"
-import { type PlanId, PLAN_PRICES } from "@/lib/razorpay"
+import { type PlanId, PLAN_PRICES_MAP } from "@/lib/razorpay"
+import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +27,9 @@ export async function POST(request: NextRequest) {
 
     if (!userId || !plan) {
       return NextResponse.json({ error: "User ID and plan required" }, { status: 400 })
+    }
+    if (plan === "test" && process.env.ENABLE_TEST_PLAN !== "true") {
+      return NextResponse.json({ error: "Test plan is disabled" }, { status: 400 })
     }
 
     // Try to get secret from database first
@@ -64,7 +68,7 @@ export async function POST(request: NextRequest) {
         orderId: razorpay_order_id,
         paymentId: razorpay_payment_id,
         plan,
-        amount: PLAN_PRICES[plan as PlanId] || 0,
+        amount: PLAN_PRICES_MAP[plan] || 0,
         currency: "INR",
         status: "failed",
         razorpaySignature: razorpay_signature
@@ -104,7 +108,9 @@ export async function POST(request: NextRequest) {
     // Calculate plan expiry (1 year from now)
     const planStartDate = now
     const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-    const amount = PLAN_PRICES[plan as PlanId] || 0
+    const planConfig = await getPlanConfigFromDb()
+    const planMap = getPlanMap(planConfig)
+    const amount = planMap[plan]?.price ?? PLAN_PRICES_MAP[plan] || 0
     const gatewayFeePercent = 2
     const baseAmount = Math.round(amount / (1 + gatewayFeePercent / 100))
     const gatewayFee = amount - baseAmount

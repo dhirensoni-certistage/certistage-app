@@ -24,12 +24,13 @@ interface RevenueData {
 const PLAN_COLORS: Record<string, string> = { 
   professional: "#3b82f6", 
   enterprise: "#8b5cf6", 
-  premium: "#f59e0b" 
+  premium: "#f59e0b",
+  test: "#10b981"
 }
 
 const filters: FilterConfig[] = [
   { key: "status", label: "Status", options: [{ value: "success", label: "Success" }, { value: "pending", label: "Pending" }, { value: "failed", label: "Failed" }] },
-  { key: "plan", label: "Plan", options: [{ value: "professional", label: "Professional" }, { value: "enterprise", label: "Enterprise" }, { value: "premium", label: "Premium" }] }
+  { key: "plan", label: "Plan", options: [{ value: "test", label: "Test" }, { value: "professional", label: "Professional" }, { value: "enterprise", label: "Enterprise" }, { value: "premium", label: "Premium" }] }
 ]
 
 export default function RevenuePage() {

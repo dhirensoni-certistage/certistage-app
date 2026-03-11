@@ -36,7 +36,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { getClientSession, getCurrentPlanFeatures, getTrialStatus, PLAN_FEATURES } from "@/lib/auth"
+import { getClientSession, getCurrentPlanFeatures, getTrialStatus } from "@/lib/auth"
 import { LockedFeature } from "@/components/client/upgrade-overlay"
 import {
   getCertTypePublicLink,

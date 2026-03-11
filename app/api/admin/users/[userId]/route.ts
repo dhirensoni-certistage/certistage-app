@@ -5,6 +5,7 @@ import Event from "@/models/Event"
 import Payment from "@/models/Payment"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
+import { getPlanConfigFromDb } from "@/lib/plan-config.server"
 
 export async function GET(
   request: NextRequest,
@@ -100,7 +101,12 @@ export async function PATCH(
     }
 
     // Update plan (admin can manually set plan)
-    if (body.plan && ["free", "professional", "enterprise", "premium"].includes(body.plan)) {
+    if (body.plan) {
+      const planConfig = await getPlanConfigFromDb()
+      const validPlans = new Set(planConfig.map(p => p.id))
+      if (!validPlans.has(body.plan) && body.plan !== "free") {
+        return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
+      }
       user.plan = body.plan
       // Set plan expiry to 1 year from now if upgrading to paid plan
       if (body.plan !== "free") {

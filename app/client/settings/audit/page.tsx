@@ -99,12 +99,12 @@ export default function AuditLogPage() {
                                                 {log.status === "FAILURE" && <XCircle className="h-4 w-4 text-red-500" />}
                                             </TableCell>
                                             <TableCell className="font-medium">{log.action}</TableCell>
-                                            <TableCell className="text-muted-foreground text-sm font-mono">{log.ipAddress || "â€”"}</TableCell>
+                                            <TableCell className="text-muted-foreground text-sm font-mono">{log.ipAddress || "-"}</TableCell>
                                             <TableCell className="text-muted-foreground text-sm">
                                                 {format(new Date(log.createdAt), "MMM d, yyyy HH:mm:ss")}
                                             </TableCell>
                                             <TableCell className="text-muted-foreground text-xs font-mono max-w-[200px] truncate">
-                                                {log.details ? JSON.stringify(log.details) : "â€”"}
+                                                {log.details ? JSON.stringify(log.details) : "-"}
                                             </TableCell>
                                         </TableRow>
                                     ))

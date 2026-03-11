@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PLAN_FEATURES, type PlanType } from "@/lib/auth"
+import { getPlanFeaturesMap, normalizePlanId, type PlanType } from "@/lib/auth"
 import {
   Plus,
   Pencil,
@@ -50,11 +50,7 @@ export default function EventsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [usage, setUsage] = useState<{ events: number; maxEvents: number } | null>(null)
 
-  const normalizePlan = (plan?: string): PlanType => {
-    const candidate = String(plan || "free").toLowerCase()
-    const validPlans: PlanType[] = ["free", "professional", "enterprise", "premium"]
-    return validPlans.includes(candidate as PlanType) ? (candidate as PlanType) : "free"
-  }
+  const normalizePlan = (plan?: string): PlanType => normalizePlanId(plan)
 
   const syncPlanFromServer = async (uid: string) => {
     try {
@@ -143,6 +139,7 @@ export default function EventsPage() {
     e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     e.description?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+  const planFeaturesMap = getPlanFeaturesMap()
 
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto animate-in fade-in duration-500">
@@ -176,7 +173,7 @@ export default function EventsPage() {
           <div className="flex items-center gap-6">
             <div className="flex flex-col">
               <span className="text-[10px] font-semibold text-[#888] uppercase tracking-wider mb-1">Plan Level</span>
-              <span className="text-[13px] font-semibold text-black uppercase tracking-tight">{PLAN_FEATURES[userPlan]?.displayName}</span>
+              <span className="text-[13px] font-semibold text-black uppercase tracking-tight">{planFeaturesMap[userPlan]?.displayName}</span>
             </div>
             <div className="h-8 w-px bg-[#E5E5E5]" />
             <div className="flex flex-col">

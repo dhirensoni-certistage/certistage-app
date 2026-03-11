@@ -14,6 +14,7 @@ const shortcuts = [
     { keys: ["G", "U"], description: "Go to Users" },
     { keys: ["G", "E"], description: "Go to Events" },
     { keys: ["G", "R"], description: "Go to Revenue" },
+    { keys: ["G", "P"], description: "Go to Plans" },
     { keys: ["G", "A"], description: "Go to Analytics" },
     { keys: ["G", "S"], description: "Go to Settings" },
   ]},

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress"
 // Remove Tabs if not strictly needed or restyle them. Keeping for functionality but will restyle.
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getClientSession, PLAN_FEATURES } from "@/lib/auth"
+import { getClientSession, getPlanFeaturesMap, normalizePlanId } from "@/lib/auth"
 import {
   Users,
   Download,
@@ -120,11 +120,7 @@ export default function ClientDashboard() {
   const [session, setSession] = useState<ReturnType<typeof getClientSession>>(null)
   const [showUpgradeBanner, setShowUpgradeBanner] = useState(false)
 
-  const normalizePlan = (plan?: string): "free" | "professional" | "enterprise" | "premium" => {
-    const candidate = String(plan || "free").toLowerCase()
-    const validPlans = ["free", "professional", "enterprise", "premium"]
-    return validPlans.includes(candidate) ? (candidate as "free" | "professional" | "enterprise" | "premium") : "free"
-  }
+  const normalizePlan = (plan?: string) => normalizePlanId(plan)
 
   const fetchEventData = async (eventId: string) => {
     try {
@@ -224,7 +220,8 @@ export default function ClientDashboard() {
   }
 
   const planId = session?.loginType === "user" ? normalizePlan(session.userPlan) : "enterprise"
-  const planFeatures = PLAN_FEATURES[planId]
+  const planFeaturesMap = getPlanFeaturesMap()
+  const planFeatures = planFeaturesMap[planId]
   const hasCertificateLimit = planFeatures.maxCertificates > 0
   const certLimit = planFeatures.maxCertificates
   const certUsed = event.stats.total
@@ -312,7 +309,7 @@ export default function ClientDashboard() {
               </div>
               <div>
                 <p className="font-semibold text-[15px] text-[#171717] tracking-tight">
-                  {session?.pendingPlan ? `Finalize your ${PLAN_FEATURES[session.pendingPlan]?.displayName} Plan` : "Upgrade to Pro"}
+                  {session?.pendingPlan ? `Finalize your ${planFeaturesMap[session.pendingPlan]?.displayName} Plan` : "Upgrade to Pro"}
                 </p>
                 <p className="text-[13px] text-[#666] font-medium mt-0.5">
                   Unlock higher limits and remove branding.

@@ -3,8 +3,9 @@ import User from "@/models/User"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
+import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
 
-export type PlanType = "free" | "professional" | "enterprise" | "premium"
+export type PlanType = string
 
 export interface PlanLimits {
   maxEvents: number
@@ -16,7 +17,7 @@ export interface PlanLimits {
 }
 
 // Plan limits configuration - must match frontend lib/auth.ts
-export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
+export const PLAN_LIMITS: Record<string, PlanLimits> = {
   free: {
     maxEvents: 1,
     maxCertificateTypes: 1,
@@ -24,6 +25,14 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     canCreateEvent: true,
     canImportData: false,
     canExportReport: false
+  },
+  test: {
+    maxEvents: 3,
+    maxCertificateTypes: 5,
+    maxCertificates: 2000,
+    canCreateEvent: true,
+    canImportData: true,
+    canExportReport: true
   },
   professional: {
     maxEvents: 3,
@@ -52,8 +61,26 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
 }
 
 // Get user's plan limits
-export function getPlanLimits(plan: string): PlanLimits {
-  return PLAN_LIMITS[plan as PlanType] || PLAN_LIMITS.free
+export async function getPlanLimits(plan: string): Promise<PlanLimits> {
+  try {
+    const planConfig = await getPlanConfigFromDb()
+    const planMap = getPlanMap(planConfig)
+    const selectedPlan = planMap[plan]
+    if (selectedPlan?.limits) {
+      return {
+        maxEvents: selectedPlan.limits.maxEvents,
+        maxCertificateTypes: selectedPlan.limits.maxCertificateTypes,
+        maxCertificates: selectedPlan.limits.maxCertificates,
+        canCreateEvent: selectedPlan.limits.canCreateEvent,
+        canImportData: selectedPlan.limits.canImportData,
+        canExportReport: selectedPlan.limits.canExportReport
+      }
+    }
+  } catch (error) {
+    // Fall back to defaults if DB is unavailable
+  }
+
+  return PLAN_LIMITS[plan] || PLAN_LIMITS.free
 }
 
 // Check if user can create more events
@@ -68,7 +95,7 @@ export async function canUserCreateEvent(userId: string): Promise<{
     return { allowed: false, currentCount: 0, maxAllowed: 0, reason: "User not found" }
   }
 
-  const limits = getPlanLimits(user.plan)
+  const limits = await getPlanLimits(user.plan)
   
   if (!limits.canCreateEvent) {
     return {
@@ -105,7 +132,7 @@ export async function canUserCreateCertificateType(userId: string, eventId: stri
     return { allowed: false, currentCount: 0, maxAllowed: 0, reason: "User not found" }
   }
 
-  const limits = getPlanLimits(user.plan)
+  const limits = await getPlanLimits(user.plan)
   
   // Count certificate types across all user's events
   const userEvents = await Event.find({ ownerId: userId }).select("_id")
@@ -137,7 +164,7 @@ export async function canUserAddRecipients(userId: string, countToAdd: number = 
     return { allowed: false, currentCount: 0, maxAllowed: 0, availableSlots: 0, reason: "User not found" }
   }
 
-  const limits = getPlanLimits(user.plan)
+  const limits = await getPlanLimits(user.plan)
   
   // Count recipients across all user's events
   const userEvents = await Event.find({ ownerId: userId }).select("_id")
@@ -184,7 +211,7 @@ export async function getUserUsageStats(userId: string): Promise<{
     throw new Error("User not found")
   }
 
-  const limits = getPlanLimits(user.plan)
+  const limits = await getPlanLimits(user.plan)
   
   // Get all user's events
   const userEvents = await Event.find({ ownerId: userId }).select("_id")
@@ -222,6 +249,6 @@ export async function canUserUseFeature(userId: string, feature: keyof PlanLimit
   const user = await User.findById(userId)
   if (!user) return false
   
-  const limits = getPlanLimits(user.plan)
+  const limits = await getPlanLimits(user.plan)
   return !!limits[feature]
 }

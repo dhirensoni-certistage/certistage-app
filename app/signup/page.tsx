@@ -32,6 +32,7 @@ function SignupForm() {
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [verificationLink, setVerificationLink] = useState<string | null>(null)
   const [countryCode, setCountryCode] = useState("+91")
+  const [enabledPlans, setEnabledPlans] = useState<string[]>(["free"])
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -41,11 +42,27 @@ function SignupForm() {
   })
 
   React.useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        const res = await fetch("/api/plan-config")
+        if (!res.ok) return
+        const data = await res.json()
+        if (Array.isArray(data?.plans)) {
+          const enabled = data.plans.filter((p: any) => p.enabled !== false).map((p: any) => p.id)
+          setEnabledPlans(["free", ...enabled])
+        }
+      } catch { }
+    }
+
+    loadPlans()
+  }, [searchParams])
+
+  React.useEffect(() => {
     const planParam = searchParams.get("plan")
-    if (planParam && ["free", "professional", "enterprise", "premium"].includes(planParam)) {
+    if (planParam && enabledPlans.includes(planParam)) {
       setFormData(prev => ({ ...prev, plan: planParam }))
     }
-  }, [searchParams])
+  }, [searchParams, enabledPlans])
 
   const getPlanDetails = (plan: string) => {
     switch (plan) {

@@ -3,6 +3,7 @@ import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import Event from "@/models/Event"
 import bcrypt from "bcryptjs"
+import { getPlanConfigFromDb } from "@/lib/plan-config.server"
 
 export async function GET(request: NextRequest) {
   try {
@@ -108,11 +109,15 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
 
+    const planConfig = await getPlanConfigFromDb()
+    const validPlans = new Set(planConfig.map(p => p.id))
+    const selectedPlan = validPlans.has(plan) ? plan : "free"
+
     // Calculate plan dates if paid plan
     let planStartDate = null
     let planExpiresAt = null
     
-    if (plan && plan !== "free") {
+    if (selectedPlan && selectedPlan !== "free") {
       planStartDate = new Date()
       const durationMonths = planDuration || 12 // Default 12 months
       planExpiresAt = new Date()
@@ -126,7 +131,7 @@ export async function POST(request: NextRequest) {
       phone: phone.trim(),
       organization: organization?.trim() || "",
       password: hashedPassword,
-      plan: plan || "free",
+      plan: selectedPlan || "free",
       planStartDate,
       planExpiresAt,
       isActive: true,

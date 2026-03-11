@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { getClientSession, clearClientSession, clearSessionEvent, PLAN_FEATURES, getTrialStatus, type PlanType } from "@/lib/auth"
+import { getClientSession, clearClientSession, clearSessionEvent, getPlanFeaturesMap, getTrialStatus, normalizePlanId, type PlanType } from "@/lib/auth"
 import { toast } from "sonner"
 import { Progress } from "@/components/ui/progress"
  
@@ -38,11 +38,7 @@ export function ClientSidebar() {
   const [hasEventSelected, setHasEventSelected] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
 
-  const normalizePlan = (plan?: string): PlanType => {
-    const candidate = String(plan || "free").toLowerCase()
-    const validPlans: PlanType[] = ["free", "professional", "enterprise", "premium"]
-    return validPlans.includes(candidate as PlanType) ? (candidate as PlanType) : "free"
-  }
+  const normalizePlan = (plan?: string): PlanType => normalizePlanId(plan)
 
   useEffect(() => {
     setMounted(true)
@@ -124,6 +120,8 @@ export function ClientSidebar() {
     return true
   })
 
+  const planFeaturesMap = getPlanFeaturesMap()
+
   return (
       <aside
         className={cn(
@@ -198,7 +196,7 @@ export function ClientSidebar() {
                 userPlan === "enterprise" && "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400",
                 userPlan === "premium" && "bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400"
               )}>
-                {PLAN_FEATURES[userPlan]?.displayName || "Free"}
+                {planFeaturesMap[userPlan]?.displayName || "Free"}
               </span>
               <span className="text-[11px] text-neutral-400 truncate max-w-[100px]">{userName}</span>
             </div>

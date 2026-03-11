@@ -19,11 +19,12 @@ import {
   ChevronRight,
   ArrowRight
 } from "lucide-react"
-import { getClientSession, PLAN_FEATURES, type PlanType } from "@/lib/auth"
+import { getClientSession, getPlanFeaturesMap, type PlanType } from "@/lib/auth"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useRazorpay } from "@/hooks/use-razorpay"
+import { DEFAULT_PLAN_CONFIG, mergePlanConfigWithDefaults, formatRupees } from "@/lib/plan-config"
 
 interface ProRataInfo {
   originalPrice: number
@@ -34,57 +35,24 @@ interface ProRataInfo {
   savingsPercent: number
 }
 
-const plans: { id: PlanType; icon: any; popular?: boolean; badge?: string; price: string; description: string; color: string }[] = [
-  {
-    id: "professional",
-    icon: Zap,
-    popular: true,
-    badge: "Most Popular",
-    price: "2,999",
-    description: "Perfect for single large events.",
-    color: "text-blue-500"
-  },
-  {
-    id: "enterprise",
-    icon: Building2,
-    badge: "Best Value",
-    price: "6,999",
-    description: "Ideal for recurring monthly events.",
-    color: "text-neutral-900 dark:text-white"
-  },
-  {
-    id: "premium",
-    icon: Crown,
-    price: "11,999",
-    description: "Unlimited power for large organizations.",
-    color: "text-amber-500"
-  },
-]
+const planIcons: Record<string, any> = {
+  test: ShieldCheck,
+  professional: Zap,
+  enterprise: Building2,
+  premium: Crown
+}
 
-const features: Record<string, string[]> = {
-  professional: [
-    "Up to 2,000 certificates/year",
-    "Up to 5 certificate types",
-    "Basic analytics & export",
-    "Priority email support",
-    "Excel data import"
-  ],
-  enterprise: [
-    "Up to 25,000 certificates/year",
-    "Up to 100 certificate types",
-    "Bulk import & processing",
-    "Advanced report filtering",
-    "Dedicated account manager",
-    "Everything in Professional"
-  ],
-  premium: [
-    "Up to 50,000 certificates/year",
-    "Unlimited certificate types",
-    "Full Whitelabel branding",
-    "Custom design assistance",
-    "API & Webhook access",
-    "Everything in Enterprise"
-  ]
+const planBadges: Record<string, string> = {
+  test: "Test",
+  professional: "Most Popular",
+  enterprise: "Best Value"
+}
+
+const planColors: Record<string, string> = {
+  test: "text-emerald-500",
+  professional: "text-blue-500",
+  enterprise: "text-neutral-900 dark:text-white",
+  premium: "text-amber-500"
 }
 
 function UpgradePageContent() {
@@ -101,6 +69,7 @@ function UpgradePageContent() {
   const [planExpiresAt, setPlanExpiresAt] = useState<Date | null>(null)
   const [proRataInfo, setProRataInfo] = useState<Record<string, ProRataInfo>>({})
   const [loadingProRata, setLoadingProRata] = useState(false)
+  const [planConfig, setPlanConfig] = useState(DEFAULT_PLAN_CONFIG)
 
   const { initiatePayment, isLoading, isProcessing } = useRazorpay({
     onSuccess: async (data: any) => {
@@ -110,7 +79,7 @@ function UpgradePageContent() {
         session.pendingPlan = null
         localStorage.setItem("clientSession", JSON.stringify(session))
       }
-      toast.success("Upgrade Successful!", { description: `You are now on the ${PLAN_FEATURES[data.plan as keyof typeof PLAN_FEATURES]?.displayName} plan.` })
+      toast.success("Upgrade Successful!", { description: `You are now on the ${getPlanFeaturesMap()[data.plan]?.displayName || data.plan} plan.` })
       setTimeout(() => router.push("/client/dashboard"), 1500)
     },
     onError: (error: any) => console.error(error)
@@ -128,6 +97,29 @@ function UpgradePageContent() {
       setPlanExpiresAt(session.planExpiresAt ? new Date(session.planExpiresAt) : null)
     }
   }, [pendingPlanParam])
+
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        const cached = localStorage.getItem("plan_config")
+        if (cached) {
+          setPlanConfig(mergePlanConfigWithDefaults(JSON.parse(cached)))
+        }
+      } catch { }
+
+      try {
+        const res = await fetch("/api/plan-config")
+        if (!res.ok) return
+        const data = await res.json()
+        if (Array.isArray(data?.plans)) {
+          setPlanConfig(mergePlanConfigWithDefaults(data.plans))
+          localStorage.setItem("plan_config", JSON.stringify(data.plans))
+        }
+      } catch { }
+    }
+
+    loadPlans()
+  }, [])
 
   const handleUpgrade = async (planId: PlanType) => {
     if (!userId) {
@@ -176,10 +168,17 @@ function UpgradePageContent() {
 
       {/* Pricing Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
-        {plans.map((plan) => {
+        {planConfig
+          .filter(plan => plan.enabled !== false && plan.id !== "free")
+          .map((plan) => {
           const isCurrent = currentPlan === plan.id
           const isPending = pendingPlan === plan.id
-          const featureList = features[plan.id as keyof typeof features] || []
+          const featureList = plan.features || []
+          const Icon = planIcons[plan.id] || Crown
+          const badge = planBadges[plan.id]
+          const iconColor = planColors[plan.id] || "text-neutral-900 dark:text-white"
+          const priceLabel = formatRupees(plan.price)
+          const isPopular = plan.id === "professional"
 
           return (
             <div key={plan.id} className="relative group">
@@ -188,27 +187,27 @@ function UpgradePageContent() {
                   Selected Choice
                 </div>
               )}
-              {plan.badge && !isPending && (
+              {badge && !isPending && (
                 <div className="absolute -top-3 left-6 px-3 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 text-[10px] font-bold uppercase tracking-wider z-10">
-                  {plan.badge}
+                  {badge}
                 </div>
               )}
 
               <Card className={cn(
                 "h-full border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-none transition-all duration-300 flex flex-col p-2",
-                plan.popular && "border-neutral-400 dark:border-neutral-600",
+                isPopular && "border-neutral-400 dark:border-neutral-600",
                 isPending && "border-neutral-900 dark:border-white ring-1 ring-neutral-900 dark:ring-white"
               )}>
                 <CardHeader className="p-6">
                   <div className="flex items-center gap-3 mb-6">
-                    <div className={cn("h-10 w-10 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 flex items-center justify-center", plan.color)}>
-                      <plan.icon className="h-5 w-5" />
+                    <div className={cn("h-10 w-10 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 flex items-center justify-center", iconColor)}>
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <span className="text-lg font-bold tracking-tight text-neutral-900 dark:text-white uppercase">{plan.id}</span>
+                    <span className="text-lg font-bold tracking-tight text-neutral-900 dark:text-white uppercase">{plan.name || plan.id}</span>
                   </div>
 
                   <div className="mb-1">
-                    <span className="text-[48px] font-bold tracking-tighter text-neutral-900 dark:text-white">₹{plan.price}</span>
+                    <span className="text-[48px] font-bold tracking-tighter text-neutral-900 dark:text-white">{priceLabel}</span>
                     <span className="text-[15px] font-normal text-neutral-400 ml-2">/ year</span>
                   </div>
                   <CardDescription className="text-[14px] text-neutral-500 mt-2 mb-6 font-normal min-h-[40px]">{plan.description}</CardDescription>
@@ -227,14 +226,14 @@ function UpgradePageContent() {
                   </div>
 
                   <Button
-                    variant={plan.popular || isPending ? "default" : "outline"}
+                    variant={isPopular || isPending ? "default" : "outline"}
                     className={cn(
                       "w-full h-12 text-[15px] font-bold transition-all shadow-sm",
-                      (plan.popular || isPending) && "bg-neutral-900 dark:bg-white text-white dark:text-black hover:opacity-90",
-                      !(plan.popular || isPending) && "border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                      (isPopular || isPending) && "bg-neutral-900 dark:bg-white text-white dark:text-black hover:opacity-90",
+                      !(isPopular || isPending) && "border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900"
                     )}
                     disabled={isCurrent || isLoading || isProcessing}
-                    onClick={() => handleUpgrade(plan.id)}
+                    onClick={() => handleUpgrade(plan.id as PlanType)}
                   >
                     {isCurrent ? "Current Plan" : isProcessing ? "Processing..." : isPending ? "Complete Payment" : "Upgrade Plan"}
                     {!isCurrent && <ArrowRight className="h-4 w-4 ml-2" />}

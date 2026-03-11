@@ -6,8 +6,8 @@ export interface IUser extends Document {
   password: string
   phone: string
   organization?: string
-  plan: "free" | "professional" | "enterprise" | "premium"
-  pendingPlan?: "professional" | "enterprise" | "premium" | null
+  plan: string
+  pendingPlan?: string | null
   planStartDate?: Date
   planExpiresAt?: Date
   isActive: boolean
@@ -23,14 +23,9 @@ const UserSchema = new Schema<IUser>(
     password: { type: String, required: true },
     phone: { type: String, required: true },
     organization: { type: String },
-    plan: { 
-      type: String, 
-      enum: ["free", "professional", "enterprise", "premium"],
-      default: "free"
-    },
+    plan: { type: String, default: "free" },
     pendingPlan: {
       type: String,
-      enum: ["professional", "enterprise", "premium", null],
       default: null
     },
     planStartDate: { type: Date },

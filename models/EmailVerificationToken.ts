@@ -17,8 +17,7 @@ const emailVerificationTokenSchema = new mongoose.Schema({
     phone: { type: String, required: true },
     organization: { type: String },
     plan: { 
-      type: String, 
-      enum: ["free", "professional", "enterprise", "premium"],
+      type: String,
       default: "free"
     }
   },

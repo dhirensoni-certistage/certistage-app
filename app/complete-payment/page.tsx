@@ -10,59 +10,36 @@ import { Badge } from "@/components/ui/badge"
 import { Check, Crown, Building2, Sparkles, Loader2, Shield, CreditCard } from "lucide-react"
 import { toast } from "sonner"
 import { useRazorpay } from "@/hooks/use-razorpay"
+import { DEFAULT_PLAN_CONFIG, mergePlanConfigWithDefaults, formatRupees } from "@/lib/plan-config"
 
-const planDetails: Record<string, {
-  name: string
-  price: string
-  priceNum: number
-  icon: any
-  color: string
-  features: string[]
-}> = {
-  professional: {
-    name: "Professional",
-    price: "₹2,999",
-    priceNum: 299900,
-    icon: Crown,
-    color: "from-blue-500 to-indigo-600",
-    features: [
-      "Up to 3 events",
-      "Up to 2,000 certificates/year",
-      "Up to 5 certificate types",
-      "Excel import",
-      "Basic analytics"
-    ]
-  },
-  enterprise: {
-    name: "Enterprise",
-    price: "₹6,999",
-    priceNum: 699900,
-    icon: Building2,
-    color: "from-amber-500 to-orange-600",
-    features: [
-      "Up to 10 events",
-      "Up to 25,000 certificates/year",
-      "Up to 100 certificate types",
-      "Bulk import",
-      "Priority support",
-      "Advanced analytics"
-    ]
-  },
-  premium: {
-    name: "Premium",
-    price: "₹11,999",
-    priceNum: 1199900,
-    icon: Sparkles,
-    color: "from-violet-500 to-purple-600",
-    features: [
-      "Up to 25 events",
-      "Up to 50,000 certificates/year",
-      "Up to 200 certificate types",
-      "White-label branding",
-      "API access",
-      "Dedicated support"
-    ]
-  }
+const planMeta: Record<string, { icon: any; color: string }> = {
+  test: { icon: Shield, color: "from-emerald-500 to-teal-600" },
+  professional: { icon: Crown, color: "from-blue-500 to-indigo-600" },
+  enterprise: { icon: Building2, color: "from-amber-500 to-orange-600" },
+  premium: { icon: Sparkles, color: "from-violet-500 to-purple-600" }
+}
+
+const buildPlanDetails = (plans: typeof DEFAULT_PLAN_CONFIG) => {
+  return plans.reduce<Record<string, {
+    name: string
+    price: string
+    priceNum: number
+    icon: any
+    color: string
+    features: string[]
+  }>>((acc, plan) => {
+    const meta = planMeta[plan.id]
+    if (!meta) return acc
+    acc[plan.id] = {
+      name: plan.name,
+      price: formatRupees(plan.price),
+      priceNum: plan.price,
+      icon: meta.icon,
+      color: meta.color,
+      features: plan.features || []
+    }
+    return acc
+  }, {})
 }
 
 function PaymentPageContent() {
@@ -73,6 +50,7 @@ function PaymentPageContent() {
   const [userId, setUserId] = useState<string>("")
   const [userEmail, setUserEmail] = useState<string>("")
   const [userName, setUserName] = useState<string>("")
+  const [planDetails, setPlanDetails] = useState(() => buildPlanDetails(DEFAULT_PLAN_CONFIG))
 
   const { initiatePayment, isLoading, isProcessing } = useRazorpay({
     onSuccess: async (data) => {
@@ -107,6 +85,31 @@ function PaymentPageContent() {
       })
     }
   }, [session, status])
+
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        const cached = localStorage.getItem("plan_config")
+        if (cached) {
+          const merged = mergePlanConfigWithDefaults(JSON.parse(cached)).filter(p => p.enabled !== false)
+          setPlanDetails(buildPlanDetails(merged))
+        }
+      } catch { }
+
+      try {
+        const res = await fetch("/api/plan-config")
+        if (!res.ok) return
+        const data = await res.json()
+        if (Array.isArray(data?.plans)) {
+          const merged = mergePlanConfigWithDefaults(data.plans).filter(p => p.enabled !== false)
+          setPlanDetails(buildPlanDetails(merged))
+          localStorage.setItem("plan_config", JSON.stringify(data.plans))
+        }
+      } catch { }
+    }
+
+    loadPlans()
+  }, [])
 
   // Redirect if no plan or invalid plan
   useEffect(() => {

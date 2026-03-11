@@ -107,7 +107,7 @@ export default function VerifyEmailPage() {
           router.push('/client/complete-payment')
         } else {
           // Free plan - go directly to events/dashboard
-          toast.success(`Welcome to CertiStage, ${data.user.name}! ðŸŽ‰`)
+          toast.success(`Welcome to CertiStage, ${data.user.name}! \u{1F389}`)
           router.push('/client/events')
         }
       } else {

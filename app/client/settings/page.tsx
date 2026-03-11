@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 import { toast } from "sonner"
-import { PLAN_FEATURES } from "@/lib/auth"
+import { getPlanFeaturesMap } from "@/lib/auth"
 
 interface UserProfile {
   id: string
@@ -104,7 +104,8 @@ export default function SettingsPage() {
   if (isLoading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
   if (!profile) return null
 
-  const planFeatures = PLAN_FEATURES[profile.plan as keyof typeof PLAN_FEATURES] || PLAN_FEATURES.free
+  const planFeaturesMap = getPlanFeaturesMap()
+  const planFeatures = planFeaturesMap[profile.plan] || planFeaturesMap.free
   const initials = profile.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
   const daysLeft = profile.planExpiresAt ? Math.max(0, Math.ceil((new Date(profile.planExpiresAt).getTime() - Date.now()) / 86400000)) : null
 

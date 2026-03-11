@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
+import { getPlanConfigFromDb } from "@/lib/plan-config.server"
 import EmailVerificationToken from "@/models/EmailVerificationToken"
 import crypto from "crypto"
 import { isDisposableEmail } from "@/lib/disposable-email"
@@ -30,8 +31,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate plan
-    const validPlans = ["free", "professional", "enterprise", "premium"]
-    const selectedPlan = validPlans.includes(plan) ? plan : "free"
+    const planConfig = await getPlanConfigFromDb()
+    const enabledPlans = new Set(
+      planConfig.filter(p => p.enabled !== false).map(p => p.id)
+    )
+    const selectedPlan = enabledPlans.has(plan) ? plan : "free"
 
     // Check if email already exists
     const existingUser = await User.findOne({ email: email.toLowerCase().trim() })

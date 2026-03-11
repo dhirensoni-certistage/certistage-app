@@ -352,7 +352,7 @@ export default function SupportPage() {
             {resourceModal === "faqs" && (
               <div className="space-y-2">
                 <p><span className="font-medium text-foreground">How do I bulk import attendees?</span> Go to the 'Attendees' tab, click on 'Import', and download the sample Excel file. Fill in your attendee data and upload it back.</p>
-                <p><span className="font-medium text-foreground">Import steps:</span> Attendees â†’ choose type â†’ Import Excel with required columns.</p>
+                <p><span className="font-medium text-foreground">Import steps:</span> Attendees -&gt; choose type -&gt; Import Excel with required columns.</p>
                 <p><span className="font-medium text-foreground">Downloads blocked:</span> Generate certificates and check plan limits.</p>
                 <p><span className="font-medium text-foreground">Edit after sending:</span> Update template, regenerate, resend links.</p>
                 <p><span className="font-medium text-foreground">Paid plans:</span> More events, bulk import, unlimited downloads/exports, priority support.</p>

@@ -320,7 +320,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Event owner not found" }, { status: 404 })
     }
 
-    const limits = getPlanLimits(owner.plan)
+    const limits = await getPlanLimits(owner.plan)
 
     // Check if free plan and already downloaded once
     if (owner.plan === "free" && recipient.downloadCount >= 1) {

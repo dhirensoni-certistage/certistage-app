@@ -27,6 +27,7 @@ async function razorpayFetch(endpoint: string) {
 
 // Plan durations in days
 const PLAN_DURATIONS: Record<string, number> = {
+  test: 365,
   professional: 365,
   enterprise: 365,
   premium: 365

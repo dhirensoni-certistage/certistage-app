@@ -25,6 +25,7 @@ import {
   Plus,
   Download,
   RefreshCw,
+  Tag,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
@@ -39,6 +40,7 @@ const navigationItems = [
   { name: "Users", href: "/admin/users", icon: Users, shortcut: "G U" },
   { name: "Events", href: "/admin/events", icon: Calendar, shortcut: "G E" },
   { name: "Revenue", href: "/admin/revenue", icon: IndianRupee, shortcut: "G R" },
+  { name: "Plans", href: "/admin/plans", icon: Tag, shortcut: "G P" },
   { name: "Analytics", href: "/admin/analytics", icon: BarChart3, shortcut: "G A" },
   { name: "Settings", href: "/admin/settings", icon: Settings, shortcut: "G S" },
 ]
@@ -84,6 +86,7 @@ export function CommandPalette() {
           u: "/admin/users",
           e: "/admin/events",
           r: "/admin/revenue",
+          p: "/admin/plans",
           a: "/admin/analytics",
           s: "/admin/settings",
         }

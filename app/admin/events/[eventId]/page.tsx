@@ -207,7 +207,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
                           <div>
                             <p className="font-medium">{ct.name}</p>
                             <p className="text-sm text-muted-foreground">
-                              {ct.recipientsCount} recipients â€¢ {ct.downloadedCount} downloaded ({downloadPercent}%)
+                              {ct.recipientsCount} recipients | {ct.downloadedCount} downloaded ({downloadPercent}%)
                             </p>
                           </div>
                         </div>

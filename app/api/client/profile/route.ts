@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
+import { getPlanConfigFromDb } from "@/lib/plan-config.server"
 
 // GET - Get user profile
 export async function GET(request: NextRequest) {
@@ -149,8 +150,11 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Plan is required" }, { status: 400 })
     }
 
-    const validPlans = ["free", "professional", "enterprise", "premium"]
-    if (!validPlans.includes(plan)) {
+    const planConfig = await getPlanConfigFromDb()
+    const enabledPlans = new Set(
+      planConfig.filter(p => p.enabled !== false).map(p => p.id)
+    )
+    if (!enabledPlans.has(plan) && plan !== "free") {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
     }
 
