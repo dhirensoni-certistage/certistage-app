@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import crypto from "crypto"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
@@ -111,9 +111,8 @@ export async function POST(request: NextRequest) {
     const planConfig = await getPlanConfigFromDb()
     const planMap = getPlanMap(planConfig)
     const amount = planMap[plan]?.price ?? PLAN_PRICES_MAP[plan] ?? 0
-    const gatewayFeePercent = 2
-    const baseAmount = Math.round(amount / (1 + gatewayFeePercent / 100))
-    const gatewayFee = amount - baseAmount
+    const baseAmount = amount
+    const gatewayFee = 0
 
     // Update user's plan in database and clear pendingPlan
     const user = await User.findByIdAndUpdate(

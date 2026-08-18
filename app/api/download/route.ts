@@ -131,14 +131,13 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get certificate type with recipients for search
+    // Get certificate type for download page (without leaking attendee PII)
     if (eventId && typeId) {
-      const [event, certType, recipients] = await Promise.all([
+      const [event, certType, totalCount, downloadedCount] = await Promise.all([
         Event.findById(eventId).lean(),
         CertificateType.findById(typeId).lean(),
-        Recipient.find({ eventId, certificateTypeId: typeId })
-          .select("name email mobile regNo downloadCount lastDownloadAt prefix firstName lastName")
-          .lean()
+        Recipient.countDocuments({ eventId, certificateTypeId: typeId }),
+        Recipient.countDocuments({ eventId, certificateTypeId: typeId, downloadCount: { $gt: 0 } })
       ])
 
       if (!event || !event.isActive) {
@@ -148,8 +147,6 @@ export async function GET(request: NextRequest) {
       if (!certType || !certType.isActive) {
         return NextResponse.json({ error: "Certificate type not found" }, { status: 404 })
       }
-
-      const downloaded = recipients.filter(r => (r.downloadCount || 0) > 0).length
 
       return NextResponse.json({
         event: {
@@ -177,24 +174,13 @@ export async function GET(request: NextRequest) {
           }),
           searchFields: certType.searchFields || { name: true, email: false, mobile: false, regNo: false },
           stats: {
-            total: recipients.length,
-            downloaded,
-            pending: recipients.length - downloaded
+            total: totalCount,
+            downloaded: downloadedCount,
+            pending: totalCount - downloadedCount
           },
           createdAt: certType.createdAt
         },
-        recipients: recipients.map(r => ({
-          id: r._id.toString(),
-          name: r.name,
-          prefix: r.prefix,
-          firstName: r.firstName,
-          lastName: r.lastName,
-          email: r.email || "",
-          mobile: r.mobile || "",
-          certificateId: r.regNo || r._id.toString(),
-          status: (r.downloadCount || 0) > 0 ? "downloaded" : "pending",
-          downloadCount: r.downloadCount || 0
-        })),
+        recipients: [],
         downloadLimit: -1
       })
     }
@@ -232,15 +218,12 @@ export async function POST(request: NextRequest) {
       query.regNo = { $regex: searchQuery, $options: "i" }
     } else {
       // Default: search by name - split into words for partial matching
-      // This allows "komal patel" to match "Ms Komal Patel" or "Dr. Komal Patel"
       const searchWords = searchQuery.trim().split(/\s+/).filter((w: string) => w.length > 0)
       if (searchWords.length > 1) {
-        // Multiple words: all words must be present (in any order)
         query.$and = searchWords.map((word: string) => ({
           name: { $regex: word, $options: "i" }
         }))
       } else {
-        // Single word: simple regex match
         query.name = { $regex: searchQuery, $options: "i" }
       }
     }
@@ -313,14 +296,11 @@ export async function PUT(request: NextRequest) {
 
     // Import User model and plan limits
     const User = (await import("@/models/User")).default
-    const { getPlanLimits } = await import("@/lib/plan-limits")
 
     const owner = await User.findById(event.ownerId)
     if (!owner) {
       return NextResponse.json({ error: "Event owner not found" }, { status: 404 })
     }
-
-    const limits = await getPlanLimits(owner.plan)
 
     // Check if free plan and already downloaded once
     if (owner.plan === "free" && recipient.downloadCount >= 1) {

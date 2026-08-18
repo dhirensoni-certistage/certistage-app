@@ -1,4 +1,4 @@
-﻿// Authentication for Client Portal
+// Authentication for Client Portal
 
 export type PlanType = string
 
@@ -56,8 +56,8 @@ export const PLAN_FEATURES: Record<PlanType, PlanFeatures> = {
     maxEvents: 3,
     canUpgrade: true,
     displayName: "Professional",
-    price: "₹2,999/year",
-    priceYearly: "₹2,999",
+    price: "₹4,999/year",
+    priceYearly: "₹4,999",
     color: "blue"
   },
   "enterprise": {
@@ -70,8 +70,8 @@ export const PLAN_FEATURES: Record<PlanType, PlanFeatures> = {
     maxEvents: 10,
     canUpgrade: true,
     displayName: "Enterprise",
-    price: "₹6,999/year",
-    priceYearly: "₹6,999",
+    price: "₹9,999/year",
+    priceYearly: "₹9,999",
     color: "amber"
   },
   "premium": {
@@ -84,8 +84,8 @@ export const PLAN_FEATURES: Record<PlanType, PlanFeatures> = {
     maxEvents: 25,
     canUpgrade: false,
     displayName: "Premium",
-    price: "₹11,999/year",
-    priceYearly: "₹11,999",
+    price: "₹19,999/year",
+    priceYearly: "₹19,999",
     color: "purple"
   }
 }

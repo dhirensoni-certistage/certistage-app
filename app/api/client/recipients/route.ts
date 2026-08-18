@@ -13,12 +13,26 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const certificateTypeId = searchParams.get("certificateTypeId")
     const eventId = searchParams.get("eventId")
+    const userId = searchParams.get("userId")
     const page = parseInt(searchParams.get("page") || "1")
     const limit = parseInt(searchParams.get("limit") || "50")
     const search = searchParams.get("search") || ""
     
     if (!certificateTypeId) {
       return NextResponse.json({ error: "Certificate Type ID required" }, { status: 400 })
+    }
+
+    // Verify certificate type and event ownership if userId is provided
+    const certType = await CertificateType.findById(certificateTypeId).lean()
+    if (!certType) {
+      return NextResponse.json({ error: "Certificate type not found" }, { status: 404 })
+    }
+
+    if (userId) {
+      const isOwner = await verifyEventOwnership(certType.eventId.toString(), userId)
+      if (!isOwner) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 })
+      }
     }
 
     const query: Record<string, unknown> = { certificateTypeId }

@@ -93,11 +93,19 @@ export async function POST(request: NextRequest) {
 }
 
 
+function generateInvoiceNumber(): string {
+  const now = new Date()
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
+  const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase()
+  return `INV-${dateStr}-${randomStr}`
+}
+
 async function handlePaymentCaptured(payment: any) {
   const { id: paymentId, order_id: orderId, amount, notes } = payment
   
   // Find existing payment record by order ID
   const existingPayment = await Payment.findOne({ orderId })
+  const now = new Date()
   
   if (existingPayment) {
     // Update existing payment
@@ -105,6 +113,10 @@ async function handlePaymentCaptured(payment: any) {
       existingPayment.paymentId = paymentId
       existingPayment.status = "success"
       existingPayment.webhookVerified = true
+      existingPayment.invoiceNumber = existingPayment.invoiceNumber || generateInvoiceNumber()
+      existingPayment.invoiceIssuedAt = existingPayment.invoiceIssuedAt || now
+      existingPayment.invoiceBaseAmount = amount
+      existingPayment.invoiceGatewayFee = 0
       await existingPayment.save()
       
       // Update user plan if not already updated
@@ -138,7 +150,11 @@ async function handlePaymentCaptured(payment: any) {
       amount,
       currency: "INR",
       status: "success",
-      webhookVerified: true
+      webhookVerified: true,
+      invoiceNumber: generateInvoiceNumber(),
+      invoiceIssuedAt: now,
+      invoiceBaseAmount: amount,
+      invoiceGatewayFee: 0
     })
     
     // Update user plan
@@ -200,7 +216,8 @@ async function handleOrderPaid(order: any, payment?: any) {
     return
   }
   
-  const planStartDate = new Date()
+  const now = new Date()
+  const planStartDate = now
   const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
   
   // Create or update payment
@@ -214,7 +231,11 @@ async function handleOrderPaid(order: any, payment?: any) {
       amount,
       currency: "INR",
       status: "success",
-      webhookVerified: true
+      webhookVerified: true,
+      invoiceNumber: generateInvoiceNumber(),
+      invoiceIssuedAt: now,
+      invoiceBaseAmount: amount,
+      invoiceGatewayFee: 0
     },
     { upsert: true }
   )

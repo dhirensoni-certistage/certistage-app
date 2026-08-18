@@ -121,9 +121,4 @@ const CertificateTypeSchema = new Schema<ICertificateType>(
 CertificateTypeSchema.index({ eventId: 1 })
 CertificateTypeSchema.index({ eventId: 1, isActive: 1 })
 
-// Force model recompilation to avoid schema mismatch issues in development
-if (mongoose.models.CertificateType) {
-  delete mongoose.models.CertificateType
-}
-
-export default mongoose.model<ICertificateType>("CertificateType", CertificateTypeSchema)
+export default mongoose.models.CertificateType || mongoose.model<ICertificateType>("CertificateType", CertificateTypeSchema)

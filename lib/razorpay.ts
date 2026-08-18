@@ -1,4 +1,4 @@
-﻿// Razorpay Configuration and Utilities
+// Razorpay Configuration and Utilities
 
 // Get config from localStorage (client-side) or env (server-side)
 export function getRazorpayConfig() {
@@ -38,9 +38,9 @@ export function getRazorpayConfig() {
 export const PLAN_PRICES = {
   free: 0,
   test: 100,            // ₹1 (test plan)
-  professional: 299900, // ₹2,999
-  enterprise: 699900,   // ₹6,999
-  premium: 1199900      // ₹11,999
+  professional: 499900, // ₹4,999
+  enterprise: 999900,   // ₹9,999
+  premium: 1999900      // ₹19,999
 } as const
 
 export const PLAN_PRICES_MAP: Record<string, number> = PLAN_PRICES
@@ -60,20 +60,20 @@ export const PLAN_DETAILS = {
   },
   professional: {
     name: "Professional",
-    price: 299900,
-    displayPrice: "₹2,999/year",
+    price: 499900,
+    displayPrice: "₹4,999/year",
     description: "Up to 3 events, 2,000 certificates"
   },
   enterprise: {
     name: "Enterprise",
-    price: 699900,
-    displayPrice: "₹6,999/year",
+    price: 999900,
+    displayPrice: "₹9,999/year",
     description: "Up to 10 events, 25,000 certificates"
   },
   premium: {
     name: "Premium",
-    price: 1199900,
-    displayPrice: "₹11,999/year",
+    price: 1999900,
+    displayPrice: "₹19,999/year",
     description: "Up to 25 events, 50,000 certificates"
   }
 } as const
@@ -231,4 +231,3 @@ export async function openRazorpayCheckout(
   const razorpay = new (window as any).Razorpay(options)
   razorpay.open()
 }
-

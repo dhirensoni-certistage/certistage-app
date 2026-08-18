@@ -52,6 +52,5 @@ PaymentSchema.index({ userId: 1 })
 PaymentSchema.index({ status: 1 })
 PaymentSchema.index({ status: 1, createdAt: -1 })
 PaymentSchema.index({ userId: 1, status: 1 })
-PaymentSchema.index({ invoiceNumber: 1 }, { sparse: true, unique: true })
 
 export default mongoose.models.Payment || mongoose.model<IPayment>("Payment", PaymentSchema)

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
-import { getPlanConfigFromDb } from "@/lib/plan-config.server"
 
 // GET - Get user profile
 export async function GET(request: NextRequest) {
@@ -18,8 +17,6 @@ export async function GET(request: NextRequest) {
         const session = await getServerSession(authOptions)
 
         if (!session?.user?.email) {
-          // No session - user not logged in, return 401
-          console.warn("Profile API: No userId param and no NextAuth session found.")
           return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
         }
 
@@ -133,65 +130,10 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-
-// PATCH - Update user plan (for upgrades)
-export async function PATCH(request: NextRequest) {
-  try {
-    await connectDB()
-
-    const body = await request.json()
-    const { plan, userId } = body
-
-    if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
-    }
-
-    if (!plan) {
-      return NextResponse.json({ error: "Plan is required" }, { status: 400 })
-    }
-
-    const planConfig = await getPlanConfigFromDb()
-    const enabledPlans = new Set(
-      planConfig.filter(p => p.enabled !== false).map(p => p.id)
-    )
-    if (!enabledPlans.has(plan) && plan !== "free") {
-      return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
-    }
-
-    // For now, allow plan update without payment verification (demo mode)
-    // In production, this should verify payment first
-
-    // Calculate plan expiry (1 year from now for paid plans)
-    const planExpiresAt = plan !== "free"
-      ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-      : null
-
-    const user = await User.findByIdAndUpdate(
-      userId,
-      {
-        plan,
-        planExpiresAt
-      },
-      { new: true }
-    ).select("-password")
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: user._id.toString(),
-        name: user.name,
-        email: user.email,
-        plan: user.plan,
-        planExpiresAt: user.planExpiresAt
-      },
-      message: "Plan updated successfully"
-    })
-  } catch (error) {
-    console.error("Profile PATCH error:", error)
-    return NextResponse.json({ error: "Failed to update plan" }, { status: 500 })
-  }
+// Direct plan updates via PATCH are disabled for security
+export async function PATCH() {
+  return NextResponse.json(
+    { error: "Direct plan updates are disabled. Plan upgrades must be completed via checkout payment." },
+    { status: 403 }
+  )
 }

@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
-import Recipient from "@/models/Recipient"
 
 // API for fetching all certificate types in an event for cross-type search functionality
 
-// GET - Get all certificate types with recipients for an event (for cross-type search)
+// GET - Get all certificate types for an event
 export async function GET(request: NextRequest) {
   try {
     await connectDB()
@@ -31,30 +30,7 @@ export async function GET(request: NextRequest) {
       templateImage: { $exists: true, $ne: null }
     }).lean()
 
-    // Get all recipients for these certificate types
-    const certTypeIds = certTypes.map(ct => ct._id)
-    const allRecipients = await Recipient.find({
-      eventId,
-      certificateTypeId: { $in: certTypeIds }
-    }).lean()
-
-    // Group recipients by certificate type
-    const recipientsByType: Record<string, any[]> = {}
-    for (const recipient of allRecipients) {
-      const typeId = recipient.certificateTypeId.toString()
-      if (!recipientsByType[typeId]) {
-        recipientsByType[typeId] = []
-      }
-      recipientsByType[typeId].push({
-        id: recipient._id.toString(),
-        name: recipient.name,
-        email: recipient.email || "",
-        mobile: recipient.mobile || "",
-        certificateId: recipient.regNo || recipient._id.toString()
-      })
-    }
-
-    // Build response with certificate types and their recipients
+    // Build response with certificate types safely without dumping attendees
     const certificateTypes = certTypes.map(ct => ({
       id: ct._id.toString(),
       name: ct.name,
@@ -69,7 +45,7 @@ export async function GET(request: NextRequest) {
       customFields: ct.customFields || [],
       signatures: ct.signatures || [],
       searchFields: ct.searchFields || { name: true, email: false, mobile: false, regNo: false },
-      recipients: recipientsByType[ct._id.toString()] || []
+      recipients: []
     }))
 
     return NextResponse.json({
