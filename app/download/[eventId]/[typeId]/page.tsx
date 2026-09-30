@@ -38,6 +38,7 @@ interface CertificateType {
   fontFamily: string
   fontBold: boolean
   fontItalic: boolean
+  fontColor?: string
   textCase?: "none" | "uppercase" | "lowercase" | "capitalize"
   searchFields: SearchFields
   customFields?: Array<{
@@ -47,6 +48,7 @@ interface CertificateType {
     fontFamily: string
     fontBold: boolean
     fontItalic: boolean
+    fontColor?: string
   }>
   signatures?: Array<{
     image: string
@@ -549,7 +551,7 @@ export default function CertTypeDownloadPage() {
                           fontFamily: `"${certType.fontFamily || 'Arial'}", sans-serif`,
                           fontWeight: certType.fontBold ? 'bold' : 'normal',
                           fontStyle: certType.fontItalic ? 'italic' : 'normal',
-                          color: "#000"
+                          color: certType.fontColor || "#000"
                         }}
                       >
                         {transformText(selectedRecipient.name, certType.textCase)}
@@ -584,7 +586,7 @@ export default function CertTypeDownloadPage() {
                               fontFamily: `"${field.fontFamily || 'Arial'}", sans-serif`,
                               fontWeight: field.fontBold ? 'bold' : 'normal',
                               fontStyle: field.fontItalic ? 'italic' : 'normal',
-                              color: "#000"
+                              color: field.fontColor || "#000"
                             }}
                           >
                             {value}

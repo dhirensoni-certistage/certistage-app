@@ -43,6 +43,7 @@ import {
   type CertificateEvent, type CertificateType, type TextField
 } from "@/lib/events"
 import { motion, AnimatePresence } from "framer-motion"
+import { TextColorPicker } from "@/components/client/text-color-picker"
 
 // PDF-compatible fonts only (jsPDF limitation)
 const PDF_FONTS = [
@@ -233,6 +234,7 @@ export default function CertificatesPage() {
               fontFamily: ct.fontFamily || "Arial",
               fontBold: ct.fontBold || false,
               fontItalic: ct.fontItalic || false,
+              fontColor: ct.fontColor || "#000000",
               textCase: ct.textCase || "none",
               showNameField: ct.showNameField !== false,
               customFields: ct.customFields || [],
@@ -735,6 +737,7 @@ export default function CertificatesPage() {
                     fontFamily: selectedType.fontFamily,
                     fontBold: selectedType.fontBold,
                     fontItalic: selectedType.fontItalic,
+                    fontColor: selectedType.fontColor || "#000000",
                   }
                   const currentFields = selectedType.customFields || []
                   if (currentFields.find(f => f.variable === variable)) {
@@ -1123,7 +1126,7 @@ function TemplateEditor({
   onRemoveTemplate: () => void
   onTogglePreview: () => void
   onPositionChange: (axis: "x" | "y", value: number) => void
-  onFontChange: (updates: { fontSize?: number; fontFamily?: string; fontBold?: boolean; fontItalic?: boolean; textCase?: string }) => void
+  onFontChange: (updates: { fontSize?: number; fontFamily?: string; fontBold?: boolean; fontItalic?: boolean; fontColor?: string; textCase?: string }) => void
   onSelectField: (id: string) => void
   onAddCustomField: (variable: string) => void
   onRemoveCustomField: (fieldId: string) => void
@@ -1240,6 +1243,7 @@ function TemplateEditor({
                             fontFamily: certType.fontFamily || 'Arial',
                             fontWeight: certType.fontBold ? 'bold' : 'normal',
                             fontStyle: certType.fontItalic ? 'italic' : 'normal',
+                            color: certType.fontColor || '#000000',
                             textTransform: certType.textCase === 'uppercase' ? 'uppercase' : certType.textCase === 'lowercase' ? 'lowercase' : certType.textCase === 'capitalize' ? 'capitalize' : 'none'
                           }}
                         >
@@ -1264,6 +1268,7 @@ function TemplateEditor({
                         fontFamily: certType.fontFamily || 'Arial',
                         fontWeight: certType.fontBold ? 'bold' : 'normal',
                         fontStyle: certType.fontItalic ? 'italic' : 'normal',
+                        color: certType.fontColor || '#000000',
                         textTransform: certType.textCase === 'uppercase' ? 'uppercase' : certType.textCase === 'lowercase' ? 'lowercase' : certType.textCase === 'capitalize' ? 'capitalize' : 'none',
                         textShadow: '0px 0px 1px rgba(0,0,0,0.1)'
                       }}
@@ -1309,7 +1314,8 @@ function TemplateEditor({
                               fontSize: `${field.fontSize || 24}px`,
                               fontFamily: field.fontFamily || 'Arial',
                               fontWeight: field.fontBold ? 'bold' : 'normal',
-                              fontStyle: field.fontItalic ? 'italic' : 'normal'
+                              fontStyle: field.fontItalic ? 'italic' : 'normal',
+                              color: field.fontColor || '#000000'
                             }}
                           >
                             {`{{${field.variable}}}`}
@@ -1330,7 +1336,8 @@ function TemplateEditor({
                           fontSize: `${field.fontSize || 24}px`,
                           fontFamily: field.fontFamily || 'Arial',
                           fontWeight: field.fontBold ? 'bold' : 'normal',
-                          fontStyle: field.fontItalic ? 'italic' : 'normal'
+                          fontStyle: field.fontItalic ? 'italic' : 'normal',
+                          color: field.fontColor || '#000000'
                         }}
                       >
                         {field.variable === 'EMAIL' ? 'john@example.com' :
@@ -1476,6 +1483,24 @@ function TemplateEditor({
                             </div>
                           </div>
                         )}
+                      </div>
+
+                      {/* Text Color */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-[11px] font-medium text-[#444]">Text Color</Label>
+                          <span className="text-[10px] font-mono text-[#666] bg-[#F5F5F7] px-1.5 py-0.5 rounded uppercase">
+                            {selectedField.fontColor || '#000000'}
+                          </span>
+                        </div>
+                        <TextColorPicker
+                          compact
+                          value={selectedField.fontColor}
+                          onChange={(color) => onFontChange({ fontColor: color })}
+                        />
+                        <p className="text-[10px] text-[#888] mt-1.5">
+                          Applies to the selected field in the preview and the downloaded PDF
+                        </p>
                       </div>
                     </div>
                   )

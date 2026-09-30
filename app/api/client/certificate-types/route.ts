@@ -183,6 +183,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Accept only #RRGGBB (or #RGB, expanded) so arbitrary strings never reach the renderers
+function normalizeHexColor(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed.toLowerCase()
+  if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
+    return ("#" + trimmed.slice(1).split("").map((c) => c + c).join("")).toLowerCase()
+  }
+  return null
+}
+
 // PUT - Update certificate type
 export async function PUT(request: NextRequest) {
   try {
@@ -220,10 +231,22 @@ export async function PUT(request: NextRequest) {
     if (body.fontFamily !== undefined) updateData.fontFamily = body.fontFamily
     if (body.fontBold !== undefined) updateData.fontBold = body.fontBold
     if (body.fontItalic !== undefined) updateData.fontItalic = body.fontItalic
+    if (body.fontColor !== undefined) {
+      const color = normalizeHexColor(body.fontColor)
+      if (color) updateData.fontColor = color
+    }
     if (body.textPosition !== undefined) updateData.textPosition = body.textPosition
     if (body.showNameField !== undefined) updateData.showNameField = body.showNameField
     if (body.textCase !== undefined) updateData.textCase = body.textCase
-    if (body.customFields !== undefined) updateData.customFields = body.customFields
+    if (body.customFields !== undefined) {
+      updateData.customFields = Array.isArray(body.customFields)
+        ? body.customFields.map((field: any) => {
+            if (field?.fontColor === undefined) return field
+            const color = normalizeHexColor(field.fontColor)
+            return color ? { ...field, fontColor: color } : { ...field, fontColor: "#000000" }
+          })
+        : body.customFields
+    }
     if (body.signatures !== undefined) {
       // Ensure signatures use the nested position format
       updateData.signatures = body.signatures.map((sig: any) => {
@@ -258,6 +281,7 @@ export async function PUT(request: NextRequest) {
         fontFamily: updated.fontFamily,
         fontBold: updated.fontBold,
         fontItalic: updated.fontItalic,
+        fontColor: updated.fontColor,
         textCase: updated.textCase,
         searchFields: updated.searchFields,
         updatedAt: updated.updatedAt

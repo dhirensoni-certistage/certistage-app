@@ -10,6 +10,7 @@ export interface CertificateSettings {
   fontFamily: string
   fontBold: boolean
   fontItalic: boolean
+  fontColor?: string
 }
 
 export interface SavedTemplate {
@@ -177,7 +178,7 @@ export async function generateCertificatePDF(
   const fontStyle = settings.fontItalic ? "italic" : "normal"
   const fontFamily = settings.fontFamily || "Arial"
   ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px ${fontFamily}`
-  ctx.fillStyle = "#000000"
+  ctx.fillStyle = settings.fontColor || "#000000"
   ctx.textAlign = "center"
   ctx.textBaseline = "middle"
 

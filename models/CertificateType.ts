@@ -24,6 +24,7 @@ export interface ICustomField {
   fontFamily: string
   fontBold: boolean
   fontItalic: boolean
+  fontColor?: string
 }
 
 export interface ISearchFields {
@@ -45,6 +46,7 @@ export interface ICertificateType extends Document {
   fontFamily: string
   fontBold: boolean
   fontItalic: boolean
+  fontColor: string
   textPosition: { x: number; y: number }
   textCase: TextCase
   showNameField: boolean
@@ -83,7 +85,8 @@ const CustomFieldSchema = new Schema<ICustomField>({
   fontSize: { type: Number, default: 24 },
   fontFamily: { type: String, default: "Arial" },
   fontBold: { type: Boolean, default: false },
-  fontItalic: { type: Boolean, default: false }
+  fontItalic: { type: Boolean, default: false },
+  fontColor: { type: String, default: "#000000" }
 }, { _id: false })
 
 const CertificateTypeSchema = new Schema<ICertificateType>(
@@ -97,6 +100,7 @@ const CertificateTypeSchema = new Schema<ICertificateType>(
     fontFamily: { type: String, default: "Arial" },
     fontBold: { type: Boolean, default: false },
     fontItalic: { type: Boolean, default: false },
+    fontColor: { type: String, default: "#000000" },
     textPosition: {
       x: { type: Number, default: 50 },
       y: { type: Number, default: 60 }
