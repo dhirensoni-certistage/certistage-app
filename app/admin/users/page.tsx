@@ -1,6 +1,6 @@
 ﻿"use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { AdminHeader } from "@/components/admin/admin-header"
 import { DataTable, Column, Pagination } from "@/components/admin/data-table"
@@ -27,6 +27,7 @@ import {
 import { Download, Trash2, Mail, UserPlus, Loader2, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import { Breadcrumbs } from "@/components/admin/breadcrumbs"
+import { formatInr, mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
 
 interface User {
   _id: string
@@ -38,19 +39,17 @@ interface User {
   createdAt: string
 }
 
-const planFilters: FilterConfig[] = [
+// Plan names and prices come from the admin plan config so this page never shows stale pricing
+const buildPlanFilters = (plans: PlanConfig[]): FilterConfig[] => [
   {
     key: "plan",
     label: "Plan",
-    options: [
-      { value: "free", label: "Free" },
-      { value: "test", label: "Test" },
-      { value: "professional", label: "Professional" },
-      { value: "enterprise", label: "Enterprise" },
-      { value: "premium", label: "Premium" },
-    ]
+    options: plans.map((plan) => ({ value: plan.id, label: plan.name }))
   }
 ]
+
+const planOptionLabel = (plan: PlanConfig) =>
+  plan.price > 0 ? `${plan.name} (${formatInr(plan.price)})` : plan.name
 
 const planColors: Record<string, string> = {
   free: "bg-gray-100 text-gray-800",
@@ -67,6 +66,8 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [filters, setFilters] = useState<Record<string, string>>({})
+  const [plans, setPlans] = useState<PlanConfig[]>(() => mergePlanConfigWithDefaults([]))
+  const planFilters = useMemo(() => buildPlanFilters(plans), [plans])
   
   // Create user dialog
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -85,6 +86,20 @@ export default function UsersPage() {
   useEffect(() => {
     fetchUsers()
   }, [pagination.page, search, filters])
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const res = await fetch("/api/admin/plans")
+        if (!res.ok) return
+        const data = await res.json()
+        if (Array.isArray(data?.plans)) setPlans(mergePlanConfigWithDefaults(data.plans))
+      } catch (error) {
+        console.error("Failed to fetch plans:", error)
+      }
+    }
+    fetchPlans()
+  }, [])
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -118,7 +133,7 @@ export default function UsersPage() {
         const plan = user.plan || "free"
         return (
           <Badge className={planColors[plan] || "bg-gray-100"}>
-            {plan.charAt(0).toUpperCase() + plan.slice(1)}
+            {plans.find((p) => p.id === plan)?.name || plan.charAt(0).toUpperCase() + plan.slice(1)}
           </Badge>
         )
       }
@@ -349,11 +364,11 @@ export default function UsersPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="free">Free</SelectItem>
-                    <SelectItem value="test">Test (₹1)</SelectItem>
-                    <SelectItem value="professional">Professional (₹2,999)</SelectItem>
-                    <SelectItem value="enterprise">Enterprise (₹6,999)</SelectItem>
-                    <SelectItem value="premium">Premium (₹11,999)</SelectItem>
+                    {plans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {planOptionLabel(plan)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
