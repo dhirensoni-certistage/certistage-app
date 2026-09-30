@@ -4,6 +4,15 @@ import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 
+// Convert a #RRGGBB / #RGB hex color to an RGB triple; anything else falls back to black
+function hexToRgb(hex?: string): [number, number, number] {
+  if (typeof hex !== "string") return [0, 0, 0]
+  let value = hex.trim().replace(/^#/, "")
+  if (/^[0-9a-fA-F]{3}$/.test(value)) value = value.split("").map((c) => c + c).join("")
+  if (!/^[0-9a-fA-F]{6}$/.test(value)) return [0, 0, 0]
+  return [parseInt(value.slice(0, 2), 16), parseInt(value.slice(2, 4), 16), parseInt(value.slice(4, 6), 16)]
+}
+
 // GET - Generate and serve PDF directly
 export async function GET(request: NextRequest) {
   try {
@@ -94,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     // Add recipient name
     // Helper to render text with font mapping
-    const renderText = (text: string, xPercent: number, yPercent: number, fontSizePx: number, fontFam: string, isBold: boolean, isItalic: boolean) => {
+    const renderText = (text: string, xPercent: number, yPercent: number, fontSizePx: number, fontFam: string, isBold: boolean, isItalic: boolean, color?: string) => {
       const x = (xPercent / 100) * pdfWidth
       const y = (yPercent / 100) * pdfHeight
 
@@ -123,7 +132,8 @@ export async function GET(request: NextRequest) {
       else if (isItalic) pdf.setFont(pdfFont, 'italic')
       else pdf.setFont(pdfFont, 'normal')
 
-      pdf.setTextColor(0, 0, 0)
+      const [r, g, b] = hexToRgb(color)
+      pdf.setTextColor(r, g, b)
       // Use baseline: 'middle' to match HTML/CSS center alignment
       pdf.text(text, x, y, { align: 'center', baseline: 'middle' })
     }
@@ -146,7 +156,7 @@ export async function GET(request: NextRequest) {
           break
       }
 
-      renderText(displayName, textX, textY, fs, certType.fontFamily, certType.fontBold, certType.fontItalic)
+      renderText(displayName, textX, textY, fs, certType.fontFamily, certType.fontBold, certType.fontItalic, certType.fontColor)
     }
 
     // Render Custom Fields
@@ -168,7 +178,8 @@ export async function GET(request: NextRequest) {
             field.fontSize || 24,
             field.fontFamily,
             field.fontBold,
-            field.fontItalic
+            field.fontItalic,
+            field.fontColor
           )
         }
       }

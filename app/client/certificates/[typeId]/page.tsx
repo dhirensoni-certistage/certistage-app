@@ -12,11 +12,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { getClientSession } from "@/lib/auth"
 import { 
   ArrowLeft, Upload, Trash2, Move, AlignLeft, AlignCenter, AlignRight, Eye, Check, Loader2,
-  Users, Link as LinkIcon, Settings, Search, Type
+  Users, Link as LinkIcon, Settings, Search, Type, Palette
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { TextColorPicker } from "@/components/client/text-color-picker"
 import {
   Select,
   SelectContent,
@@ -43,6 +44,7 @@ interface CertificateType {
   fontFamily?: string
   fontBold?: boolean
   fontItalic?: boolean
+  fontColor?: string
   textCase?: TextCase
   alignment?: "left" | "center" | "right"
   stats: { total: number; downloaded: number; pending: number }
@@ -66,6 +68,7 @@ export default function CertificateTemplatePage() {
   const [fontSize, setFontSize] = useState(24)
   const [fontFamily, setFontFamily] = useState<string>("Helvetica")
   const [textCase, setTextCase] = useState<TextCase>("none")
+  const [fontColor, setFontColor] = useState<string>("#000000")
   const [isDragging, setIsDragging] = useState(false)
   const [searchFields, setSearchFields] = useState<SearchFields>({
     name: true,
@@ -109,6 +112,9 @@ export default function CertificateTemplatePage() {
           }
           if (data.certificateType?.textCase) {
             setTextCase(data.certificateType.textCase)
+          }
+          if (data.certificateType?.fontColor) {
+            setFontColor(data.certificateType.fontColor)
           }
         }
       } catch (error) {
@@ -179,6 +185,7 @@ export default function CertificateTemplatePage() {
           fontBold: certType?.fontBold || false,
           fontItalic: certType?.fontItalic || false,
           textCase,
+          fontColor,
           searchFields
         })
       })
@@ -337,7 +344,7 @@ export default function CertificateTemplatePage() {
                       }}
                       onMouseDown={handleMouseDown}
                     >
-                      <span className="text-primary font-semibold">{transformText("Recipient Name")}</span>
+                      <span className="font-semibold" style={{ color: fontColor }}>{transformText("Recipient Name")}</span>
                     </div>
                   </>
                 ) : (
@@ -463,6 +470,17 @@ export default function CertificateTemplatePage() {
                     <SelectItem value="capitalize">Capitalize Each Word</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Palette className="h-4 w-4" />
+                  Text Color
+                </Label>
+                <TextColorPicker value={fontColor} onChange={setFontColor} />
+                <p className="text-xs text-muted-foreground">
+                  Used for the recipient name in the preview and the downloaded certificate
+                </p>
               </div>
               
               <Button onClick={savePosition} disabled={isSaving} className="w-full">

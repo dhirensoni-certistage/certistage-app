@@ -8,6 +8,7 @@ export interface TextField {
   fontFamily: string
   fontBold: boolean
   fontItalic: boolean
+  fontColor?: string // hex color, e.g. "#000000"
 }
 
 
@@ -32,6 +33,7 @@ export interface CertificateType {
   fontFamily: string // font family name
   fontBold: boolean
   fontItalic: boolean
+  fontColor?: string // hex text color (default "#000000")
   textCase?: "none" | "uppercase" | "lowercase" | "capitalize" // text transformation
   showNameField?: boolean // whether to show the NAME field (default true)
   textFields?: TextField[] // main variables

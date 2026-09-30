@@ -20,6 +20,7 @@ interface CertificateType {
   fontFamily: string
   fontBold: boolean
   fontItalic: boolean
+  fontColor?: string
   showNameField: boolean
   textCase?: "none" | "uppercase" | "lowercase" | "capitalize"
   customFields?: any[]
@@ -192,7 +193,7 @@ export default function EmbeddedPreviewPage() {
                       fontFamily: `"${certType.fontFamily || "Arial"}", sans-serif`,
                       fontWeight: certType.fontBold ? "bold" : "normal",
                       fontStyle: certType.fontItalic ? "italic" : "normal",
-                      color: "#000",
+                      color: certType.fontColor || "#000",
                     }}
                   >
                     {transformText(recipient?.name || "", certType.textCase)}
@@ -235,7 +236,7 @@ export default function EmbeddedPreviewPage() {
                         fontFamily: `"${field.fontFamily || "Arial"}", sans-serif`,
                         fontWeight: field.fontBold ? "bold" : "normal",
                         fontStyle: field.fontItalic ? "italic" : "normal",
-                        color: "#000",
+                        color: field.fontColor || "#000",
                       }}
                     >
                       {value}

@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       fontFamily: ct.fontFamily || "Arial",
       fontBold: ct.fontBold || false,
       fontItalic: ct.fontItalic || false,
+      fontColor: ct.fontColor || "#000000",
       showNameField: ct.showNameField !== false,
       customFields: ct.customFields || [],
       signatures: ct.signatures || [],

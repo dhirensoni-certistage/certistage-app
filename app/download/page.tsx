@@ -29,6 +29,7 @@ interface CertificateType {
   fontSize: number
   fontFamily: string
   fontBold: boolean
+  fontColor?: string
   fontItalic: boolean
   showNameField: boolean
   textCase?: "none" | "uppercase" | "lowercase" | "capitalize"
@@ -164,7 +165,7 @@ export default function DownloadPage() {
         const fontSize = Math.max(10, ((certType.fontSize || 24) / 10 / 100) * scaleBase)
 
         ctx.font = `${certType.fontBold ? "bold" : "normal"} ${certType.fontItalic ? "italic" : "normal"} ${fontSize}px ${certType.fontFamily || "Arial"}, sans-serif`
-        ctx.fillStyle = "#000000"
+        ctx.fillStyle = certType.fontColor || "#000000"
         ctx.textAlign = "center"
         ctx.textBaseline = "middle"
         
@@ -180,7 +181,7 @@ export default function DownloadPage() {
           const fieldFontSize = Math.max(10, ((field.fontSize || 24) / 10 / 100) * scaleBase)
 
           ctx.font = `${field.fontBold ? "bold" : "normal"} ${field.fontItalic ? "italic" : "normal"} ${fieldFontSize}px ${field.fontFamily || "Arial"}, sans-serif`
-          ctx.fillStyle = "#000000"
+          ctx.fillStyle = field.fontColor || "#000000"
           ctx.textAlign = "center"
           ctx.textBaseline = "middle"
 
@@ -295,7 +296,7 @@ export default function DownloadPage() {
                         fontFamily: `"${certType.fontFamily || 'Arial'}", sans-serif`,
                         fontWeight: certType.fontBold ? 'bold' : 'normal',
                         fontStyle: certType.fontItalic ? 'italic' : 'normal',
-                        color: "#000"
+                        color: certType.fontColor || "#000"
                       }}
                     >
                       {transformText(recipient?.name || "", certType.textCase)}
@@ -331,7 +332,7 @@ export default function DownloadPage() {
                           fontFamily: `"${field.fontFamily || 'Arial'}", sans-serif`,
                           fontWeight: field.fontBold ? 'bold' : 'normal',
                           fontStyle: field.fontItalic ? 'italic' : 'normal',
-                          color: "#000"
+                          color: field.fontColor || "#000"
                         }}
                       >
                         {value}
