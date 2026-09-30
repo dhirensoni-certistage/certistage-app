@@ -44,6 +44,8 @@ import {
 } from "@/lib/events"
 import { motion, AnimatePresence } from "framer-motion"
 import { TextColorPicker } from "@/components/client/text-color-picker"
+import { usePlanConfig } from "@/hooks/use-plan-config"
+import { formatInr, getStartingPaidPlan } from "@/lib/plan-config"
 
 // PDF-compatible fonts only (jsPDF limitation)
 const PDF_FONTS = [
@@ -70,6 +72,8 @@ export default function CertificatesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [event, setEvent] = useState<CertificateEvent | null>(null)
+  const { plans: planConfig } = usePlanConfig()
+  const startingPaidPlan = getStartingPaidPlan(planConfig)
   const [eventId, setEventId] = useState<string | null>(null)
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -882,7 +886,11 @@ export default function CertificatesPage() {
                     <Crown className="h-4 w-4" />
                     Upgrade Now
                   </a>
-                  <span className="text-xs text-muted-foreground">Starting from ₹2,999/year</span>
+                  {startingPaidPlan && (
+                    <span className="text-xs text-muted-foreground">
+                      Starting from {formatInr(startingPaidPlan.price)}/{startingPaidPlan.billingPeriod || "year"}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

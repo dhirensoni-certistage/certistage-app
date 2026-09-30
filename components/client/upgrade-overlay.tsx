@@ -4,6 +4,8 @@ import { Lock, Crown, Sparkles, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { usePlanConfig } from "@/hooks/use-plan-config"
+import { formatInr, getStartingPaidPlan } from "@/lib/plan-config"
 
 interface UpgradeOverlayProps {
   feature: string
@@ -18,6 +20,9 @@ export function UpgradeOverlay({
   type = "locked",
   className
 }: UpgradeOverlayProps) {
+  const { plans } = usePlanConfig()
+  const startingPaidPlan = getStartingPaidPlan(plans)
+
   return (
     <div className={cn(
       "absolute inset-0 z-50 flex items-center justify-center p-6",
@@ -60,9 +65,9 @@ export function UpgradeOverlay({
             </Link>
           </Button>
 
-          {type !== "trial-expired" && (
+          {type !== "trial-expired" && startingPaidPlan && (
             <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-[0.1em]">
-              Professional access from ₹2,999/yr
+              {startingPaidPlan.name} access from {formatInr(startingPaidPlan.price)}/{startingPaidPlan.billingPeriod === "month" ? "mo" : "yr"}
             </p>
           )}
         </div>

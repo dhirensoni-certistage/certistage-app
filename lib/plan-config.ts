@@ -261,6 +261,18 @@ export function formatRupees(amountInPaise: number): string {
   return `INR ${(amountInPaise / 100).toLocaleString("en-IN")}`
 }
 
+// "₹4,999" style label for UI copy (formatRupees uses the "INR" prefix)
+export function formatInr(amountInPaise: number): string {
+  return `₹${(amountInPaise / 100).toLocaleString("en-IN")}`
+}
+
+// Cheapest enabled paid plan, used for "Starting from ..." copy. Null when no paid plan is on sale.
+export function getStartingPaidPlan(plans: PlanConfig[]): PlanConfig | null {
+  const paid = plans.filter((plan) => plan.enabled !== false && plan.price > 0)
+  if (paid.length === 0) return null
+  return paid.reduce((cheapest, plan) => (plan.price < cheapest.price ? plan : cheapest))
+}
+
 export function toPriceLabel(amountInPaise: number, suffix: string = "/year"): string {
   if (amountInPaise <= 0) return formatRupees(0)
   return `${formatRupees(amountInPaise)}${suffix}`
