@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowRight, Shield, Users, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles } from "lucide-react"
+import { ArrowRight, Shield, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles, Award, Download, Search, FileSpreadsheet } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
 import { formatApproxCount, type PublicStats } from "@/lib/public-stats"
@@ -14,6 +14,38 @@ const planIcons: Record<string, any> = {
   enterprise: Crown,
   premium: Gem
 }
+
+// Client logos for the "Trusted by" strip. Add files under public/clients/ and list them here.
+const TRUSTED_BY: { name: string; logo: string; width: number; height: number }[] = []
+
+const FEATURES = [
+  {
+    icon: LayoutTemplate,
+    title: "Visual template editor",
+    desc: "Upload your certificate design, drag the name and other fields into place, and set the font, size and colour for each one. Add signatures where you need them.",
+    wide: true
+  },
+  {
+    icon: Search,
+    title: "Self-service download page",
+    desc: "Share one link. Recipients search by name, email, mobile or registration number and download their own PDF."
+  },
+  {
+    icon: FileSpreadsheet,
+    title: "Excel import",
+    desc: "Import thousands of recipients from a single Excel sheet, with validation before anything is generated."
+  },
+  {
+    icon: BarChart3,
+    title: "Live download tracking",
+    desc: "See who has downloaded and who is still pending, per certificate type, as it happens."
+  },
+  {
+    icon: Shield,
+    title: "Secure by default",
+    desc: "Recipients only ever see their own certificate. Your account keeps an activity log of every change."
+  }
+]
 
 const formatPrice = (amountInPaise: number, currency: string) => {
   const amount = amountInPaise / 100
@@ -127,58 +159,85 @@ export default function HomePage() {
               <Link href="/client/login">Sign In</Link>
             </Button>
             <Button size="sm" asChild className="text-sm h-9 px-4">
-              <Link href="/signup">Get Started</Link>
+              <Link href="/signup">Start free</Link>
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Hero Section - Clean & Minimal */}
+      {/* Hero */}
       <section className="pt-16 md:pt-20 pb-16 md:pb-24 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-[42px] md:text-[64px] font-bold tracking-tight text-neutral-900 dark:text-white leading-[1.1] mb-6">
-            Built to make you<br />
-            <span className="text-neutral-400 dark:text-neutral-600">extraordinarily productive</span>
+          <p className="inline-flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-full px-3 py-1 mb-6">
+            <Award className="h-3.5 w-3.5" />
+            <span>For events, colleges, institutes and training programs</span>
+          </p>
+          <h1 className="text-[40px] md:text-[56px] font-bold tracking-tight text-neutral-900 dark:text-white leading-[1.1] mb-6">
+            Issue <span className="text-amber-600 dark:text-amber-400">certificates</span> to thousands{" "}
+            <br className="hidden md:block" />
+            of people in minutes
           </h1>
 
           <p className="text-lg md:text-xl text-neutral-600 dark:text-neutral-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            The enterprise standard for digital credentialing. Design, issue, and track certificates at scale.
+            Upload your certificate design and an Excel sheet of names. Every attendee, student or participant finds and downloads their own certificate. No designer, no manual emailing.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
             <Button size="lg" asChild className="h-11 px-6 text-sm font-medium rounded-lg">
               <Link href="/signup">
-                Try CertiStage <ArrowRight className="h-4 w-4 ml-1.5" />
+                Start free <ArrowRight className="h-4 w-4 ml-1.5" />
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild className="h-11 px-6 text-sm font-medium rounded-lg">
-              <Link href="/client/login">
-                View Demo
+              <Link href="#how-it-works">
+                See how it works
               </Link>
             </Button>
           </div>
 
-          {/* Dashboard Preview - Simple Border */}
-          <div className="relative mx-auto max-w-5xl mt-12">
-            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden shadow-2xl shadow-neutral-900/10 dark:shadow-black/50">
-              <div className="h-9 border-b border-neutral-200 dark:border-neutral-800 flex items-center px-4 gap-2 bg-neutral-50 dark:bg-neutral-900">
-                <div className="flex gap-1.5">
-                  <div className="h-2.5 w-2.5 rounded-full bg-neutral-300 dark:bg-neutral-700" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-neutral-300 dark:bg-neutral-700" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-neutral-300 dark:bg-neutral-700" />
-                </div>
-                <div className="ml-3 h-5 flex-1 max-w-md rounded bg-neutral-100 dark:bg-neutral-800 flex items-center px-2.5 text-[11px] text-neutral-500 dark:text-neutral-500 font-mono">
-                  app.certistage.com/dashboard
+          {/* Certificate mockup with recipient download card */}
+          <div className="relative mx-auto max-w-4xl mt-4 md:mt-8 sm:pb-8">
+            <div className="relative rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-2xl shadow-neutral-900/10 dark:shadow-black/50 overflow-hidden">
+              <div className="relative aspect-[1.414/1] sm:aspect-[16/9] p-5 sm:p-8 md:p-10 bg-[#fffdf8] dark:bg-neutral-950">
+                <div className="absolute inset-3 sm:inset-5 border-[3px] border-amber-500/70 rounded-sm pointer-events-none" />
+                <div className="absolute inset-4 sm:inset-6 border border-amber-500/40 rounded-sm pointer-events-none" />
+
+                <div className="relative h-full flex flex-col items-center justify-center text-center">
+                  <div className="text-[9px] sm:text-[11px] tracking-[0.3em] uppercase text-neutral-500 dark:text-neutral-400 mb-1 sm:mb-2">Your organization</div>
+                  <div className="font-serif text-xl sm:text-3xl md:text-4xl text-neutral-900 dark:text-white mb-1 sm:mb-2">Certificate of Participation</div>
+                  <div className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 mb-3 sm:mb-5">This certificate is proudly presented to</div>
+
+                  <div className="inline-flex items-center rounded-md border-2 border-dashed border-amber-500 bg-amber-50 dark:bg-amber-500/10 px-3 sm:px-5 py-1 sm:py-1.5 mb-3 sm:mb-5">
+                    <span className="font-serif text-lg sm:text-2xl md:text-3xl text-neutral-900 dark:text-white">{"{{NAME}}"}</span>
+                  </div>
+
+                  <div className="text-[10px] sm:text-xs text-neutral-600 dark:text-neutral-400 max-w-xs sm:max-w-md leading-relaxed">
+                    for participating in the Annual Conference 2026
+                  </div>
+
+                  <div className="mt-4 sm:mt-7 w-full flex items-end justify-between px-4 sm:px-10">
+                    <div className="text-left">
+                      <div className="w-16 sm:w-28 border-t border-neutral-400 dark:border-neutral-600 mb-1" />
+                      <div className="text-[8px] sm:text-[10px] text-neutral-500 dark:text-neutral-400">Director</div>
+                    </div>
+                    <div className="h-9 w-9 sm:h-14 sm:w-14 rounded-full bg-amber-400 ring-4 ring-amber-200 dark:ring-amber-500/30 flex items-center justify-center shadow-sm">
+                      <Award className="h-4 w-4 sm:h-7 sm:w-7 text-amber-900" />
+                    </div>
+                    <div className="text-right">
+                      <div className="w-16 sm:w-28 border-t border-neutral-400 dark:border-neutral-600 mb-1 ml-auto" />
+                      <div className="text-[8px] sm:text-[10px] text-neutral-500 dark:text-neutral-400">Coordinator</div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="relative w-full aspect-[16/9] bg-white dark:bg-neutral-950">
-                <Image
-                  src="/dashboard-preview.png"
-                  alt="CertiStage Dashboard"
-                  fill
-                  className="object-cover object-top"
-                  priority
-                />
+            </div>
+
+            <div className="sm:absolute sm:bottom-0 sm:-right-4 md:-right-10 mt-4 sm:mt-0 w-full sm:w-64 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl p-4 text-left">
+              <div className="text-xs font-semibold text-neutral-900 dark:text-white mb-0.5">Find your certificate</div>
+              <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mb-3">Annual Conference 2026</div>
+              <div className="h-8 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-2.5 flex items-center text-[11px] text-neutral-500 dark:text-neutral-400 mb-2">Name or registration no.</div>
+              <div className="h-8 rounded-md bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-[11px] font-medium flex items-center justify-center gap-1.5">
+                <Download className="h-3.5 w-3.5" /> Download PDF
               </div>
             </div>
           </div>
@@ -202,7 +261,7 @@ export default function HomePage() {
                     aria-label="Loading"
                   />
                 ) : (
-                  <p className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-1">{stat.value}</p>
+                  <p className="text-3xl md:text-4xl font-bold text-amber-600 dark:text-amber-400 mb-1">{stat.value}</p>
                 )}
                 <p className="text-xs text-neutral-500 dark:text-neutral-500 uppercase tracking-wide">{stat.label}</p>
               </div>
@@ -211,89 +270,78 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Features - Clean Boxes */}
-      <section id="features" className="py-24 px-6">
+      {/* Trusted by (shown once client logos are added to TRUSTED_BY) */}
+      {TRUSTED_BY.length > 0 && (
+        <section className="py-12 px-6">
+          <div className="max-w-6xl mx-auto text-center">
+            <p className="text-xs text-neutral-500 dark:text-neutral-500 uppercase tracking-wide mb-8">Trusted by organizers of</p>
+            <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-8">
+              {TRUSTED_BY.map((client) => (
+                <Image
+                  key={client.name}
+                  src={client.logo}
+                  alt={client.name}
+                  width={client.width}
+                  height={client.height}
+                  className="h-12 md:h-14 w-auto object-contain grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all"
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Features */}
+      <section id="features" className="py-24 px-6 scroll-mt-16">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold text-neutral-900 dark:text-white mb-4">
-              Built for scale
+              Everything you need to issue certificates
             </h2>
             <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
-              Everything you need to issue professional certificates to thousands of attendees
+              From a 50-person workshop to a 10,000-attendee conference or an entire graduating batch.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-4">
-            {/* Feature 1 - Large */}
-            <div className="md:col-span-2 p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
-              <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
-                <LayoutTemplate className="w-5 h-5" />
+            {FEATURES.map((feature) => (
+              <div
+                key={feature.title}
+                className={`${feature.wide ? "md:col-span-2" : ""} p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-amber-300 dark:hover:border-amber-500/40 transition-colors`}
+              >
+                <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-amber-700 dark:text-amber-400 mb-6">
+                  <feature.icon className="w-5 h-5" />
+                </div>
+                <h3 className={`${feature.wide ? "text-xl" : "text-lg"} font-semibold text-neutral-900 dark:text-white mb-3`}>
+                  {feature.title}
+                </h3>
+                <p className={`${feature.wide ? "text-[15px]" : "text-sm"} text-neutral-600 dark:text-neutral-400 leading-relaxed`}>
+                  {feature.desc}
+                </p>
               </div>
-              <h3 className="text-xl font-semibold text-neutral-900 dark:text-white mb-3">
-                Visual Template Studio
-              </h3>
-              <p className="text-neutral-600 dark:text-neutral-400 text-[15px] leading-relaxed">
-                Design pixel-perfect certificates with dynamic variables. Upload custom fonts, logos, and signatures. Map CSV columns automatically.
-              </p>
-            </div>
+            ))}
+          </div>
 
-            {/* Feature 2 */}
-            <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
-              <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
-                Recipient Portal
-              </h3>
-              <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
-                Self-service portal for attendees. Search by email, mobile, or registration number.
-              </p>
+          {/* Dashboard preview */}
+          <div className="mt-4 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-white dark:bg-neutral-950">
+            <div className="p-6 md:p-8 border-b border-neutral-200 dark:border-neutral-800">
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-1">One dashboard for every event and batch</h3>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">Attendees, downloads, pending recipients and completion rate, all in one place.</p>
             </div>
-
-            {/* Feature 3 */}
-            <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
-              <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
-                <Users className="w-5 h-5" />
-              </div>
-              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
-                Bulk Operations
-              </h3>
-              <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
-                Upload 10,000+ recipients via Excel. Automatic column mapping and validation.
-              </p>
-            </div>
-
-            {/* Feature 4 */}
-            <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
-              <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
-                <BarChart3 className="w-5 h-5" />
-              </div>
-              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
-                Real-time Analytics
-              </h3>
-              <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
-                Track downloads, engagement, and completion rates with live dashboards.
-              </p>
-            </div>
-
-            {/* Feature 5 */}
-            <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
-              <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
-                <Shield className="w-5 h-5" />
-              </div>
-              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
-                Enterprise Security
-              </h3>
-              <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
-                Audit logs, role-based access, and secure authentication for authenticity.
-              </p>
+            <div className="relative w-full aspect-[16/7] bg-white dark:bg-neutral-950">
+              <Image
+                src="/dashboard-preview.png"
+                alt="CertiStage dashboard showing attendees, downloads and completion rate"
+                fill
+                className="object-cover object-top"
+              />
             </div>
           </div>
         </div>
       </section>
 
       {/* How it Works - Simple Steps */}
-      <section className="py-24 px-6 bg-neutral-50 dark:bg-neutral-950">
+      <section id="how-it-works" className="py-24 px-6 bg-neutral-50 dark:bg-neutral-950 scroll-mt-16">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
@@ -306,15 +354,15 @@ export default function HomePage() {
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { step: "01", title: "Configure Event", icon: PenTool, desc: "Create your workspace and set up branding" },
-              { step: "02", title: "Design & Map", icon: LayoutTemplate, desc: "Build templates and map CSV columns" },
-              { step: "03", title: "Launch", icon: Check, desc: "Generate and distribute certificates instantly" }
+              { step: "01", title: "Create an event or batch", icon: PenTool, desc: "A conference, a course, a convocation or a training program" },
+              { step: "02", title: "Upload design and Excel", icon: LayoutTemplate, desc: "Place the name and other fields on your certificate design" },
+              { step: "03", title: "Share the link", icon: Check, desc: "Recipients find and download their certificate instantly" }
             ].map((item, i) => (
               <div key={i} className="text-center">
-                <div className="inline-flex w-12 h-12 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 items-center justify-center text-neutral-700 dark:text-neutral-300 mb-6">
+                <div className="inline-flex w-12 h-12 rounded-full bg-white dark:bg-neutral-900 border border-amber-200 dark:border-amber-500/30 items-center justify-center text-amber-700 dark:text-amber-400 mb-6">
                   <item.icon className="w-5 h-5" />
                 </div>
-                <div className="text-xs font-mono text-neutral-400 dark:text-neutral-600 mb-2">{item.step}</div>
+                <div className="text-xs font-mono text-amber-600 dark:text-amber-400 mb-2">{item.step}</div>
                 <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">{item.title}</h3>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">{item.desc}</p>
               </div>
@@ -358,18 +406,18 @@ export default function HomePage() {
                 <div
                   key={plan.id}
                   className={`p-6 rounded-xl border ${plan.highlight
-                    ? "border-neutral-900 dark:border-white shadow-lg"
-                    : "border-neutral-200 dark:border-neutral-800"
-                    } bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors relative`}
+                    ? "border-amber-500 dark:border-amber-400 shadow-lg shadow-amber-500/10"
+                    : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700"
+                    } bg-white dark:bg-neutral-950 transition-colors relative`}
                 >
                   {badge && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-[10px] font-semibold rounded-full uppercase tracking-wide">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-500 text-neutral-900 text-[10px] font-semibold rounded-full uppercase tracking-wide">
                       {badge}
                     </div>
                   )}
 
                   <div className="mb-6">
-                    <Icon className="w-8 h-8 text-neutral-700 dark:text-neutral-300 mb-4" />
+                    <Icon className="w-8 h-8 text-amber-700 dark:text-amber-400 mb-4" />
                     <h3 className="font-semibold text-lg text-neutral-900 dark:text-white mb-1">{plan.name}</h3>
                     <div className="flex items-baseline gap-1">
                       <span className="text-3xl font-bold text-neutral-900 dark:text-white">{priceLabel}</span>
@@ -382,7 +430,7 @@ export default function HomePage() {
                   <ul className="space-y-2.5 mb-6">
                     {features.map((feature, idx) => (
                       <li key={`${plan.id}-feature-${idx}`} className="flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-                        <Check className="w-4 h-4 text-neutral-900 dark:text-white shrink-0 mt-0.5" />
+                        <Check className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                         <span>{feature}</span>
                       </li>
                     ))}
@@ -406,7 +454,7 @@ export default function HomePage() {
       <section className="py-24 px-6 border-y border-neutral-200 dark:border-neutral-800">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
-            Ready to get started?
+            Ready to issue your next batch of certificates?
           </h2>
           <p className="text-lg text-neutral-600 dark:text-neutral-400 mb-8">
             {publicStats && publicStats.organizations >= 50
@@ -415,7 +463,7 @@ export default function HomePage() {
           </p>
           <Button size="lg" asChild className="h-11 px-6 text-sm">
             <Link href="/signup">
-              Start for free
+              Start free
             </Link>
           </Button>
         </div>
@@ -431,7 +479,7 @@ export default function HomePage() {
                 <span className="font-semibold text-sm text-neutral-900 dark:text-white">CertiStage</span>
               </div>
               <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                Professional certificate generation for events and courses.
+                Certificates for events, colleges, institutes and training programs.
               </p>
             </div>
 
