@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { signIn } from "next-auth/react"
-import { Loader2, Mail, Crown } from "lucide-react"
+import { Loader2, Crown, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,7 +15,10 @@ import { usePlanConfig } from "@/hooks/use-plan-config"
 import { formatInr } from "@/lib/plan-config"
 import { AuthSidePanel, AuthMobileBar, authInputClass, authPrimaryButtonClass, authGoogleButtonClass } from "@/components/landing/auth-side-panel"
 import { Reveal } from "@/components/landing/reveal"
+import { OtpInput } from "@/components/landing/otp-input"
 import { ArrowRight } from "lucide-react"
+
+const RESEND_SECONDS = 30
 
 // Plain text labels: flag emoji render as letters on Windows
 const countryCodes = [
@@ -46,6 +49,10 @@ function SignupForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
+  const [code, setCode] = useState("")
+  const [codeStatus, setCodeStatus] = useState<"idle" | "error" | "success">("idle")
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const [isVerifying, setIsVerifying] = useState(false)
   const [countryCode, setCountryCode] = useState("+91")
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", organization: "", plan: "free" })
 
@@ -118,7 +125,10 @@ function SignupForm() {
     try {
       if (await submitSignup()) {
         setIsSubmitted(true)
-        setResendCooldown(45)
+        setCode("")
+        setCodeStatus("idle")
+        setCodeError(null)
+        setResendCooldown(RESEND_SECONDS)
       }
     } catch {
       toast.error("Something went wrong. Please try again.")
@@ -132,8 +142,11 @@ function SignupForm() {
     setIsSubmitting(true)
     try {
       if (await submitSignup()) {
-        toast.success("Verification email sent again")
-        setResendCooldown(45)
+        toast.success("A new code is on its way")
+        setCode("")
+        setCodeStatus("idle")
+        setCodeError(null)
+        setResendCooldown(RESEND_SECONDS)
       }
     } catch {
       toast.error("Could not resend. Please try again.")
@@ -142,48 +155,105 @@ function SignupForm() {
     }
   }
 
+  const verifyCode = async (value: string) => {
+    if (value.length < 6 || isVerifying) return
+    setIsVerifying(true)
+    setCodeError(null)
+    try {
+      const res = await fetch("/api/client/auth/signup/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email.trim(), code: value })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setCodeStatus("error")
+        setCodeError(data.error || "Incorrect code")
+        if (data.expired) setCode("")
+        if (res.status === 409) {
+          toast.error("This email already has an account.", {
+            action: { label: "Log in", onClick: () => router.push(`/client/login?email=${encodeURIComponent(formData.email.trim())}`) }
+          })
+        }
+        setIsVerifying(false)
+        return
+      }
+      setCodeStatus("success")
+      localStorage.setItem("clientSession", JSON.stringify({
+        loginType: "user",
+        userId: data.user.id,
+        userName: data.user.name,
+        userEmail: data.user.email,
+        userPhone: data.user.phone,
+        userPlan: data.user.plan,
+        pendingPlan: data.pendingPlan || null,
+        loggedInAt: new Date().toISOString()
+      }))
+      if (data.pendingPlan) {
+        toast.success("Account created. Complete your payment to activate the plan.")
+        router.push("/client/complete-payment")
+      } else {
+        toast.success(`Welcome to CertiStage, ${data.user.name}!`)
+        router.push("/client/events")
+      }
+    } catch {
+      setIsVerifying(false)
+      toast.error("Connection failed. Please try again.")
+    }
+  }
+
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-[#FDFDFD] flex flex-col justify-center py-12 px-6">
-        <div className="mx-auto w-full max-w-md">
-          <div className="bg-white py-10 px-6 sm:px-8 rounded-xl border border-[#E5E5E5] text-center shadow-lg shadow-neutral-100/50">
-            <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-gold-soft mb-5">
-              <Mail className="h-7 w-7 text-gold-deep" />
-            </div>
-            <h2 className="text-2xl font-semibold tracking-tight text-black mb-2">Check your inbox</h2>
-            <p className="text-[#666] text-sm leading-relaxed">
-              We sent a link to <strong className="text-black font-medium">{formData.email}</strong>.
+      <div className="min-h-screen w-full flex bg-[#FDFDFD] text-[hsl(240,4%,16%)]">
+        <AuthSidePanel
+          headline="Certificates for your next event, batch or convocation."
+          footnote="No credit card required. Free plan includes 50 certificates."
+        />
+        <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-8 bg-white overflow-y-auto">
+          <Reveal className="w-full max-w-[420px]" y={14}>
+            <AuthMobileBar linkLabel="Log in" linkHref="/client/login" />
+
+            <h2 className="text-[26px] font-semibold tracking-tight text-black">Verify your email</h2>
+            <p className="text-[13px] text-neutral-600 leading-snug mt-2">
+              We sent a 6-digit code to <span className="font-medium text-black">{formData.email.trim()}</span>.{" "}
+              <button type="button" onClick={() => setIsSubmitted(false)} className="text-black underline underline-offset-4 hover:text-neutral-600">Edit details</button>
             </p>
 
-            <ol className="text-left text-sm text-[#444] mt-6 space-y-2.5">
-              {[
-                "Open the email from CertiStage",
-                "Click the verification link",
-                "Set your password, and you are in"
-              ].map((step, i) => (
-                <li key={step} className="flex items-start gap-3">
-                  <span className="h-5 w-5 rounded-full bg-neutral-900 text-white text-[11px] font-semibold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                  <span>{step}</span>
-                </li>
-              ))}
-            </ol>
+            <div className="space-y-2 mt-6">
+              <Label className="text-[13px] font-medium text-[#333]">Enter the code</Label>
+              <OtpInput
+                value={code}
+                onChange={(v) => { setCode(v); if (codeStatus === "error") { setCodeStatus("idle"); setCodeError(null) } }}
+                onComplete={verifyCode}
+                disabled={isVerifying || codeStatus === "success"}
+                status={codeStatus}
+              />
+              <div className="min-h-[18px]">
+                {codeError && <p className="text-[12px] text-red-600">{codeError}</p>}
+                {codeStatus === "success" && (
+                  <p className="text-[12px] text-gold-deep inline-flex items-center gap-1"><Check className="h-3.5 w-3.5" /> Verified, setting up your account</p>
+                )}
+              </div>
+            </div>
+
+            <Button type="button" onClick={() => verifyCode(code)} className={cn(authPrimaryButtonClass, "mt-3", (isVerifying || code.length < 6) && "opacity-70")} disabled={isVerifying || code.length < 6}>
+              {isVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Verify and continue <ArrowRight className="h-4 w-4 ml-1.5 transition-transform duration-200 group-hover:translate-x-1" /></>}
+            </Button>
+
+            <div className="flex items-center justify-between text-[13px] mt-4">
+              <button type="button" onClick={handleResend} disabled={resendCooldown > 0 || isSubmitting || isVerifying}
+                className={cn("font-medium underline underline-offset-4", resendCooldown > 0 ? "text-neutral-400 no-underline cursor-default" : "text-neutral-700 hover:text-black")}>
+                {isSubmitting ? "Sending..." : resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend code"}
+              </button>
+              <span className="text-neutral-500">Not in your inbox? Check spam.</span>
+            </div>
 
             {isPaidPlan && selectedPlan && (
-              <p className="mt-5 text-xs text-[#666] bg-gold-soft border border-gold/30 rounded-md px-3 py-2">
-                Your {selectedPlan.name} plan ({formatInr(selectedPlan.price)}/year) is saved. You will pay after setting your password.
+              <p className="mt-6 text-[12px] text-neutral-500">
+                Your {selectedPlan.name} plan ({formatInr(selectedPlan.price)}/year) is saved. Payment comes right after verification.
               </p>
             )}
-
-            <div className="mt-7 space-y-3">
-              <Button type="button" variant="outline" className="w-full h-10" onClick={handleResend} disabled={isSubmitting || resendCooldown > 0}>
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : resendCooldown > 0 ? `Resend email in ${resendCooldown}s` : "Resend email"}
-              </Button>
-              <button type="button" onClick={() => setIsSubmitted(false)} className="text-[13px] text-[#666] hover:text-black underline underline-offset-4">
-                Wrong email? Edit it
-              </button>
-            </div>
-            <p className="mt-6 text-[12px] text-[#999]">Not in your inbox? Check spam or promotions. The link is valid for 24 hours.</p>
-          </div>
+          </Reveal>
         </div>
       </div>
     )
@@ -229,7 +299,7 @@ function SignupForm() {
                   </div>
                   <div className="text-right shrink-0 leading-tight">
                     <div><span className="text-[15px] font-semibold text-black">{formatInr(selectedPlan.price)}</span><span className="text-[12px] text-neutral-500"> / year</span></div>
-                    <div className="text-[11px] text-neutral-500">billed after email verification</div>
+                    <div className="text-[11px] text-neutral-500">billed after verification</div>
                   </div>
                 </div>
               </div>
