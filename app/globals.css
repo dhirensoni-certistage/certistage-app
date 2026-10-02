@@ -95,6 +95,12 @@
   --color-input: rgb(var(--input));
   --color-ring: rgb(var(--ring));
 
+  /* Brand accent: gold from the CertiStage seal. deep = text on light, light = text on dark */
+  --color-gold: #C8961E;
+  --color-gold-deep: #9A6B12;
+  --color-gold-light: #E3B64D;
+  --color-gold-soft: #FBF4E4;
+
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);

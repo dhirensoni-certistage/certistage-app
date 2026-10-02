@@ -16,7 +16,11 @@ const planIcons: Record<string, any> = {
 }
 
 // Client logos for the "Trusted by" strip. Add files under public/clients/ and list them here.
-const TRUSTED_BY: { name: string; logo: string; width: number; height: number }[] = []
+const TRUSTED_BY: { name: string; logo: string; width: number; height: number; rounded?: boolean }[] = [
+  { name: "IMA NATCON 2025, Ahmedabad Medical Association", logo: "/clients/ima-natcon-2025.png", width: 320, height: 320, rounded: true },
+  { name: "OSSICON 2026, Obesity and Metabolic Surgery Society of India", logo: "/clients/ossicon-2026.png", width: 800, height: 364 },
+  { name: "Arise Learning Festival", logo: "/clients/arise-learning-festival.png", width: 500, height: 202 }
+]
 
 const FEATURES = [
   {
@@ -168,12 +172,12 @@ export default function HomePage() {
       {/* Hero */}
       <section className="pt-16 md:pt-20 pb-16 md:pb-24 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="inline-flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-full px-3 py-1 mb-6">
+          <p className="inline-flex items-center gap-2 text-xs font-medium text-gold-deep dark:text-gold-light bg-gold-soft dark:bg-gold/10 border border-gold/30 dark:border-gold/30 rounded-full px-3 py-1 mb-6">
             <Award className="h-3.5 w-3.5" />
             <span>For events, colleges, institutes and training programs</span>
           </p>
           <h1 className="text-[40px] md:text-[56px] font-bold tracking-tight text-neutral-900 dark:text-white leading-[1.1] mb-6">
-            Issue <span className="text-amber-600 dark:text-amber-400">certificates</span> to thousands{" "}
+            Issue <span className="text-gold-deep dark:text-gold-light">certificates</span> to thousands{" "}
             <br className="hidden md:block" />
             of people in minutes
           </h1>
@@ -199,15 +203,15 @@ export default function HomePage() {
           <div className="relative mx-auto max-w-4xl mt-4 md:mt-8 sm:pb-8">
             <div className="relative rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-2xl shadow-neutral-900/10 dark:shadow-black/50 overflow-hidden">
               <div className="relative aspect-[1.414/1] sm:aspect-[16/9] p-5 sm:p-8 md:p-10 bg-[#fffdf8] dark:bg-neutral-950">
-                <div className="absolute inset-3 sm:inset-5 border-[3px] border-amber-500/70 rounded-sm pointer-events-none" />
-                <div className="absolute inset-4 sm:inset-6 border border-amber-500/40 rounded-sm pointer-events-none" />
+                <div className="absolute inset-3 sm:inset-5 border-[3px] border-gold/80 rounded-sm pointer-events-none" />
+                <div className="absolute inset-4 sm:inset-6 border border-gold/40 rounded-sm pointer-events-none" />
 
                 <div className="relative h-full flex flex-col items-center justify-center text-center">
                   <div className="text-[9px] sm:text-[11px] tracking-[0.3em] uppercase text-neutral-500 dark:text-neutral-400 mb-1 sm:mb-2">Your organization</div>
                   <div className="font-serif text-xl sm:text-3xl md:text-4xl text-neutral-900 dark:text-white mb-1 sm:mb-2">Certificate of Participation</div>
                   <div className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 mb-3 sm:mb-5">This certificate is proudly presented to</div>
 
-                  <div className="inline-flex items-center rounded-md border-2 border-dashed border-amber-500 bg-amber-50 dark:bg-amber-500/10 px-3 sm:px-5 py-1 sm:py-1.5 mb-3 sm:mb-5">
+                  <div className="inline-flex items-center rounded-md border-2 border-dashed border-gold bg-gold-soft dark:bg-gold/10 px-3 sm:px-5 py-1 sm:py-1.5 mb-3 sm:mb-5">
                     <span className="font-serif text-lg sm:text-2xl md:text-3xl text-neutral-900 dark:text-white">{"{{NAME}}"}</span>
                   </div>
 
@@ -220,8 +224,8 @@ export default function HomePage() {
                       <div className="w-16 sm:w-28 border-t border-neutral-400 dark:border-neutral-600 mb-1" />
                       <div className="text-[8px] sm:text-[10px] text-neutral-500 dark:text-neutral-400">Director</div>
                     </div>
-                    <div className="h-9 w-9 sm:h-14 sm:w-14 rounded-full bg-amber-400 ring-4 ring-amber-200 dark:ring-amber-500/30 flex items-center justify-center shadow-sm">
-                      <Award className="h-4 w-4 sm:h-7 sm:w-7 text-amber-900" />
+                    <div className="h-9 w-9 sm:h-14 sm:w-14 rounded-full bg-gold ring-4 ring-gold/30 dark:ring-gold/30 flex items-center justify-center shadow-sm">
+                      <Award className="h-4 w-4 sm:h-7 sm:w-7 text-neutral-900" />
                     </div>
                     <div className="text-right">
                       <div className="w-16 sm:w-28 border-t border-neutral-400 dark:border-neutral-600 mb-1 ml-auto" />
@@ -261,7 +265,7 @@ export default function HomePage() {
                     aria-label="Loading"
                   />
                 ) : (
-                  <p className="text-3xl md:text-4xl font-bold text-amber-600 dark:text-amber-400 mb-1">{stat.value}</p>
+                  <p className="text-3xl md:text-4xl font-bold text-gold-deep dark:text-gold-light mb-1">{stat.value}</p>
                 )}
                 <p className="text-xs text-neutral-500 dark:text-neutral-500 uppercase tracking-wide">{stat.label}</p>
               </div>
@@ -270,20 +274,21 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Trusted by (shown once client logos are added to TRUSTED_BY) */}
+      {/* Trusted by: dark band so full-colour conference logos sit well together */}
       {TRUSTED_BY.length > 0 && (
-        <section className="py-12 px-6">
+        <section className="py-14 px-6 bg-black border-y border-neutral-800">
           <div className="max-w-6xl mx-auto text-center">
-            <p className="text-xs text-neutral-500 dark:text-neutral-500 uppercase tracking-wide mb-8">Trusted by organizers of</p>
-            <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-8">
+            <p className="text-xs text-neutral-400 uppercase tracking-wide mb-8">Trusted by organizers of</p>
+            <div className="flex flex-wrap items-center justify-center gap-x-14 gap-y-8">
               {TRUSTED_BY.map((client) => (
                 <Image
                   key={client.name}
                   src={client.logo}
                   alt={client.name}
+                  title={client.name}
                   width={client.width}
                   height={client.height}
-                  className="h-12 md:h-14 w-auto object-contain grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all"
+                  className={`h-20 md:h-24 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity ${client.rounded ? "rounded-full" : ""}`}
                 />
               ))}
             </div>
@@ -307,9 +312,9 @@ export default function HomePage() {
             {FEATURES.map((feature) => (
               <div
                 key={feature.title}
-                className={`${feature.wide ? "md:col-span-2" : ""} p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-amber-300 dark:hover:border-amber-500/40 transition-colors`}
+                className={`${feature.wide ? "md:col-span-2" : ""} p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-gold/50 dark:hover:border-gold/50 transition-colors`}
               >
-                <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-amber-700 dark:text-amber-400 mb-6">
+                <div className="w-10 h-10 rounded-lg bg-gold-soft dark:bg-gold/10 flex items-center justify-center text-gold-deep dark:text-gold-light mb-6">
                   <feature.icon className="w-5 h-5" />
                 </div>
                 <h3 className={`${feature.wide ? "text-xl" : "text-lg"} font-semibold text-neutral-900 dark:text-white mb-3`}>
@@ -359,10 +364,10 @@ export default function HomePage() {
               { step: "03", title: "Share the link", icon: Check, desc: "Recipients find and download their certificate instantly" }
             ].map((item, i) => (
               <div key={i} className="text-center">
-                <div className="inline-flex w-12 h-12 rounded-full bg-white dark:bg-neutral-900 border border-amber-200 dark:border-amber-500/30 items-center justify-center text-amber-700 dark:text-amber-400 mb-6">
+                <div className="inline-flex w-12 h-12 rounded-full bg-white dark:bg-neutral-900 border border-gold/30 dark:border-gold/30 items-center justify-center text-gold-deep dark:text-gold-light mb-6">
                   <item.icon className="w-5 h-5" />
                 </div>
-                <div className="text-xs font-mono text-amber-600 dark:text-amber-400 mb-2">{item.step}</div>
+                <div className="text-xs font-mono text-gold-deep dark:text-gold-light mb-2">{item.step}</div>
                 <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">{item.title}</h3>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">{item.desc}</p>
               </div>
@@ -406,18 +411,18 @@ export default function HomePage() {
                 <div
                   key={plan.id}
                   className={`p-6 rounded-xl border ${plan.highlight
-                    ? "border-amber-500 dark:border-amber-400 shadow-lg shadow-amber-500/10"
+                    ? "border-gold dark:border-gold-light shadow-lg shadow-gold/10"
                     : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700"
                     } bg-white dark:bg-neutral-950 transition-colors relative`}
                 >
                   {badge && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-500 text-neutral-900 text-[10px] font-semibold rounded-full uppercase tracking-wide">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gold text-neutral-900 text-[10px] font-semibold rounded-full uppercase tracking-wide">
                       {badge}
                     </div>
                   )}
 
                   <div className="mb-6">
-                    <Icon className="w-8 h-8 text-amber-700 dark:text-amber-400 mb-4" />
+                    <Icon className="w-8 h-8 text-gold-deep dark:text-gold-light mb-4" />
                     <h3 className="font-semibold text-lg text-neutral-900 dark:text-white mb-1">{plan.name}</h3>
                     <div className="flex items-baseline gap-1">
                       <span className="text-3xl font-bold text-neutral-900 dark:text-white">{priceLabel}</span>
@@ -430,7 +435,7 @@ export default function HomePage() {
                   <ul className="space-y-2.5 mb-6">
                     {features.map((feature, idx) => (
                       <li key={`${plan.id}-feature-${idx}`} className="flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-                        <Check className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <Check className="w-4 h-4 text-gold-deep dark:text-gold-light shrink-0 mt-0.5" />
                         <span>{feature}</span>
                       </li>
                     ))}
