@@ -18,7 +18,7 @@ const pageTitles: Record<string, string> = {
   "/client/events": "Events - CertiStage",
   "/client/dashboard": "Dashboard - CertiStage",
   "/client/certificates": "Certificates - CertiStage",
-  "/client/recipients": "Attendees - CertiStage",
+  "/client/recipients": "Recipients - CertiStage",
   "/client/reports": "Reports - CertiStage",
   "/client/settings": "Settings - CertiStage",
   "/client/upgrade": "Upgrade - CertiStage",

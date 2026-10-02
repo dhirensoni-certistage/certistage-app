@@ -32,6 +32,7 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
   const [eventName, setEventName] = useState("")
   const [userPlan, setUserPlan] = useState<PlanType | null>(null)
   const [userName, setUserName] = useState("")
+  const [userEmail, setUserEmail] = useState("")
   const [trialDays, setTrialDays] = useState<number>(-1)
   const [trialTotalDays, setTrialTotalDays] = useState<number>(7)
   const [isOnTrial, setIsOnTrial] = useState(false)
@@ -51,6 +52,7 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
         setHasEventSelected(true)
       } else {
         setUserName(session.userName || "")
+        setUserEmail(session.userEmail || "")
         setUserPlan(normalizePlan(session.userPlan))
         setIsUserLogin(true)
 
@@ -94,7 +96,7 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
     { href: "/client/events", label: "Events", icon: FolderOpen, requiresEvent: false },
     { href: "/client/dashboard", label: "Dashboard", icon: LayoutDashboard, requiresEvent: true },
     { href: "/client/certificates", label: "Certificates", icon: FileText, requiresEvent: true },
-    { href: "/client/recipients", label: "Attendees", icon: Users, requiresEvent: true },
+    { href: "/client/recipients", label: "Recipients", icon: Users, requiresEvent: true },
     { href: "/client/reports", label: "Reports", icon: BarChart3, requiresEvent: true },
     { href: "/client/settings", label: "Settings", icon: Settings, requiresEvent: false },
     { href: "/client/support", label: "Support", icon: HelpCircle, requiresEvent: false },
@@ -116,23 +118,18 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
       >
 
 
-        {/* Brand / Event Logo */}
-        <div className={cn(
-          "h-16 flex items-center border-b border-neutral-200 dark:border-neutral-800",
-          collapsed ? "justify-center" : "px-4"
-        )}>
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0">
-              <Image src="/Certistage_icon.svg" alt="CertiStage" width={28} height={28} />
-            </div>
+        {/* Brand / current event */}
+        <div className={cn("h-16 flex items-center border-b border-neutral-200", collapsed ? "justify-center" : "px-4")}>
+          <div className="flex items-center gap-3 min-w-0 w-full">
+            <Image src="/Certistage_icon.svg" alt="CertiStage" width={28} height={28} className="shrink-0" />
             {!collapsed && (
-              <div className="flex flex-col min-w-0">
-                <span className="font-bold text-[15px] text-neutral-900 dark:text-white truncate">
-                  {eventName || "CertiStage"}
-                </span>
-                <span className="text-[11px] text-neutral-400 font-medium tracking-tight">
-                  {hasEventSelected && isUserLogin ? "Event Workspace" : "Management Portal"}
-                </span>
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="font-semibold text-[14px] text-neutral-900 truncate leading-tight">{eventName || "CertiStage"}</span>
+                {hasEventSelected && isUserLogin ? (
+                  <Link href="/client/events" onClick={onNavigate} className="text-[11px] text-neutral-500 hover:text-neutral-900 leading-tight">Switch event</Link>
+                ) : (
+                  <span className="text-[11px] text-neutral-500 leading-tight">CertiStage</span>
+                )}
               </div>
             )}
           </div>
@@ -171,38 +168,31 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
           })}
         </nav>
 
-        {/* Trial / Plan Details - Simplified */}
+        {/* Account + plan */}
         {userPlan && !collapsed && (
-          <div className="mx-2 mb-2 p-4 rounded-xl border border-neutral-100 dark:border-neutral-900 bg-neutral-50/50 dark:bg-neutral-900/50">
-            <div className="flex items-center justify-between mb-3">
-              <span className={cn(
-                "px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider",
-                userPlan === "free" && "bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400",
-                userPlan === "professional" && "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400",
-                userPlan === "enterprise" && "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400",
-                userPlan === "premium" && "bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400"
-              )}>
-                {planFeaturesMap[userPlan]?.displayName || "Free"}
+          <div className="mx-2 mb-2 p-3.5 rounded-xl border border-neutral-200 bg-white">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-neutral-900">
+                <span className={cn("h-1.5 w-1.5 rounded-full", userPlan === "free" ? "bg-neutral-400" : "bg-gold")} />
+                {planFeaturesMap[userPlan]?.displayName || "Free"} plan
               </span>
-              <span className="text-[11px] text-neutral-400 truncate max-w-[100px]">{userName}</span>
+              {userPlan !== "free" && (
+                <Link href="/client/settings" onClick={onNavigate} className="text-[11px] text-neutral-500 hover:text-neutral-900">Manage</Link>
+              )}
             </div>
+            <p className="text-[12px] text-neutral-500 truncate" title={userEmail}>{userEmail || userName}</p>
 
             {isOnTrial && trialDays >= 0 ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-[11px] font-medium">
-                  <span className="text-neutral-500 font-normal">Trial Ending</span>
-                  <span className={cn(trialDays <= 2 ? "text-red-500" : "text-neutral-900 dark:text-white")}>
-                    {trialDays} {trialDays === 1 ? 'day' : 'days'}
-                  </span>
+              <div className="space-y-1.5 mt-3">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-neutral-500">Trial ends in</span>
+                  <span className={cn("font-medium", trialDays <= 2 ? "text-red-600" : "text-neutral-900")}>{trialDays} {trialDays === 1 ? "day" : "days"}</span>
                 </div>
-                <Progress
-                  value={Math.max(0, Math.min(100, ((trialTotalDays - trialDays) / trialTotalDays) * 100))}
-                  className="h-1 bg-neutral-200 dark:bg-neutral-800"
-                />
+                <Progress value={Math.max(0, Math.min(100, ((trialTotalDays - trialDays) / trialTotalDays) * 100))} className="h-1 bg-neutral-100" />
               </div>
             ) : userPlan === "free" && (
-              <Button asChild size="sm" className="w-full h-8 text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity">
-                <Link href="/client/upgrade">Upgrade Plan</Link>
+              <Button asChild size="sm" className="w-full h-8 mt-3 text-xs font-medium bg-neutral-900 text-white hover:bg-black">
+                <Link href="/client/upgrade" onClick={onNavigate}>See plans</Link>
               </Button>
             )}
           </div>
@@ -213,7 +203,7 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
           <Button
             variant="ghost"
             className={cn(
-              "w-full h-10 text-red-500 hover:bg-red-50",
+              "w-full h-10 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50",
               collapsed ? "justify-center p-0" : "justify-start gap-3 px-3"
             )}
             onClick={handleLogout}
