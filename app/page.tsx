@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowRight, Shield, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles, Award, Download, Search, FileSpreadsheet, Menu, X, Quote, ChevronDown } from "lucide-react"
+import { ArrowRight, Shield, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles, Award, Download, Search, FileSpreadsheet, Quote, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
 import { formatApproxCount, type PublicStats } from "@/lib/public-stats"
 import { Reveal } from "@/components/landing/reveal"
+import { SiteHeader } from "@/components/landing/site-header"
+import { SiteFooter } from "@/components/landing/site-footer"
 
 const planIcons: Record<string, any> = {
   free: Gift,
@@ -18,10 +20,11 @@ const planIcons: Record<string, any> = {
 
 // Client logos for the "Trusted by" strip. Add files under public/clients/ and list them here.
 // Logos are transparent PNGs; they render as uniform grey marks via .logo-mono
-const TRUSTED_BY: { name: string; logo: string; width: number; height: number }[] = [
+const TRUSTED_BY: { name: string; logo: string; width: number; height: number; darkLogo?: boolean }[] = [
   { name: "IMA NATCON 2025, Ahmedabad Medical Association", logo: "/clients/ima-natcon-2025.png", width: 318, height: 320 },
   { name: "OSSICON 2026, Obesity and Metabolic Surgery Society of India", logo: "/clients/ossicon-2026.png", width: 772, height: 296 },
-  { name: "Arise Learning Festival", logo: "/clients/arise-learning-festival.png", width: 481, height: 173 }
+  // white wordmark: gets a dark backing on hover so its colours show
+  { name: "Arise Learning Festival", logo: "/clients/arise-learning-festival.png", width: 481, height: 173, darkLogo: true }
 ]
 
 // Repeat the logo set so one half of the marquee track is wider than any screen
@@ -155,7 +158,6 @@ export default function HomePage() {
     [planConfig]
   )
 
-  const [menuOpen, setMenuOpen] = useState(false)
   // FAQ accordion: only one answer open at a time
   const [openFaq, setOpenFaq] = useState<number | null>(0)
 
@@ -194,59 +196,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-white dark:bg-[#0a0a0a]">
       {/* Simple Header */}
-      <header className="sticky top-0 z-50 border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-            <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
-            <span className="font-semibold text-[17px] text-neutral-900 dark:text-white">CertiStage</span>
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-7">
-            <Link href="#features" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Features</Link>
-            <Link href="#pricing" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Pricing</Link>
-            <Link href="/contact" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Contact</Link>
-          </nav>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex text-sm">
-              <Link href="/client/login">Sign In</Link>
-            </Button>
-            <Button size="sm" asChild className="text-sm h-9 px-4">
-              <Link href="/signup">Start free</Link>
-            </Button>
-            <button
-              type="button"
-              className="md:hidden h-9 w-9 inline-flex items-center justify-center rounded-md text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-          </div>
-        </div>
-
-        {menuOpen && (
-          <nav className="md:hidden border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#0a0a0a] px-6 py-3 flex flex-col">
-            {[
-              { href: "#features", label: "Features" },
-              { href: "#pricing", label: "Pricing" },
-              { href: "#faq", label: "FAQ" },
-              { href: "/contact", label: "Contact" },
-              { href: "/client/login", label: "Sign In" }
-            ].map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMenuOpen(false)}
-                className="py-3 text-sm text-neutral-700 dark:text-neutral-300 border-b border-neutral-100 dark:border-neutral-900 last:border-0"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        )}
-      </header>
+      <SiteHeader />
 
       {/* Hero */}
       <section className="pt-16 md:pt-20 pb-16 md:pb-24 px-6">
@@ -372,14 +322,14 @@ export default function HomePage() {
                 {[0, 1].map((half) => (
                   <div key={half} className="flex shrink-0 items-center" aria-hidden={half === 1}>
                     {MARQUEE_HALF.map((client, i) => (
-                      <div key={`${half}-${i}`} className="flex items-center justify-center px-8 md:px-12 h-14">
+                      <div key={`${half}-${i}`} className={`logo-item ${client.darkLogo ? "logo-item-dark" : ""} flex items-center justify-center mx-3 md:mx-5 px-5 md:px-7 h-16`}>
                         <Image
                           src={client.logo}
                           alt={half === 0 ? client.name : ""}
                           title={client.name}
                           width={client.width}
                           height={client.height}
-                          className="logo-mono h-10 md:h-12 w-auto max-w-[180px] object-contain opacity-80 hover:opacity-100"
+                          className="logo-mono h-10 md:h-12 w-auto max-w-[180px] object-contain opacity-80"
                         />
                       </div>
                     ))}
@@ -642,55 +592,7 @@ export default function HomePage() {
       </section>
 
       {/* Footer - Clean */}
-      <footer className="py-16 px-6 bg-neutral-50 dark:bg-neutral-950">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-            <div className="col-span-2 md:col-span-1">
-              <div className="flex items-center gap-2 mb-4">
-                <Image src="/Certistage_icon.svg" alt="CertiStage" width={24} height={24} />
-                <span className="font-semibold text-sm text-neutral-900 dark:text-white">CertiStage</span>
-              </div>
-              <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                Certificates for events, colleges, institutes and training programs.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Product</h4>
-              <nav className="flex flex-col gap-2">
-                <Link href="#features" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Features</Link>
-                <Link href="#pricing" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Pricing</Link>
-                <Link href="#faq" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">FAQ</Link>
-              </nav>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Company</h4>
-              <nav className="flex flex-col gap-2">
-                <Link href="/about" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">About</Link>
-                <Link href="/contact" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Contact</Link>
-                <a href="mailto:support@certistage.com" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">support@certistage.com</a>
-              </nav>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Legal</h4>
-              <nav className="flex flex-col gap-2">
-                <Link href="/privacy" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Privacy</Link>
-                <Link href="/terms" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Terms</Link>
-                <Link href="/refund" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Refund Policy</Link>
-                <Link href="/shipping" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Shipping & Delivery</Link>
-              </nav>
-            </div>
-          </div>
-
-          <div className="pt-8 border-t border-neutral-200 dark:border-neutral-800 text-center">
-            <p className="text-xs text-neutral-500 dark:text-neutral-500">
-              © {new Date().getFullYear()} CertiStage. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

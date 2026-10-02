@@ -167,19 +167,26 @@
 .logo-marquee-track {
   animation: logo-marquee 40s linear infinite;
 }
-/* Uniform grey silhouettes for client logos: flatten to black, then lift to grey */
+/* Client logos: uniform grey marks at rest, original colours on hover */
 .logo-mono {
   filter: brightness(0) invert(0.55);
-  transition: filter 0.3s ease, opacity 0.3s ease;
-}
-.logo-mono:hover {
-  filter: brightness(0) invert(0.2);
+  transition: filter 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
 }
 .dark .logo-mono {
   filter: brightness(0) invert(0.6);
 }
-.dark .logo-mono:hover {
-  filter: brightness(0) invert(0.85);
+.logo-item {
+  border-radius: 0.5rem;
+  transition: background-color 0.3s ease;
+}
+.logo-item:hover .logo-mono {
+  filter: none;
+  opacity: 1;
+  transform: scale(1.04);
+}
+/* Logos drawn in white need a dark backing to be visible in colour */
+.logo-item-dark:hover {
+  background-color: #0a0a0a;
 }
 .logo-marquee:hover .logo-marquee-track {
   animation-play-state: paused;
