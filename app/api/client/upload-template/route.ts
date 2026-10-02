@@ -3,6 +3,7 @@ import { v2 as cloudinary } from 'cloudinary'
 import connectDB from "@/lib/mongodb"
 import CertificateType from "@/models/CertificateType"
 import Event from "@/models/Event"
+import { requireClientUser } from "@/lib/client-auth.server"
 
 // Configure Cloudinary
 cloudinary.config({
@@ -16,9 +17,12 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB()
     
-    const { userId, typeId, imageData } = await request.json()
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
+    const { typeId, imageData } = await request.json()
     
-    if (!userId || !typeId || !imageData) {
+    if (!typeId || !imageData) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 

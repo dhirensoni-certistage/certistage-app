@@ -5,6 +5,7 @@ import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 
 import mongoose from "mongoose"
+import { requireClientUser } from "@/lib/client-auth.server"
 
 function generateShortCode(length = 6): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
@@ -20,6 +21,9 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB()
 
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
     const { searchParams } = new URL(request.url)
     const eventId = searchParams.get("eventId")
     const includeRecipients = searchParams.get("includeRecipients") !== "false" // Default true for backward compatibility
@@ -45,6 +49,10 @@ export async function GET(request: NextRequest) {
 
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
+    }
+
+    if (event.ownerId?.toString() !== userId) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
     // Get certificate types

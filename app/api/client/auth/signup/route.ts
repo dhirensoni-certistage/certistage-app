@@ -5,6 +5,7 @@ import { getPlanConfigFromDb } from "@/lib/plan-config.server"
 import EmailVerificationToken from "@/models/EmailVerificationToken"
 import crypto from "crypto"
 import { isDisposableEmail } from "@/lib/disposable-email"
+import { checkRateLimit, getClientIP, rateLimitResponse } from "@/lib/rate-limit"
 
 // POST - User signup (Email verification step)
 export async function POST(request: NextRequest) {
@@ -21,6 +22,11 @@ export async function POST(request: NextRequest) {
     
     if (!name || !email || !phone) {
       return NextResponse.json({ error: "Name, email and phone are required" }, { status: 400 })
+    }
+
+    const limit = await checkRateLimit("signup", getClientIP(request))
+    if (!limit.success) {
+      return rateLimitResponse(limit, "Too many signup attempts from this network. Please try again later.")
     }
 
     if (isDisposableEmail(email)) {

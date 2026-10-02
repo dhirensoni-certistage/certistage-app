@@ -537,9 +537,14 @@ export function getClientSession(): ClientSession | null {
   }
 }
 
-// Clear client session
+// Clear client session (local copy + server cookie)
 export function clearClientSession(): void {
   localStorage.removeItem(CLIENT_SESSION_KEY)
+  if (typeof fetch === "function") {
+    fetch("/api/client/auth/logout", { method: "POST", keepalive: true }).catch(() => {
+      // cookie will expire on its own
+    })
+  }
 }
 
 // Update session's active event

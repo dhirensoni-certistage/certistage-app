@@ -3,6 +3,7 @@ import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import PasswordResetToken from "@/models/PasswordResetToken"
 import crypto from "crypto"
+import { checkRateLimit, getClientIP, rateLimitResponse } from "@/lib/rate-limit"
 
 // POST - Request password reset
 export async function POST(request: NextRequest) {
@@ -13,6 +14,11 @@ export async function POST(request: NextRequest) {
     
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
+    }
+
+    const limit = await checkRateLimit("forgotPassword", getClientIP(request))
+    if (!limit.success) {
+      return rateLimitResponse(limit, "Too many reset requests. Please try again later.")
     }
 
     // Find user

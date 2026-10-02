@@ -6,34 +6,36 @@ import Payment from "@/models/Payment"
 import Settings from "@/models/Settings"
 import { type PlanId, PLAN_PRICES_MAP } from "@/lib/razorpay"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
+import { requireClientUser } from "@/lib/client-auth.server"
 
 export async function POST(request: NextRequest) {
   try {
     await connectDB()
     
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
     const body = await request.json()
     const { 
       razorpay_order_id, 
       razorpay_payment_id, 
       razorpay_signature,
-      plan,
-      userId,
-      keySecret
+      plan
     } = body
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json({ error: "Missing payment details" }, { status: 400 })
     }
 
-    if (!userId || !plan) {
-      return NextResponse.json({ error: "User ID and plan required" }, { status: 400 })
+    if (!plan) {
+      return NextResponse.json({ error: "Plan required" }, { status: 400 })
     }
     if (plan === "test" && process.env.ENABLE_TEST_PLAN !== "true") {
       return NextResponse.json({ error: "Test plan is disabled" }, { status: 400 })
     }
 
-    // Try to get secret from database first
-    let razorpayKeySecret = keySecret
+    // The signing secret comes only from server-side config, never from the request
+    let razorpayKeySecret: string | undefined
     
     if (!razorpayKeySecret) {
       try {

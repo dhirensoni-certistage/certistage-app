@@ -4,6 +4,7 @@ import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 import { canUserAddRecipients, verifyEventOwnership, canUserUseFeature } from "@/lib/plan-limits"
+import { requireClientUser } from "@/lib/client-auth.server"
 
 // GET - List recipients for a certificate type
 export async function GET(request: NextRequest) {
@@ -13,16 +14,19 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const certificateTypeId = searchParams.get("certificateTypeId")
     const eventId = searchParams.get("eventId")
-    const userId = searchParams.get("userId")
     const page = parseInt(searchParams.get("page") || "1")
     const limit = parseInt(searchParams.get("limit") || "50")
     const search = searchParams.get("search") || ""
     
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
+
     if (!certificateTypeId) {
       return NextResponse.json({ error: "Certificate Type ID required" }, { status: 400 })
     }
 
-    // Verify certificate type and event ownership if userId is provided
+    // Verify certificate type and event ownership
     const certType = await CertificateType.findById(certificateTypeId).lean()
     if (!certType) {
       return NextResponse.json({ error: "Certificate type not found" }, { status: 404 })
@@ -72,15 +76,16 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB()
     
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
     const body = await request.json()
-    const { userId, eventId, certificateTypeId, recipients, isBulkImport } = body
+    const { eventId, certificateTypeId, recipients, isBulkImport } = body
     
-    console.log("Recipients POST request:", { userId, eventId, certificateTypeId, recipientsCount: recipients?.length, isBulkImport })
-    
-    if (!userId || !eventId || !certificateTypeId || !recipients || !Array.isArray(recipients)) {
+    if (!eventId || !certificateTypeId || !recipients || !Array.isArray(recipients)) {
       return NextResponse.json({ 
         error: "Missing required fields",
-        details: { userId: !!userId, eventId: !!eventId, certificateTypeId: !!certificateTypeId, recipients: Array.isArray(recipients) }
+        details: { eventId: !!eventId, certificateTypeId: !!certificateTypeId, recipients: Array.isArray(recipients) }
       }, { status: 400 })
     }
 
@@ -180,11 +185,9 @@ export async function DELETE(request: NextRequest) {
     const recipientId = searchParams.get("recipientId")
     const certificateTypeId = searchParams.get("certificateTypeId")
     const clearAll = searchParams.get("clearAll") === "true"
-    const userId = searchParams.get("userId")
-    
-    if (!userId) {
-      return NextResponse.json({ error: "User ID required" }, { status: 400 })
-    }
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
 
     if (clearAll && certificateTypeId) {
       // Clear all recipients from a certificate type
@@ -232,10 +235,13 @@ export async function PUT(request: NextRequest) {
   try {
     await connectDB()
     
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
     const body = await request.json()
-    const { recipientId, userId, updates } = body
+    const { recipientId, updates } = body
     
-    if (!recipientId || !userId || !updates) {
+    if (!recipientId || !updates) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 

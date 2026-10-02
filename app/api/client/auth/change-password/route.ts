@@ -2,17 +2,21 @@ import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import bcrypt from "bcryptjs"
+import { requireClientUser } from "@/lib/client-auth.server"
 
 // POST - Change password for logged-in user
 export async function POST(request: NextRequest) {
   try {
     await connectDB()
     
-    const { userId, currentPassword, newPassword } = await request.json()
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
+    const { currentPassword, newPassword } = await request.json()
     
-    if (!userId || !currentPassword || !newPassword) {
+    if (!currentPassword || !newPassword) {
       return NextResponse.json({ 
-        error: "User ID, current password and new password are required" 
+        error: "Current password and new password are required" 
       }, { status: 400 })
     }
 

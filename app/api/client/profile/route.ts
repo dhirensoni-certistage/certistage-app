@@ -1,63 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
+import { requireClientUser } from "@/lib/client-auth.server"
 
-// GET - Get user profile
+// GET - Get the logged-in user's profile
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId")
-    const email = searchParams.get("email")
-
-    // If no userId or email provided, try to get from NextAuth session
-    if (!userId && !email) {
-      try {
-        const { getServerSession } = await import("next-auth")
-        const { authOptions } = await import("@/lib/auth-config")
-        const session = await getServerSession(authOptions)
-
-        if (!session?.user?.email) {
-          return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-        }
-
-        await connectDB()
-        const user = await User.findOne({ email: session.user.email.toLowerCase() }).select("-password").lean()
-
-        if (!user) {
-          return NextResponse.json({ error: "User not found" }, { status: 404 })
-        }
-
-        return NextResponse.json({
-          success: true,
-          user: {
-            id: user._id.toString(),
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            organization: user.organization,
-            plan: user.plan,
-            pendingPlan: user.pendingPlan || null,
-            planExpiresAt: user.planExpiresAt,
-            isActive: user.isActive,
-            createdAt: user.createdAt
-          }
-        })
-      } catch (sessionError) {
-        console.error("Session error:", sessionError)
-        return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-      }
-    }
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
 
     await connectDB()
-
-    // Try to get user by userId or email
-    let user = null
-
-    if (userId) {
-      user = await User.findById(userId).select("-password").lean()
-    } else if (email) {
-      user = await User.findOne({ email: email.toLowerCase() }).select("-password").lean()
-    }
+    const user = await User.findById(auth.userId).select("-password").lean()
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -89,11 +42,10 @@ export async function PUT(request: NextRequest) {
   try {
     await connectDB()
 
-    const { userId, name, phone, organization } = await request.json()
-
-    if (!userId) {
-      return NextResponse.json({ error: "User ID required" }, { status: 400 })
-    }
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
+    const { name, phone, organization } = await request.json()
 
     // Build update object (only allow certain fields to be updated)
     const updateData: Record<string, unknown> = {}
