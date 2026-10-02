@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, Eye, EyeOff, ArrowRight, Check, MailCheck } from "lucide-react"
+import { Loader2, Eye, EyeOff, ArrowRight, Check, MailCheck, UserX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,6 +48,7 @@ function LoginForm() {
 
   // OTP flow
   const [codeSent, setCodeSent] = useState(false)
+  const [noAccount, setNoAccount] = useState<string | null>(null)
   const [code, setCode] = useState("")
   const [codeStatus, setCodeStatus] = useState<"idle" | "error" | "success">("idle")
   const [codeError, setCodeError] = useState<string | null>(null)
@@ -101,9 +102,18 @@ function LoginForm() {
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
+      if (data.notFound) {
+        setNoAccount(email.trim())
+        toast.error("No account found with this email", {
+          description: "Create a free account to get started.",
+          action: { label: "Sign up", onClick: () => router.push(`/signup?email=${encodeURIComponent(email.trim())}`) }
+        })
+        return false
+      }
       toast.error(data.error || "Could not send the code. Please try again.")
       return false
     }
+    setNoAccount(null)
     return true
   }
 
@@ -258,8 +268,23 @@ function LoginForm() {
                 <div className="space-y-1.5">
                   <Label htmlFor="email" className="text-[13px] font-medium text-[#333]">Email</Label>
                   <Input id="email" name="email" type="email" autoComplete="email" inputMode="email" autoFocus value={email}
-                    onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" disabled={isLoading} />
+                    onChange={(e) => { setEmail(e.target.value); if (noAccount) setNoAccount(null) }} className={inputClass} placeholder="you@example.com" disabled={isLoading} />
                 </div>
+                <AnimatePresence initial={false}>
+                  {noAccount && (
+                    <motion.div key="no-account" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}>
+                      <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3">
+                        <UserX className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                        <div className="text-[13px] text-neutral-700 leading-snug">
+                          <p>No account found for <span className="font-medium text-black">{noAccount}</span>.</p>
+                          <Link href={`/signup?email=${encodeURIComponent(noAccount)}`} className="inline-flex items-center gap-1 mt-1 font-medium text-black underline underline-offset-4 hover:text-gold-deep">
+                            Create a free account <ArrowRight className="h-3.5 w-3.5" />
+                          </Link>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <Button type="submit" className={cn(authPrimaryButtonClass, isLoading && "opacity-70")} disabled={isLoading}>
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Send code <ArrowRight className="h-4 w-4 ml-1.5 transition-transform duration-200 group-hover:translate-x-1" /></>}
                 </Button>

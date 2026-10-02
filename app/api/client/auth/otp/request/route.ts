@@ -22,12 +22,20 @@ export async function POST(request: NextRequest) {
       return rateLimitResponse(limit, "Too many code requests. Please wait a few minutes and try again.")
     }
 
-    // Same answer whether or not the account exists, so emails cannot be enumerated
-    const generic = { success: true, message: "If an account exists for this email, a login code is on its way." }
-
     const user = await User.findOne({ email })
-    if (!user || !user.isActive) {
-      return NextResponse.json(generic)
+    if (!user) {
+      // Deliberate product choice: tell new visitors to sign up instead of
+      // silently "sending" a code that never arrives.
+      return NextResponse.json(
+        { error: "No account found with this email. Create a free account first.", notFound: true },
+        { status: 404 }
+      )
+    }
+    if (!user.isActive) {
+      return NextResponse.json(
+        { error: "This account is deactivated. Contact support to restore access." },
+        { status: 403 }
+      )
     }
 
     const code = generateOtpCode()
@@ -52,7 +60,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "We could not send the code right now. Please try again in a minute." }, { status: 502 })
     }
 
-    return NextResponse.json(generic)
+    return NextResponse.json({ success: true, message: "We emailed a 6-digit login code to " + email })
   } catch (error) {
     console.error("OTP request error:", error)
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 })

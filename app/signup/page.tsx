@@ -49,6 +49,12 @@ function SignupForm() {
   const [countryCode, setCountryCode] = useState("+91")
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", organization: "", plan: "free" })
 
+  // Email carried over from the login page ("no account found")
+  useEffect(() => {
+    const emailParam = searchParams.get("email")
+    if (emailParam) setFormData((prev) => ({ ...prev, email: emailParam }))
+  }, [searchParams])
+
   // Plan chosen on the pricing page, if any
   useEffect(() => {
     const planParam = searchParams.get("plan")
