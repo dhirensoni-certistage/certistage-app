@@ -6,6 +6,7 @@ import Image from "next/image"
 import { ArrowRight, Shield, Users, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
+import { formatApproxCount, type PublicStats } from "@/lib/public-stats"
 
 const planIcons: Record<string, any> = {
   free: Gift,
@@ -72,6 +73,38 @@ export default function HomePage() {
     () => planConfig.filter((plan) => plan.enabled !== false),
     [planConfig]
   )
+
+  // Live platform numbers (cached server-side for an hour)
+  const [publicStats, setPublicStats] = useState<PublicStats | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    fetch("/api/public-stats")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (mounted && data && typeof data.certificates === "number") setPublicStats(data)
+      })
+      .catch(() => {
+        // keep placeholders on failure
+      })
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const landingStats = useMemo(() => {
+    if (!publicStats) return null
+    // With few organizations on the platform, a design count reads better than a tiny org count
+    const fourth = publicStats.organizations >= 10
+      ? { label: "Organizations", value: formatApproxCount(publicStats.organizations) }
+      : { label: "Certificate Designs", value: formatApproxCount(publicStats.certificateTypes) }
+    return [
+      { label: "Certificates Issued", value: formatApproxCount(publicStats.certificates) },
+      { label: "Certificates Downloaded", value: formatApproxCount(publicStats.downloads) },
+      { label: "Events Powered", value: formatApproxCount(publicStats.events) },
+      fourth
+    ]
+  }, [publicStats])
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#0a0a0a]">
@@ -156,14 +189,21 @@ export default function HomePage() {
       <section className="py-12 border-y border-neutral-200 dark:border-neutral-800">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {[
-              { label: "Certificates Issued", value: "2M+" },
-              { label: "Organizations", value: "1,500+" },
-              { label: "Delivery Rate", value: "99.9%" },
-              { label: "Support Rating", value: "4.9/5" }
-            ].map((stat, i) => (
+            {(landingStats ?? [
+              { label: "Certificates Issued", value: null },
+              { label: "Certificates Downloaded", value: null },
+              { label: "Events Powered", value: null },
+              { label: "Certificate Designs", value: null }
+            ]).map((stat, i) => (
               <div key={i} className="text-center">
-                <p className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-1">{stat.value}</p>
+                {stat.value === null ? (
+                  <div
+                    className="h-9 md:h-10 w-24 mx-auto mb-1 rounded bg-neutral-200 dark:bg-neutral-800 animate-pulse"
+                    aria-label="Loading"
+                  />
+                ) : (
+                  <p className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-1">{stat.value}</p>
+                )}
                 <p className="text-xs text-neutral-500 dark:text-neutral-500 uppercase tracking-wide">{stat.label}</p>
               </div>
             ))}
@@ -369,7 +409,9 @@ export default function HomePage() {
             Ready to get started?
           </h2>
           <p className="text-lg text-neutral-600 dark:text-neutral-400 mb-8">
-            Join 1,500+ organizations using CertiStage
+            {publicStats && publicStats.organizations >= 50
+              ? `Join ${formatApproxCount(publicStats.organizations)} organizations using CertiStage`
+              : "Join event organizers and institutions using CertiStage"}
           </p>
           <Button size="lg" asChild className="h-11 px-6 text-sm">
             <Link href="/signup">
