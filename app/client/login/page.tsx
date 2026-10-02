@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, Eye, EyeOff, ArrowRight, Check } from "lucide-react"
+import { Loader2, ArrowRight, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -33,17 +33,12 @@ function GoogleIcon() {
   )
 }
 
-type Mode = "otp" | "password"
-
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = safeCallback(searchParams.get("callbackUrl"))
 
-  const [mode, setMode] = useState<Mode>("otp")
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
   // OTP flow
@@ -179,35 +174,7 @@ function LoginForm() {
     }
   }
 
-  // ---- Password ----
-  const handlePasswordLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email.trim() || !password) {
-      toast.error("Please enter your email and password")
-      return
-    }
-    setIsLoading(true)
-    try {
-      const res = await fetch("/api/client/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password })
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        toast.error(data.error || "Login failed")
-        setIsLoading(false)
-        return
-      }
-      finishLogin(data)
-    } catch {
-      toast.error("Connection failed. Please try again.")
-      setIsLoading(false)
-    }
-  }
-
-  const switchMode = (next: Mode) => {
-    setMode(next)
+  const changeEmail = () => {
     setCodeSent(false)
     setCode("")
     setCodeStatus("idle")
@@ -229,7 +196,7 @@ function LoginForm() {
             <div className="space-y-1.5">
               <h2 className="text-[26px] font-semibold tracking-tight text-black">Sign in</h2>
               <p className="text-[14px] text-[#666]">
-                {mode === "otp" ? "We will email you a 6-digit code. No password needed." : "Welcome back. Pick up where you left off."}
+We will email you a 6-digit code. No password needed.
               </p>
             </div>
             <Link href="/signup" className="hidden lg:inline-block mt-2 text-[13px] font-medium text-neutral-600 hover:text-black whitespace-nowrap underline underline-offset-4">
@@ -237,28 +204,8 @@ function LoginForm() {
             </Link>
           </div>
 
-          {/* Mode switch */}
-          {!codeSent && (
-            <div className="mb-5 grid grid-cols-2 rounded-lg bg-neutral-100 p-1 text-[13px] font-medium">
-              {([["otp", "Email code"], ["password", "Password"]] as [Mode, string][]).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => switchMode(value)}
-                  aria-pressed={mode === value}
-                  className={cn(
-                    "h-9 rounded-md transition-all",
-                    mode === value ? "bg-white text-black shadow-sm" : "text-neutral-500 hover:text-neutral-800"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-
           <AnimatePresence mode="wait" initial={false}>
-            {mode === "otp" && !codeSent && (
+            {!codeSent && (
               <motion.form key="otp-email" onSubmit={handleSendCode} className="space-y-4" noValidate
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
                 <div className="space-y-1.5">
@@ -281,12 +228,12 @@ function LoginForm() {
               </motion.form>
             )}
 
-            {mode === "otp" && codeSent && (
+            {codeSent && (
               <motion.div key="otp-code" className="space-y-5"
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
                 <p className="text-[13px] text-neutral-600 leading-snug">
                   We sent a code to <span className="font-medium text-black">{email.trim()}</span>.{" "}
-                  <button type="button" onClick={() => switchMode("otp")} className="text-black underline underline-offset-4 hover:text-neutral-600">Change email</button>
+                  <button type="button" onClick={changeEmail} className="text-black underline underline-offset-4 hover:text-neutral-600">Change email</button>
                 </p>
 
                 <div className="space-y-2">
@@ -309,40 +256,11 @@ function LoginForm() {
                     className={cn("font-medium underline underline-offset-4", resendIn > 0 ? "text-neutral-400 no-underline cursor-default" : "text-neutral-700 hover:text-black")}>
                     {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
                   </button>
-                  <button type="button" onClick={() => switchMode("password")} className="text-neutral-500 hover:text-black underline underline-offset-4">
-                    Use password instead
-                  </button>
+                  <span className="text-neutral-500">Not in your inbox? Check spam.</span>
                 </div>
               </motion.div>
             )}
 
-            {mode === "password" && (
-              <motion.form key="password" onSubmit={handlePasswordLogin} className="space-y-4" noValidate
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
-                <div className="space-y-1.5">
-                  <Label htmlFor="email-pw" className="text-[13px] font-medium text-[#333]">Email</Label>
-                  <Input id="email-pw" name="email" type="email" autoComplete="email" inputMode="email" autoFocus value={email}
-                    onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" disabled={isLoading} />
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password" className="text-[13px] font-medium text-[#333]">Password</Label>
-                    <Link href="/forgot-password" className="text-[12px] text-[#666] hover:text-black transition-colors">Forgot password?</Link>
-                  </div>
-                  <div className="relative">
-                    <Input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password}
-                      onChange={(e) => setPassword(e.target.value)} className={cn(inputClass, "pr-10")} disabled={isLoading} />
-                    <button type="button" onClick={() => setShowPassword((s) => !s)} className="absolute inset-y-0 right-0 px-3.5 text-neutral-400 hover:text-black"
-                      aria-label={showPassword ? "Hide password" : "Show password"} tabIndex={-1}>
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-                <Button type="submit" className={cn(authPrimaryButtonClass, isLoading && "opacity-70")} disabled={isLoading}>
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Sign in <ArrowRight className="h-4 w-4 ml-1.5 transition-transform duration-200 group-hover:translate-x-1" /></>}
-                </Button>
-              </motion.form>
-            )}
           </AnimatePresence>
 
           <div className="my-5 flex items-center gap-3 w-full">
