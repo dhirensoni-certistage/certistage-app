@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowRight, Shield, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles, Award, Download, Search, FileSpreadsheet } from "lucide-react"
+import { ArrowRight, Shield, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles, Award, Download, Search, FileSpreadsheet, Menu, X, Quote, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
 import { formatApproxCount, type PublicStats } from "@/lib/public-stats"
@@ -20,6 +20,46 @@ const TRUSTED_BY: { name: string; logo: string; width: number; height: number; r
   { name: "IMA NATCON 2025, Ahmedabad Medical Association", logo: "/clients/ima-natcon-2025.png", width: 320, height: 320, rounded: true },
   { name: "OSSICON 2026, Obesity and Metabolic Surgery Society of India", logo: "/clients/ossicon-2026.png", width: 800, height: 364 },
   { name: "Arise Learning Festival", logo: "/clients/arise-learning-festival.png", width: 500, height: 202 }
+]
+
+// Real customer quotes only. Add an entry once the person has approved their quote in writing.
+const TESTIMONIALS: { quote: string; name: string; role: string; org: string }[] = []
+
+const FAQS: { q: string; a: string; href?: string; linkText?: string }[] = [
+  {
+    q: "What counts as one certificate?",
+    a: "Every recipient you add to an event or batch counts as one certificate against your plan's yearly limit, whether or not they download it."
+  },
+  {
+    q: "Do I need a designer?",
+    a: "No. Upload the certificate design you already have as an image, place the name and any other fields on it, and you are done."
+  },
+  {
+    q: "How do recipients get their certificate?",
+    a: "You share one link. Recipients search by name, email, mobile or registration number and download their PDF. Nothing is emailed one by one."
+  },
+  {
+    q: "Can colleges and training institutes use it?",
+    a: "Yes. An \"event\" can be a convocation, a course batch, a workshop or a conference. Everything works the same way."
+  },
+  {
+    q: "Can I try it before paying?",
+    a: "Yes. The Free plan lets you set up one event and issue up to 50 certificates so you can test the full flow."
+  },
+  {
+    q: "Is there a refund?",
+    a: "No. Paid plans activate instantly, so we do not offer refunds. Test everything on the Free plan first. You can cancel anytime and keep access until the end of your billing period.",
+    href: "/refund",
+    linkText: "Read the refund policy"
+  },
+  {
+    q: "What happens to my data when the plan expires?",
+    a: "Your data stays available for 30 days after expiry so you can export it. After that it is permanently deleted."
+  },
+  {
+    q: "How do I pay?",
+    a: "Online through Razorpay with UPI, cards or net banking. Prices are in INR and billed yearly."
+  }
 ]
 
 const FEATURES = [
@@ -110,6 +150,8 @@ export default function HomePage() {
     [planConfig]
   )
 
+  const [menuOpen, setMenuOpen] = useState(false)
+
   // Live platform numbers (cached server-side for an hour)
   const [publicStats, setPublicStats] = useState<PublicStats | null>(null)
 
@@ -158,15 +200,45 @@ export default function HomePage() {
             <Link href="/contact" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Contact</Link>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex text-sm">
               <Link href="/client/login">Sign In</Link>
             </Button>
             <Button size="sm" asChild className="text-sm h-9 px-4">
               <Link href="/signup">Start free</Link>
             </Button>
+            <button
+              type="button"
+              className="md:hidden h-9 w-9 inline-flex items-center justify-center rounded-md text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
         </div>
+
+        {menuOpen && (
+          <nav className="md:hidden border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#0a0a0a] px-6 py-3 flex flex-col">
+            {[
+              { href: "#features", label: "Features" },
+              { href: "#pricing", label: "Pricing" },
+              { href: "#faq", label: "FAQ" },
+              { href: "/contact", label: "Contact" },
+              { href: "/client/login", label: "Sign In" }
+            ].map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className="py-3 text-sm text-neutral-700 dark:text-neutral-300 border-b border-neutral-100 dark:border-neutral-900 last:border-0"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </header>
 
       {/* Hero */}
@@ -376,8 +448,35 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Testimonials (shown once real, approved quotes are added to TESTIMONIALS) */}
+      {TESTIMONIALS.length > 0 && (
+        <section className="py-24 px-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
+                What organizers say
+              </h2>
+            </div>
+            <div className="grid md:grid-cols-3 gap-4">
+              {TESTIMONIALS.map((t) => (
+                <figure key={t.name} className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 flex flex-col">
+                  <Quote className="h-6 w-6 text-gold mb-4" />
+                  <blockquote className="text-[15px] text-neutral-700 dark:text-neutral-300 leading-relaxed flex-1">
+                    {t.quote}
+                  </blockquote>
+                  <figcaption className="mt-6 text-sm">
+                    <div className="font-semibold text-neutral-900 dark:text-white">{t.name}</div>
+                    <div className="text-neutral-500 dark:text-neutral-400">{t.role}, {t.org}</div>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Pricing - Clean Cards */}
-      <section id="pricing" className="py-24 px-6">
+      <section id="pricing" className="py-24 px-6 scroll-mt-16">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
@@ -455,6 +554,42 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* FAQ */}
+      <section id="faq" className="py-24 px-6 bg-neutral-50 dark:bg-neutral-950 scroll-mt-16">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
+              Questions organizers ask
+            </h2>
+            <p className="text-lg text-neutral-600 dark:text-neutral-400">
+              Anything else? <Link href="/contact" className="text-gold-deep dark:text-gold-light underline underline-offset-4">Contact us</Link>
+            </p>
+          </div>
+          <div className="space-y-3">
+            {FAQS.map((faq) => (
+              <details
+                key={faq.q}
+                className="group rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 open:border-gold/50"
+              >
+                <summary className="flex items-center justify-between gap-4 cursor-pointer list-none px-6 py-4 text-[15px] font-medium text-neutral-900 dark:text-white [&::-webkit-details-marker]:hidden">
+                  {faq.q}
+                  <ChevronDown className="h-4 w-4 shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="px-6 pb-5 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                  {faq.a}
+                  {faq.href && (
+                    <>
+                      {" "}
+                      <Link href={faq.href} className="text-gold-deep dark:text-gold-light underline underline-offset-4">{faq.linkText}</Link>
+                    </>
+                  )}
+                </div>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA - Minimal */}
       <section className="py-24 px-6 border-y border-neutral-200 dark:border-neutral-800">
         <div className="max-w-3xl mx-auto text-center">
@@ -493,6 +628,7 @@ export default function HomePage() {
               <nav className="flex flex-col gap-2">
                 <Link href="#features" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Features</Link>
                 <Link href="#pricing" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Pricing</Link>
+                <Link href="#faq" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">FAQ</Link>
               </nav>
             </div>
 
@@ -501,6 +637,7 @@ export default function HomePage() {
               <nav className="flex flex-col gap-2">
                 <Link href="/about" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">About</Link>
                 <Link href="/contact" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Contact</Link>
+                <a href="mailto:support@certistage.com" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">support@certistage.com</a>
               </nav>
             </div>
 
@@ -509,6 +646,8 @@ export default function HomePage() {
               <nav className="flex flex-col gap-2">
                 <Link href="/privacy" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Privacy</Link>
                 <Link href="/terms" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Terms</Link>
+                <Link href="/refund" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Refund Policy</Link>
+                <Link href="/shipping" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Shipping & Delivery</Link>
               </nav>
             </div>
           </div>
