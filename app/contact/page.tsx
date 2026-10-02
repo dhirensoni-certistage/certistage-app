@@ -1,335 +1,220 @@
-﻿"use client"
+"use client"
 
 import { useState } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Send, Loader2, CheckCircle2, Mail, MapPin, Headphones } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Send, Loader2, CheckCircle2, Mail, Clock, HelpCircle, ArrowRight } from "lucide-react"
 import { toast } from "sonner"
+import { SiteHeader } from "@/components/landing/site-header"
+import { SiteFooter } from "@/components/landing/site-footer"
+import { Reveal } from "@/components/landing/reveal"
+
+const TOPICS = [
+  { value: "general", label: "General question" },
+  { value: "support", label: "Help with my account or an event" },
+  { value: "pricing", label: "Pricing and plans" },
+  { value: "partnership", label: "Partnership" },
+  { value: "feedback", label: "Feedback" }
+]
+
+const inputClass = "h-10 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 focus-visible:ring-1 focus-visible:ring-gold focus-visible:border-gold"
 
 export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    organization: "",
-    inquiryType: "general",
-    message: ""
-  })
+  const [form, setForm] = useState({ name: "", email: "", phone: "", organization: "", topic: "general", message: "" })
+
+  const update = (field: keyof typeof form) => (value: string) => setForm((prev) => ({ ...prev, [field]: value }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!formData.name || !formData.email || !formData.message) {
-      toast.error("Please fill in all required fields")
+    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+      toast.error("Please fill in your name, email and message")
       return
     }
-
     setIsSubmitting(true)
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    console.log("Contact form submitted:", formData)
-    setIsSubmitting(false)
-    setIsSubmitted(true)
-    toast.success("Message sent successfully!")
-  }
-
-  if (isSubmitted) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-[#0a0a0a]">
-        <Header />
-        <main className="container mx-auto px-6 py-16">
-          <div className="max-w-lg mx-auto text-center p-12 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-            <div className="h-16 w-16 rounded-full bg-neutral-500/10 flex items-center justify-center mx-auto mb-6">
-              <CheckCircle2 className="h-8 w-8 text-neutral-500" />
-            </div>
-            <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">Thank You!</h2>
-            <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-              We've received your message and will get back to you within 24 hours.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button asChild className="h-10 text-sm">
-                <Link href="/">Return to Home</Link>
-              </Button>
-              <Button variant="outline" onClick={() => setIsSubmitted(false)} className="h-10 text-sm">
-                Send Another Message
-              </Button>
-            </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    )
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form)
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error || "Could not send your message. Please try again.")
+        return
+      }
+      setIsSubmitted(true)
+    } catch {
+      toast.error("Could not send your message. Please check your connection and try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#0a0a0a]">
-      <Header />
+      <SiteHeader />
 
-      {/* Hero Section */}
-      <section className="pt-16 md:pt-20 pb-12 md:pb-16 px-6 border-b border-neutral-200 dark:border-neutral-800">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-[42px] md:text-[56px] font-bold tracking-tight text-neutral-900 dark:text-white leading-[1.1] mb-6">
-            Get in Touch
+      <section className="pt-16 md:pt-20 pb-10 px-6">
+        <Reveal className="max-w-3xl mx-auto text-center">
+          <h1 className="text-[36px] md:text-[48px] font-bold tracking-tight text-neutral-900 dark:text-white leading-[1.1] mb-4">
+            Talk to us
           </h1>
-          <p className="text-lg md:text-xl text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
-            Have questions? Need support? Want to discuss a custom solution? Our team is ready to assist you.
+          <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-xl mx-auto">
+            Planning a conference, convocation or training batch? Stuck on something in your account? Write to us, a real person replies.
           </p>
-        </div>
+        </Reveal>
       </section>
 
-      <main className="container mx-auto px-6 py-12 md:py-16">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid lg:grid-cols-12 gap-8">
-            {/* Left Sidebar - Contact Info */}
-            <div className="lg:col-span-4 space-y-4">
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-2">Contact Information</h2>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Choose your preferred way to reach us
-                </p>
+      <main className="px-6 pb-24">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-12 gap-6">
+          {/* Left: ways to reach us */}
+          <Reveal className="lg:col-span-4 space-y-4" delay={0.05}>
+            <div className="p-6 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
+              <div className="h-10 w-10 rounded-lg bg-gold-soft dark:bg-gold/10 flex items-center justify-center text-gold-deep dark:text-gold-light mb-4">
+                <Mail className="h-5 w-5" />
               </div>
-
-              {/* Contact Cards */}
-              <div className="p-6 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
-                <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center shrink-0 text-neutral-700 dark:text-neutral-300">
-                    <Mail className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Email Us</h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-500 mb-2">Response within 24 hours</p>
-                    <a href="mailto:support@certistage.com" className="text-sm text-neutral-900 dark:text-white hover:underline">
-                      support@certistage.com
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
-                <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center shrink-0 text-neutral-700 dark:text-neutral-300">
-                    <Headphones className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Live Support</h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-500 mb-2">Mon-Fri, 9 AM - 6 PM IST</p>
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400">Chat with our team</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
-                <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center shrink-0 text-neutral-700 dark:text-neutral-300">
-                    <MapPin className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Visit Us</h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-500 mb-2">Our office location</p>
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400">Mumbai, Maharashtra, India</p>
-                  </div>
-                </div>
-              </div>
+              <h2 className="font-semibold text-neutral-900 dark:text-white mb-1">Email</h2>
+              <a href="mailto:support@certistage.com" className="text-sm text-gold-deep dark:text-gold-light underline underline-offset-4">
+                support@certistage.com
+              </a>
+              <p className="text-xs text-neutral-500 mt-2">For account help, include the email you signed up with.</p>
             </div>
 
-            {/* Right Side - Contact Form */}
-            <div className="lg:col-span-8">
-              <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-                <div className="mb-6">
-                  <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-2">Send us a Message</h2>
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                    Fill out the form below and we'll get back to you as soon as possible.
+            <div className="p-6 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
+              <div className="h-10 w-10 rounded-lg bg-gold-soft dark:bg-gold/10 flex items-center justify-center text-gold-deep dark:text-gold-light mb-4">
+                <Clock className="h-5 w-5" />
+              </div>
+              <h2 className="font-semibold text-neutral-900 dark:text-white mb-1">Response time</h2>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">Within one business day, Monday to Saturday, IST.</p>
+            </div>
+
+            <div className="p-6 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
+              <div className="h-10 w-10 rounded-lg bg-gold-soft dark:bg-gold/10 flex items-center justify-center text-gold-deep dark:text-gold-light mb-4">
+                <HelpCircle className="h-5 w-5" />
+              </div>
+              <h2 className="font-semibold text-neutral-900 dark:text-white mb-2">Quick answers</h2>
+              <nav className="flex flex-col gap-1.5 text-sm">
+                <Link href="/#faq" className="text-neutral-700 dark:text-neutral-300 hover:text-gold-deep dark:hover:text-gold-light inline-flex items-center gap-1">
+                  Frequently asked questions <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+                <Link href="/#pricing" className="text-neutral-700 dark:text-neutral-300 hover:text-gold-deep dark:hover:text-gold-light inline-flex items-center gap-1">
+                  Plans and pricing <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+                <Link href="/refund" className="text-neutral-700 dark:text-neutral-300 hover:text-gold-deep dark:hover:text-gold-light inline-flex items-center gap-1">
+                  Refund policy <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </nav>
+            </div>
+          </Reveal>
+
+          {/* Right: form */}
+          <Reveal className="lg:col-span-8" delay={0.1}>
+            <div className="p-6 md:p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
+              {isSubmitted ? (
+                <div className="text-center py-10">
+                  <div className="h-14 w-14 rounded-full bg-gold-soft dark:bg-gold/10 flex items-center justify-center mx-auto mb-5">
+                    <CheckCircle2 className="h-7 w-7 text-gold-deep dark:text-gold-light" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">Message sent</h2>
+                  <p className="text-neutral-600 dark:text-neutral-400 mb-8 max-w-md mx-auto">
+                    Thanks, {form.name.split(" ")[0]}. We will reply to <span className="font-medium text-neutral-900 dark:text-white">{form.email}</span> within one business day.
                   </p>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="grid sm:grid-cols-2 gap-5">
-                    <div className="space-y-2">
-                      <Label htmlFor="name" className="text-sm">Full Name <span className="text-red-500">*</span></Label>
-                      <Input
-                        id="name"
-                        placeholder="John Doe"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        required
-                        className="h-10"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email" className="text-sm">Email <span className="text-red-500">*</span></Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="john@company.com"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        required
-                        className="h-10"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid sm:grid-cols-2 gap-5">
-                    <div className="space-y-2">
-                      <Label htmlFor="phone" className="text-sm">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        placeholder="+91 98765 43210"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="h-10"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="organization" className="text-sm">Organization</Label>
-                      <Input
-                        id="organization"
-                        placeholder="Company Name"
-                        value={formData.organization}
-                        onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                        className="h-10"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="inquiryType" className="text-sm">How can we help you?</Label>
-                    <Select
-                      value={formData.inquiryType}
-                      onValueChange={(value) => setFormData({ ...formData, inquiryType: value })}
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button asChild className="h-10 text-sm">
+                      <Link href="/">Back to home</Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-10 text-sm"
+                      onClick={() => {
+                        setForm({ name: "", email: "", phone: "", organization: "", topic: "general", message: "" })
+                        setIsSubmitted(false)
+                      }}
                     >
-                      <SelectTrigger className="h-10">
-                        <SelectValue placeholder="Select inquiry type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="general">General Inquiry</SelectItem>
-                        <SelectItem value="support">Technical Support</SelectItem>
-                        <SelectItem value="sales">Sales & Pricing</SelectItem>
-                        <SelectItem value="partnership">Partnership Opportunity</SelectItem>
-                        <SelectItem value="feedback">Feedback & Suggestions</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      Send another message
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-6">
+                    <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-1">Send a message</h2>
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">Tell us what you are organizing and how many certificates you expect. We will reply with specifics.</p>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="message" className="text-sm">Message <span className="text-red-500">*</span></Label>
-                    <Textarea
-                      id="message"
-                      placeholder="Tell us more about your inquiry..."
-                      rows={6}
-                      value={formData.message}
-                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      required
-                    />
-                  </div>
+                  <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+                    <div className="grid sm:grid-cols-2 gap-5">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Name <span className="text-red-500">*</span></Label>
+                        <Input id="name" name="name" autoComplete="name" placeholder="Your full name" value={form.name} onChange={(e) => update("name")(e.target.value)} required className={inputClass} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
+                        <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" value={form.email} onChange={(e) => update("email")(e.target.value)} required className={inputClass} />
+                      </div>
+                    </div>
 
-                  <Button type="submit" className="w-full h-10 text-sm" disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4 mr-2" />
-                        Send Message
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </div>
+                    <div className="grid sm:grid-cols-2 gap-5">
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Phone <span className="text-neutral-400 font-normal">(optional)</span></Label>
+                        <Input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+91 98XXX XXXXX" value={form.phone} onChange={(e) => update("phone")(e.target.value)} className={inputClass} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="organization">Organization <span className="text-neutral-400 font-normal">(optional)</span></Label>
+                        <Input id="organization" name="organization" autoComplete="organization" placeholder="College, company or event name" value={form.organization} onChange={(e) => update("organization")(e.target.value)} className={inputClass} />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="topic">Topic</Label>
+                      <Select value={form.topic} onValueChange={update("topic")}>
+                        <SelectTrigger id="topic" className={inputClass}>
+                          <SelectValue placeholder="Choose a topic" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TOPICS.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="message">Message <span className="text-red-500">*</span></Label>
+                      <Textarea
+                        id="message"
+                        name="message"
+                        rows={6}
+                        placeholder="What are you organizing, roughly how many certificates, and what do you need help with?"
+                        value={form.message}
+                        onChange={(e) => update("message")(e.target.value)}
+                        required
+                        className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 focus-visible:ring-1 focus-visible:ring-gold focus-visible:border-gold"
+                      />
+                    </div>
+
+                    <Button type="submit" className="w-full sm:w-auto h-10 px-6 text-sm group" disabled={isSubmitting}>
+                      {isSubmitting ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending</>
+                      ) : (
+                        <><Send className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:translate-x-0.5" /> Send message</>
+                      )}
+                    </Button>
+                  </form>
+                </>
+              )}
             </div>
-          </div>
+          </Reveal>
         </div>
       </main>
 
-      <Footer />
+      <SiteFooter />
     </div>
   )
 }
-
-function Header() {
-  return (
-    <header className="sticky top-0 z-50 border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-          <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
-          <span className="font-semibold text-[17px] text-neutral-900 dark:text-white">CertiStage</span>
-        </Link>
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" asChild className="text-sm">
-            <Link href="/client/login">Sign In</Link>
-          </Button>
-          <Button size="sm" asChild className="text-sm h-9 px-4">
-            <Link href="/signup">Get Started</Link>
-          </Button>
-        </div>
-      </div>
-    </header>
-  )
-}
-
-function Footer() {
-  return (
-    <footer className="py-16 px-6 bg-neutral-50 dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-          <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <Image src="/Certistage_icon.svg" alt="CertiStage" width={24} height={24} />
-              <span className="font-semibold text-sm text-neutral-900 dark:text-white">CertiStage</span>
-            </div>
-            <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-              Professional certificate generation for events and courses.
-            </p>
-          </div>
-
-          <div>
-            <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Product</h4>
-            <nav className="flex flex-col gap-2">
-              <Link href="/#features" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Features</Link>
-              <Link href="/#pricing" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Pricing</Link>
-            </nav>
-          </div>
-
-          <div>
-            <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Company</h4>
-            <nav className="flex flex-col gap-2">
-              <Link href="/about" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">About</Link>
-              <Link href="/contact" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Contact</Link>
-            </nav>
-          </div>
-
-          <div>
-            <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Legal</h4>
-            <nav className="flex flex-col gap-2">
-              <Link href="/privacy" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Privacy</Link>
-              <Link href="/terms" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Terms</Link>
-            </nav>
-          </div>
-        </div>
-
-        <div className="pt-8 border-t border-neutral-200 dark:border-neutral-800 text-center">
-          <p className="text-xs text-neutral-500 dark:text-neutral-500">
-            © {new Date().getFullYear()} CertiStage. All rights reserved.
-          </p>
-        </div>
-      </div>
-    </footer>
-  )
-}
-

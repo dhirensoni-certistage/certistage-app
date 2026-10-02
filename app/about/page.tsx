@@ -3,6 +3,8 @@ import Image from "next/image"
 import { Shield, Zap, Heart, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Metadata } from "next"
+import { SiteHeader } from "@/components/landing/site-header"
+import { SiteFooter } from "@/components/landing/site-footer"
 
 export const metadata: Metadata = {
   title: "About Us · CertiStage",
@@ -13,22 +15,7 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-[#0a0a0a]">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-            <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
-            <span className="font-semibold text-[17px] text-neutral-900 dark:text-white">CertiStage</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild className="text-sm">
-              <Link href="/client/login">Sign In</Link>
-            </Button>
-            <Button size="sm" asChild className="text-sm h-9 px-4">
-              <Link href="/signup">Get Started</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main>
         {/* Hero Section */}
@@ -142,51 +129,7 @@ export default function AboutPage() {
       </main>
 
       {/* Footer */}
-      <footer className="py-16 px-6 bg-neutral-50 dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-            <div className="col-span-2 md:col-span-1">
-              <div className="flex items-center gap-2 mb-4">
-                <Image src="/Certistage_icon.svg" alt="CertiStage" width={24} height={24} />
-                <span className="font-semibold text-sm text-neutral-900 dark:text-white">CertiStage</span>
-              </div>
-              <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                Professional certificate generation for events and courses.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Product</h4>
-              <nav className="flex flex-col gap-2">
-                <Link href="/#features" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Features</Link>
-                <Link href="/#pricing" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Pricing</Link>
-              </nav>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Company</h4>
-              <nav className="flex flex-col gap-2">
-                <Link href="/about" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">About</Link>
-                <Link href="/contact" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Contact</Link>
-              </nav>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-xs text-neutral-900 dark:text-white mb-3 uppercase tracking-wider">Legal</h4>
-              <nav className="flex flex-col gap-2">
-                <Link href="/privacy" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Privacy</Link>
-                <Link href="/terms" className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Terms</Link>
-              </nav>
-            </div>
-          </div>
-
-          <div className="pt-8 border-t border-neutral-200 dark:border-neutral-800 text-center">
-            <p className="text-xs text-neutral-500 dark:text-neutral-500">
-              © {new Date().getFullYear()} CertiStage. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }
