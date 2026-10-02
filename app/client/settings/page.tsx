@@ -93,9 +93,6 @@ export default function SettingsPage() {
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
       <div className="mb-8">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-[11px] font-semibold text-[#888] uppercase tracking-[0.15em]">Account</span>
-        </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-6">
           <Avatar className="h-16 w-16 border border-[#E5E5E5]">
             <AvatarFallback className="bg-neutral-900 text-white text-lg font-semibold">{initials}</AvatarFallback>

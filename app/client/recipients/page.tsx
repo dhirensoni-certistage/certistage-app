@@ -273,7 +273,7 @@ export default function RecipientsPage() {
         if (res.ok) {
           toast.success(`${deleteTarget.recipient.name} deleted`)
         } else {
-          toast.error("Failed to delete attendee")
+          toast.error("Failed to delete recipient")
         }
       } else if (deleteTarget.type === 'bulk') {
         const selectedRecipients = paginatedRecipients.filter(r => selectedIds.has(r.id))
@@ -282,7 +282,7 @@ export default function RecipientsPage() {
             method: 'DELETE'
           })
         }
-        toast.success(`${selectedIds.size} attendees deleted`)
+        toast.success(`${selectedIds.size} recipients deleted`)
         setSelectedIds(new Set())
       }
 
@@ -356,13 +356,13 @@ export default function RecipientsPage() {
         setIsEditDialogOpen(false)
         setEditingRecipient(null)
         resetForm()
-        toast.success("Attendee updated successfully!")
+        toast.success("Recipient updated successfully!")
       } else {
         const data = await res.json()
-        toast.error(data.error || "Failed to update attendee")
+        toast.error(data.error || "Failed to update recipient")
       }
     } catch (error) {
-      toast.error("Failed to update attendee")
+      toast.error("Failed to update recipient")
     }
   }
 
@@ -453,7 +453,7 @@ export default function RecipientsPage() {
         toast.success(`${formFirstName} ${formLastName} added successfully!`)
       } else {
         const data = await res.json()
-        toast.error(data.error || "Failed to add attendee")
+        toast.error(data.error || "Failed to add recipient")
       }
     } catch (error) {
       toast.error("Failed to add recipient")
@@ -466,7 +466,7 @@ export default function RecipientsPage() {
 
     // Need to select certificate type first
     if (selectedTypeId === "all") {
-      toast.error("Please select a certificate type first to import attendees")
+      toast.error("Please select a certificate type first to import recipients")
       if (fileInputRef.current) fileInputRef.current.value = ""
       return
     }
@@ -547,7 +547,7 @@ export default function RecipientsPage() {
           const CHUNK_SIZE = 500
           if (recipients.length > CHUNK_SIZE) {
             // Show progress toast
-            const toastId = toast.loading(`Importing ${recipients.length} attendees...`, {
+            const toastId = toast.loading(`Importing ${recipients.length} recipients...`, {
               description: "Please wait, this may take a moment."
             })
 
@@ -597,7 +597,7 @@ export default function RecipientsPage() {
 
             if (failed === 0) {
               toast.success(`Import Complete!`, {
-                description: `${imported} attendees imported successfully.`,
+                description: `${imported} recipients imported successfully.`,
                 duration: 5000
               })
             } else {
@@ -610,7 +610,7 @@ export default function RecipientsPage() {
           }
 
           // API call to add recipients (small batches)
-          const toastId = toast.loading(`Importing ${recipients.length} attendees...`)
+          const toastId = toast.loading(`Importing ${recipients.length} recipients...`)
 
           fetch('/api/client/recipients', {
             method: 'POST',
@@ -629,7 +629,7 @@ export default function RecipientsPage() {
               if (eventId) fetchEventData(eventId)
               // Show import summary
               toast.success(`Import Successful!`, {
-                description: `${data.count || recipients.length} attendees imported successfully.`,
+                description: `${data.count || recipients.length} recipients imported successfully.`,
                 duration: 5000
               })
             } else {
@@ -640,7 +640,7 @@ export default function RecipientsPage() {
             }
           }).catch(() => {
             toast.dismiss(toastId)
-            toast.error("Failed to import attendees")
+            toast.error("Failed to import recipients")
           })
         } catch {
           toast.error("Failed to parse Excel file")
@@ -662,8 +662,8 @@ export default function RecipientsPage() {
       const ws = XLSX.utils.aoa_to_sheet(sampleData)
       ws["!cols"] = [{ wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 15 }]
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, "Attendees")
-      XLSX.writeFile(wb, "sample-attendees.xlsx")
+      XLSX.utils.book_append_sheet(wb, ws, "Recipients")
+      XLSX.writeFile(wb, "sample-recipients.xlsx")
       toast.success("Sample Excel downloaded!")
     })
   }
@@ -676,10 +676,8 @@ export default function RecipientsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-shrink-0">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[11px] font-semibold text-[#888] uppercase tracking-[0.15em]">Manage</span>
-          </div>
-          <h1 className="text-[24px] font-semibold text-black tracking-tight leading-none">Attendees</h1>
+          <h1 className="text-[24px] font-semibold text-neutral-900 tracking-tight leading-none">Recipients</h1>
+          <p className="text-[13px] text-neutral-500 mt-1.5">Everyone who can download a certificate for this event.</p>
         </div>
       </div>
 
@@ -689,7 +687,7 @@ export default function RecipientsPage() {
           <Users className="h-12 w-12 text-[#CCC] mx-auto mb-4" />
           <h3 className="text-base font-semibold text-black mb-2">No Certificate Types Yet</h3>
           <p className="text-sm text-[#666] mb-6">
-            Create a certificate type first before adding attendees
+            Create a certificate type first before adding recipients
           </p>
           <Button onClick={() => window.location.href = "/client/certificates"} className="h-9 px-4 bg-black text-white hover:bg-[#222] text-sm">
             Go to Manage Certificate
@@ -789,7 +787,7 @@ export default function RecipientsPage() {
                 className="h-8 px-3 text-xs bg-black text-white hover:bg-[#222] rounded-sm"
               >
                 <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-                Add Attendee
+                Add Recipient
               </Button>
             </div>
           </div>
@@ -839,11 +837,11 @@ export default function RecipientsPage() {
                   <tr>
                     <td colSpan={11} className="p-12 text-center">
                       <Users className="h-10 w-10 text-[#CCC] mx-auto mb-2" />
-                      <p className="font-medium text-sm text-black">No Attendees Found</p>
+                      <p className="font-medium text-sm text-black">No Recipients Found</p>
                       <p className="text-xs text-[#666] mt-1">
                         {searchQuery || statusFilter !== "all"
                           ? "Try adjusting your filters"
-                          : "Add attendees to get started"}
+                          : "Add recipients to get started"}
                       </p>
                     </td>
                   </tr>
@@ -1043,7 +1041,7 @@ export default function RecipientsPage() {
             <DialogDescription>
               {deleteTarget?.type === 'single'
                 ? `Are you sure you want to delete "${deleteTarget.recipient?.name}"? This action cannot be undone.`
-                : `Are you sure you want to delete ${selectedIds.size} selected attendees? This action cannot be undone.`
+                : `Are you sure you want to delete ${selectedIds.size} selected recipients? This action cannot be undone.`
               }
             </DialogDescription>
           </DialogHeader>
@@ -1065,10 +1063,10 @@ export default function RecipientsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5" />
-              Add New Attendee
+              Add New Recipient
             </DialogTitle>
             <DialogDescription>
-              Enter the attendee details for the certificate
+              Enter the recipient details for the certificate
             </DialogDescription>
           </DialogHeader>
 
@@ -1165,7 +1163,7 @@ export default function RecipientsPage() {
             </Button>
             <Button onClick={handleAddRecipient}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Attendee
+              Add Recipient
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1177,10 +1175,10 @@ export default function RecipientsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-5 w-5" />
-              Edit Attendee
+              Edit Recipient
             </DialogTitle>
             <DialogDescription>
-              Update the attendee details
+              Update the recipient details
             </DialogDescription>
           </DialogHeader>
 
@@ -1259,7 +1257,7 @@ export default function RecipientsPage() {
             </Button>
             <Button onClick={handleUpdateRecipient}>
               <Pencil className="h-4 w-4 mr-2" />
-              Update Attendee
+              Update Recipient
             </Button>
           </DialogFooter>
         </DialogContent>

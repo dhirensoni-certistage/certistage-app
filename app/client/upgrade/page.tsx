@@ -2,23 +2,8 @@
 
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import {
-  Check,
-  Crown,
-  Building2,
-  ArrowLeft,
-  Sparkles,
-  Zap,
-  AlertCircle,
-  Loader2,
-  TrendingDown,
-  Calendar,
-  ShieldCheck,
-  ChevronRight,
-  ArrowRight
-} from "lucide-react"
+import { Check, ArrowLeft, Loader2 } from "lucide-react"
 import { getClientSession, getPlanFeaturesMap, type PlanType } from "@/lib/auth"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -35,24 +20,8 @@ interface ProRataInfo {
   savingsPercent: number
 }
 
-const planIcons: Record<string, any> = {
-  test: ShieldCheck,
-  professional: Zap,
-  enterprise: Building2,
-  premium: Crown
-}
-
 const planBadges: Record<string, string> = {
-  test: "Test",
-  professional: "Most Popular",
-  enterprise: "Best Value"
-}
-
-const planColors: Record<string, string> = {
-  test: "text-emerald-500",
-  professional: "text-blue-500",
-  enterprise: "text-neutral-900 dark:text-white",
-  premium: "text-amber-500"
+  professional: "Most popular"
 }
 
 function UpgradePageContent() {
@@ -129,146 +98,89 @@ function UpgradePageContent() {
     initiatePayment(planId as any, { id: userId, name: userName, email: userEmail, phone: userPhone })
   }
 
+  const planMap = getPlanFeaturesMap()
+  const currentName = planMap[currentPlan]?.displayName || "Free"
+  const fmtDate = (d: Date) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+
   return (
-    <div className="p-4 md:p-12 max-w-7xl mx-auto animate-in fade-in duration-700">
-      {/* Back Link */}
-      <Link href="/client/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors mb-8 group">
-        <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-        Back to workspace
+    <div className="p-4 md:p-10 max-w-6xl mx-auto animate-in fade-in duration-500">
+      <Link href="/client/dashboard" className="inline-flex items-center gap-1.5 text-[13px] text-neutral-500 hover:text-neutral-900 mb-6">
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to dashboard
       </Link>
 
-      {/* Header */}
-      <div className="max-w-2xl mb-16">
-        <h1 className="text-[40px] font-bold text-neutral-900 dark:text-white tracking-tight leading-tight mb-4">
-          Scale your certificates <br /> with the right plan.
-        </h1>
-        <p className="text-[17px] text-neutral-500 leading-relaxed font-normal">
-          From independent workshops to worldwide conferences, CertiStage provides the infrastructure you need to issue credentials at scale.
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-[28px] font-semibold text-neutral-900 tracking-tight leading-none">Plans</h1>
+          <p className="text-[14px] text-neutral-500 mt-2 max-w-xl">Billed yearly in INR. Upgrade any time; when you move up from a paid plan, the unused part of your current plan is credited.</p>
+        </div>
+        <p className="text-[13px] text-neutral-600 md:text-right">
+          You are on the <span className="font-medium text-neutral-900">{currentName}</span> plan
+          {currentPlan !== "free" && planExpiresAt && <>, active until <span className="font-medium text-neutral-900">{fmtDate(planExpiresAt)}</span></>}.
         </p>
       </div>
 
-      {/* Pro-rata Alert if upgrading from paid */}
-      {currentPlan !== "free" && planExpiresAt && (
-        <div className="mb-12 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="h-10 w-10 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center shadow-sm">
-              <TrendingDown className="h-5 w-5 text-neutral-600" />
-            </div>
-            <div>
-              <p className="text-[15px] font-bold text-neutral-900 dark:text-white tracking-tight">Pro-rata Upgrade Active</p>
-              <p className="text-sm text-neutral-500">Your current plan credit will be applied. You'll only pay the difference.</p>
-            </div>
-          </div>
-          <div className="text-right hidden md:block">
-            <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Expires</p>
-            <p className="text-sm font-bold text-neutral-900 dark:text-white">{planExpiresAt.toLocaleDateString()}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Pricing Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
         {planConfig
-          .filter(plan => plan.enabled !== false && plan.id !== "free")
+          .filter((plan) => plan.enabled !== false && plan.id !== "free")
           .map((plan) => {
-          const isCurrent = currentPlan === plan.id
-          const isPending = pendingPlan === plan.id
-          const featureList = plan.features || []
-          const Icon = planIcons[plan.id] || Crown
-          const badge = planBadges[plan.id]
-          const iconColor = planColors[plan.id] || "text-neutral-900 dark:text-white"
-          const priceLabel = formatRupees(plan.price)
-          const isPopular = plan.id === "professional"
+            const isCurrent = currentPlan === plan.id
+            const isPending = pendingPlan === plan.id
+            const featureList = plan.features || []
+            const badge = isCurrent ? "Current plan" : isPending ? "Payment pending" : planBadges[plan.id]
+            const highlighted = isCurrent || isPending || plan.id === "professional"
+            return (
+              <div
+                key={plan.id}
+                className={cn(
+                  "relative flex flex-col rounded-xl border bg-white p-6",
+                  isCurrent ? "border-gold" : isPending ? "border-neutral-900" : "border-neutral-200"
+                )}
+              >
+                {badge && (
+                  <span className={cn(
+                    "absolute -top-2.5 left-5 px-2 py-0.5 rounded-full text-[11px] font-medium",
+                    isCurrent ? "bg-gold text-neutral-900" : isPending ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-700 border border-neutral-200"
+                  )}>{badge}</span>
+                )}
+                <h2 className="text-[16px] font-semibold text-neutral-900">{plan.name || plan.id}</h2>
+                <p className="mt-3 flex items-baseline gap-1.5 whitespace-nowrap">
+                  <span className="text-[32px] font-semibold tracking-tight text-neutral-900 leading-none">{formatRupees(plan.price)}</span>
+                  <span className="text-[13px] text-neutral-500">/ year</span>
+                </p>
+                <p className="text-[13px] text-neutral-500 mt-2 min-h-[40px]">{plan.description}</p>
 
-          return (
-            <div key={plan.id} className="relative group">
-              {isPending && (
-                <div className="absolute -top-3 left-6 px-3 py-1 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-black text-[10px] font-bold uppercase tracking-wider z-10 shadow-lg">
-                  Selected Choice
-                </div>
-              )}
-              {badge && !isPending && (
-                <div className="absolute -top-3 left-6 px-3 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 text-[10px] font-bold uppercase tracking-wider z-10">
-                  {badge}
-                </div>
-              )}
+                <ul className="mt-5 space-y-2.5 flex-1">
+                  {featureList.map((f, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-[13.5px] text-neutral-700 leading-snug">
+                      <Check className="h-4 w-4 mt-0.5 shrink-0 text-gold-deep" /> {f}
+                    </li>
+                  ))}
+                </ul>
 
-              <Card className={cn(
-                "h-full border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-none transition-all duration-300 flex flex-col p-2",
-                isPopular && "border-neutral-400 dark:border-neutral-600",
-                isPending && "border-neutral-900 dark:border-white ring-1 ring-neutral-900 dark:ring-white"
-              )}>
-                <CardHeader className="p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className={cn("h-10 w-10 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 flex items-center justify-center", iconColor)}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <span className="text-lg font-bold tracking-tight text-neutral-900 dark:text-white uppercase">{plan.name || plan.id}</span>
-                  </div>
-
-                  <div className="mb-1">
-                    <span className="text-[48px] font-bold tracking-tighter text-neutral-900 dark:text-white">{priceLabel}</span>
-                    <span className="text-[15px] font-normal text-neutral-400 ml-2">/ year</span>
-                  </div>
-                  <CardDescription className="text-[14px] text-neutral-500 mt-2 mb-6 font-normal min-h-[40px]">{plan.description}</CardDescription>
-                </CardHeader>
-
-                <CardContent className="p-6 pt-0 flex-1 flex flex-col">
-                  <div className="space-y-4 mb-10 flex-1">
-                    {featureList.map((f, i) => (
-                      <div key={i} className="flex items-start gap-3">
-                        <div className="h-5 w-5 rounded-full bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center shrink-0 mt-0.5">
-                          <Check className="h-3 w-3 text-neutral-900 dark:text-white" />
-                        </div>
-                        <span className="text-[14px] text-neutral-600 dark:text-neutral-400 leading-tight">{f}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <Button
-                    variant={isPopular || isPending ? "default" : "outline"}
-                    className={cn(
-                      "w-full h-12 text-[15px] font-bold transition-all shadow-sm",
-                      (isPopular || isPending) && "bg-neutral-900 dark:bg-white text-white dark:text-black hover:opacity-90",
-                      !(isPopular || isPending) && "border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900"
-                    )}
-                    disabled={isCurrent || isLoading || isProcessing}
-                    onClick={() => handleUpgrade(plan.id as PlanType)}
-                  >
-                    {isCurrent ? "Current Plan" : isProcessing ? "Processing..." : isPending ? "Complete Payment" : "Upgrade Plan"}
-                    {!isCurrent && <ArrowRight className="h-4 w-4 ml-2" />}
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          )
-        })}
+                <Button
+                  variant={highlighted ? "default" : "outline"}
+                  className={cn(
+                    "w-full h-10 mt-6 text-[14px] font-medium",
+                    highlighted ? "bg-neutral-900 text-white hover:bg-black" : "border-neutral-200 hover:bg-neutral-50"
+                  )}
+                  disabled={isCurrent || isLoading || isProcessing}
+                  onClick={() => handleUpgrade(plan.id as PlanType)}
+                >
+                  {isCurrent ? "Your current plan" : isProcessing ? "Processing" : isPending ? "Complete payment" : currentPlan === "free" ? `Choose ${plan.name || plan.id}` : `Switch to ${plan.name || plan.id}`}
+                </Button>
+                {!isCurrent && proRataInfo[plan.id] && proRataInfo[plan.id].unusedCredit > 0 && (
+                  <p className="text-[12px] text-neutral-500 mt-2 text-center">
+                    You pay {formatRupees(proRataInfo[plan.id].finalAmount)} after {formatRupees(proRataInfo[plan.id].unusedCredit)} credit for the unused part of your current plan.
+                  </p>
+                )}
+              </div>
+            )
+          })}
       </div>
 
-      {/* Trust Badge */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center p-12 rounded-[32px] bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-100 dark:border-neutral-800/50">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-[10px] font-bold uppercase tracking-wider mb-6">
-            <ShieldCheck className="h-3 w-3 text-neutral-600" /> Enterprise Secure
-          </div>
-          <h2 className="text-[28px] font-bold text-neutral-900 dark:text-white tracking-tight mb-4">Enterprise-grade security and reliability.</h2>
-          <p className="text-[16px] text-neutral-500 font-normal leading-relaxed mb-6">
-            Every plan includes 256-bit encryption, 99.9% uptime SLA, and automated backups. Your data and certificates are protected with industry-leading infrastructure.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          {[
-            { label: "Secured by Razorpay", sub: "PCI-DSS Compliant" },
-            { label: "SSL Encrypted", sub: "256-bit AES" },
-            { label: "99.9% Uptime", sub: "SLA Guaranteed" },
-            { label: "Priority Support", sub: "24/7 Availability" }
-          ].map((t, i) => (
-            <div key={i} className="p-6 rounded-2xl bg-white dark:bg-neutral-950 border border-neutral-100 dark:border-neutral-800 shadow-sm">
-              <p className="font-bold text-neutral-900 dark:text-white text-[14px]">{t.label}</p>
-              <p className="text-[11px] text-neutral-400 font-medium uppercase tracking-tight mt-1">{t.sub}</p>
-            </div>
-          ))}
-        </div>
+      <div className="rounded-xl border border-neutral-200 bg-white px-5 py-4 text-[13px] text-neutral-600 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <p>Payments are processed by Razorpay (UPI, cards, net banking). A receipt is emailed after every payment.</p>
+        <p>Questions about plans? <a href="mailto:support@certistage.com" className="text-neutral-900 underline underline-offset-4">support@certistage.com</a></p>
       </div>
     </div>
   )

@@ -184,9 +184,9 @@ export default function CertTypeRecipientsPage() {
       setIsEditDialogOpen(false)
       setEditingRecipient(null)
       resetForm()
-      toast.success("Attendee updated successfully!")
+      toast.success("Recipient updated successfully!")
     } else {
-      toast.error("Failed to update attendee")
+      toast.error("Failed to update recipient")
     }
   }
 
@@ -198,9 +198,9 @@ export default function CertTypeRecipientsPage() {
       const result = deleteRecipient(eventId, typeId, recipientId)
       if (result) {
         refreshData()
-        toast.success("Attendee deleted successfully!")
+        toast.success("Recipient deleted successfully!")
       } else {
-        toast.error("Failed to delete attendee")
+        toast.error("Failed to delete recipient")
       }
     }
   }
@@ -271,7 +271,7 @@ export default function CertTypeRecipientsPage() {
 
         addRecipientsToCertType(eventId, typeId, recipients)
         refreshData()
-        toast.success(`${recipients.length} attendees imported!`)
+        toast.success(`${recipients.length} recipients imported!`)
       } catch {
         toast.error("Failed to parse Excel file")
       }
@@ -282,7 +282,7 @@ export default function CertTypeRecipientsPage() {
 
   // Clear all recipients
   const handleClearRecipients = () => {
-    toast.success("All attendees cleared")
+    toast.success("All recipients cleared")
   }
 
   // Download sample Excel
@@ -306,8 +306,8 @@ export default function CertTypeRecipientsPage() {
     ]
 
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, "Attendees")
-    XLSX.writeFile(wb, "sample-attendees.xlsx")
+    XLSX.utils.book_append_sheet(wb, ws, "Recipients")
+    XLSX.writeFile(wb, "sample-recipients.xlsx")
     toast.success("Sample Excel downloaded!")
   }
 
@@ -349,7 +349,7 @@ export default function CertTypeRecipientsPage() {
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-[24px] font-semibold text-[#171717] tracking-tight">{certType.name}</h1>
                 <span className="px-2 py-0.5 rounded-full bg-[#F5F5F5] text-[#666] text-[11px] font-medium border border-[#EBEBEB]">
-                  {certType.stats.total} Attendees
+                  {certType.stats.total} Recipients
                 </span>
               </div>
               <p className="text-[14px] text-[#888] font-medium flex items-center gap-2">
@@ -366,7 +366,7 @@ export default function CertTypeRecipientsPage() {
             <div className="flex gap-2">
               <Button onClick={openAddDialog} disabled={!canAddMore} className="h-9 bg-black hover:bg-[#333] text-white text-[13px] font-medium shadow-sm border border-transparent transition-all">
                 <UserPlus className="h-3.5 w-3.5 mr-2" />
-                Add Attendee
+                Add Recipient
               </Button>
               <input
                 ref={fileInputRef}
@@ -433,14 +433,14 @@ export default function CertTypeRecipientsPage() {
               <div className="w-16 h-16 bg-[#FAFAFA] rounded-full flex items-center justify-center mx-auto mb-4 border border-[#F0F0F0]">
                 <Users className="h-8 w-8 text-[#DDD]" />
               </div>
-              <h3 className="text-lg font-semibold text-[#171717] mb-2 tracking-tight">No attendees yet</h3>
+              <h3 className="text-lg font-semibold text-[#171717] mb-2 tracking-tight">No recipients yet</h3>
               <p className="text-[#888] text-[14px] mb-8 max-w-sm mx-auto">
                 Get started by adding recipients manually or importing a bulk list from Excel.
               </p>
               <div className="flex justify-center gap-3">
                 <Button onClick={openAddDialog} disabled={!canAddMore} className="bg-black hover:bg-[#333] text-white">
                   <UserPlus className="h-4 w-4 mr-2" />
-                  Add First Attendee
+                  Add First Recipient
                 </Button>
                 <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={!canAddMore || !canImportData} className="border-[#E5E5E5] text-[#333] hover:bg-[#FAFAFA]">
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
@@ -458,7 +458,7 @@ export default function CertTypeRecipientsPage() {
                   <TableHeader className="bg-[#FAFAFA] sticky top-0 z-10">
                     <TableRow className="hover:bg-[#FAFAFA] border-b border-[#EBEBEB]">
                       <TableHead className="w-12 text-[11px] font-bold uppercase tracking-wider text-[#888] pl-6">#</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-[#888]">Attendee</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-[#888]">Recipient</TableHead>
                       <TableHead className="text-[11px] font-bold uppercase tracking-wider text-[#888]">Contact</TableHead>
                       <TableHead className="text-[11px] font-bold uppercase tracking-wider text-[#888]">Reg ID</TableHead>
                       <TableHead className="text-[11px] font-bold uppercase tracking-wider text-[#888]">Status</TableHead>
@@ -548,10 +548,10 @@ export default function CertTypeRecipientsPage() {
               <div className="p-1.5 bg-[#FAFAFA] rounded-md border border-[#EBEBEB]">
                 <UserPlus className="h-4 w-4 text-[#171717]" />
               </div>
-              Add Attendee
+              Add Recipient
             </DialogTitle>
             <DialogDescription className="text-[13px] text-[#666]">
-              Enter the attendee's details manually.
+              Enter the recipient's details manually.
             </DialogDescription>
           </DialogHeader>
 
@@ -645,7 +645,7 @@ export default function CertTypeRecipientsPage() {
             </Button>
             <Button onClick={handleAddRecipient} className="h-9 bg-black text-white hover:bg-[#333]">
               <Plus className="h-3.5 w-3.5 mr-2" />
-              Add Attendee
+              Add Recipient
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -659,7 +659,7 @@ export default function CertTypeRecipientsPage() {
               <div className="p-1.5 bg-[#FAFAFA] rounded-md border border-[#EBEBEB]">
                 <Pencil className="h-4 w-4 text-[#171717]" />
               </div>
-              Edit Attendee
+              Edit Recipient
             </DialogTitle>
           </DialogHeader>
 
