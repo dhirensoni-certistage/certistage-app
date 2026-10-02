@@ -12,6 +12,9 @@ const emailVerificationTokenSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  // 6-digit code (HMAC hashed) for the in-page verification flow
+  codeHash: { type: String },
+  attempts: { type: Number, default: 0 },
   userData: {
     name: { type: String, required: true },
     phone: { type: String, required: true },

@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import EmailVerificationToken from "@/models/EmailVerificationToken"
-import bcrypt from "bcryptjs"
-import { signClientSessionToken, setClientSessionCookie } from "@/lib/client-auth.server"
+import { createVerifiedUser, buildSignupResponse } from "@/lib/signup.server"
 
 // POST - Complete signup with password
 export async function POST(request: NextRequest) {
@@ -41,114 +40,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User already exists" }, { status: 409 })
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10)
+    const user = await createVerifiedUser(verificationRecord, password)
 
-    // Check if paid plan selected - if yes, create with free plan and pending payment
-    const selectedPlan = verificationRecord.userData.plan || "free"
-    const isPaidPlan = selectedPlan !== "free"
-
-    // Create user - for paid plans, start with free and set pending payment
-    const user = await User.create({
-      name: verificationRecord.userData.name,
-      email: verificationRecord.email,
-      password: hashedPassword,
-      phone: verificationRecord.userData.phone,
-      organization: verificationRecord.userData.organization,
-      plan: isPaidPlan ? "free" : "free", // Always start with free
-      pendingPlan: isPaidPlan ? selectedPlan : null, // Store selected paid plan
-      isActive: true
-    })
-
-    // Mark token as used
     verificationRecord.used = true
     await verificationRecord.save()
 
-    // Create admin notification in database
-    try {
-      const Notification = (await import('@/models/Notification')).default
-      await Notification.create({
-        type: "signup",
-        title: "New User Signup",
-        description: `${user.name} (${user.email}) joined`,
-        userId: user._id,
-        metadata: {
-          userName: user.name,
-          userEmail: user.email,
-          phone: user.phone,
-          organization: user.organization
-        },
-        read: false
-      })
-    } catch (notifError) {
-      console.error('Failed to create notification:', notifError)
-    }
-
-    // Send welcome email and admin notification
-    try {
-      const { sendEmail, emailTemplates } = await import('@/lib/email')
-      const adminCCEmail = process.env.ADMIN_CC_EMAIL
-
-      // Welcome email with CC
-      const welcomeTemplate = emailTemplates.welcome(user.name)
-      await sendEmail({
-        to: user.email,
-        subject: welcomeTemplate.subject,
-        html: welcomeTemplate.html,
-        cc: adminCCEmail, // Add CC
-        template: "welcome",
-        metadata: {
-          userId: user._id.toString(),
-          userName: user.name,
-          type: "signup_welcome"
-        }
-      })
-
-      // Admin notification
-      if (process.env.ADMIN_EMAIL) {
-        const adminTemplate = emailTemplates.adminNotification('signup', {
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          organization: user.organization
-        })
-        await sendEmail({
-          to: process.env.ADMIN_EMAIL,
-          subject: adminTemplate.subject,
-          html: adminTemplate.html,
-          cc: adminCCEmail, // Add CC
-          template: "adminNotification",
-          metadata: {
-            userId: user._id.toString(),
-            userName: user.name,
-            type: "new_signup_notification"
-          }
-        })
-      }
-    } catch (emailError) {
-      console.error('Failed to send welcome email:', emailError)
-      // Don't fail signup if email fails
-    }
-
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        id: user._id.toString(),
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        organization: user.organization,
-        plan: user.plan,
-        pendingPlan: user.pendingPlan || null
-      },
-      pendingPlan: user.pendingPlan || null,
-      message: "Account created successfully"
-    })
-
-    // Signed, httpOnly session cookie: API routes identify the user from this
-    setClientSessionCookie(response, signClientSessionToken({ id: user._id.toString(), email: user.email }))
-
-    return response
+    return buildSignupResponse(user)
   } catch (error) {
     console.error("Complete signup error:", error)
     return NextResponse.json({ error: "Failed to complete signup" }, { status: 500 })

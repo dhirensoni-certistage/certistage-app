@@ -230,6 +230,34 @@ function getEmailFooter(): string {
 }
 
 // Email Templates
+function otpEmail({ code, subject, heading, intro, note }: { code: string; subject: string; heading: string; intro: string; note: string }) {
+  return {
+    subject,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 0; background-color: #f3f4f6;">
+          <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 20px;">
+            ${getEmailHeader('simple')}
+            <div style="padding: 32px 24px;">
+              <h2 style="color: #1f2937; margin: 0 0 8px 0; font-size: 22px;">${heading}</h2>
+              <p style="margin: 0 0 24px 0; color: #4b5563;">${intro}</p>
+              <div style="margin: 0 0 28px 0; padding: 18px 12px; text-align: center; background: #FBF4E4; border: 2px solid #C8961E; border-radius: 10px;">
+                <span style="font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #171717; margin-right: -8px;">${code}</span>
+              </div>
+              <div style="background: #fef3c7; padding: 14px 16px; border-radius: 8px; border-left: 4px solid #C8961E;">
+                <p style="margin: 0; font-size: 13px; color: #78350f;">${note}</p>
+              </div>
+            </div>
+            ${getEmailFooter()}
+          </div>
+        </body>
+      </html>
+    `
+  }
+}
+
 export const emailTemplates = {
   welcome: (name: string) => ({
     subject: 'Welcome to CertiStage',
@@ -312,35 +340,23 @@ export const emailTemplates = {
     `
   }),
 
-  loginOtp: (name: string, code: string) => {
-    const digits = code.split("").map((d) =>
-      `<td style="padding: 0 4px;"><div style="width: 44px; height: 56px; line-height: 56px; text-align: center; font-size: 28px; font-weight: 700; font-family: 'SF Mono', Menlo, Consolas, monospace; color: #171717; background: #FBF4E4; border: 2px solid #C8961E; border-radius: 10px;">${d}</div></td>`
-    ).join("")
-    return {
+  loginOtp: (name: string, code: string) =>
+    otpEmail({
+      code,
       subject: `${code} is your CertiStage login code`,
-      html: `
-      <!DOCTYPE html>
-      <html>
-        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 0; background-color: #f3f4f6;">
-          <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 20px;">
-            ${getEmailHeader('simple')}
-            <div style="padding: 32px 24px;">
-              <h2 style="color: #1f2937; margin: 0 0 8px 0; font-size: 22px;">Your login code</h2>
-              <p style="margin: 0 0 24px 0; color: #4b5563;">Hi ${name}, enter this code on the CertiStage sign-in page. It expires in 10 minutes.</p>
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 0 auto 8px auto;"><tr>${digits}</tr></table>
-              <p style="text-align: center; margin: 12px 0 28px 0; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 20px; letter-spacing: 6px; color: #171717;"><strong>${code}</strong></p>
-              <div style="background: #fef3c7; padding: 14px 16px; border-radius: 8px; border-left: 4px solid #C8961E;">
-                <p style="margin: 0; font-size: 13px; color: #78350f;">If you did not try to sign in, you can ignore this email. Nobody can use the code without access to this inbox.</p>
-              </div>
-            </div>
-            ${getEmailFooter()}
-          </div>
-        </body>
-      </html>
-    `
-    }
-  },
+      heading: "Your login code",
+      intro: `Hi ${name}, enter this code on the CertiStage sign-in page. It expires in 10 minutes.`,
+      note: "If you did not try to sign in, you can ignore this email. Nobody can use the code without access to this inbox."
+    }),
+
+  signupOtp: (name: string, code: string) =>
+    otpEmail({
+      code,
+      subject: `${code} is your CertiStage verification code`,
+      heading: "Verify your email",
+      intro: `Hi ${name}, enter this code on the CertiStage sign-up page to finish creating your account. It expires in 15 minutes.`,
+      note: "If you did not sign up for CertiStage, you can ignore this email and no account will be created."
+    }),
 
   passwordReset: (name: string, resetUrl: string) => ({
     subject: 'Reset Your CertiStage Password',
