@@ -17,11 +17,12 @@ import { AuthSidePanel, AuthMobileBar, AuthTrustRow, authInputClass, authPrimary
 import { Reveal } from "@/components/landing/reveal"
 import { ArrowRight } from "lucide-react"
 
+// Plain text labels: flag emoji render as letters on Windows
 const countryCodes = [
-  { code: "+91", flag: "🇮🇳" },
-  { code: "+1", flag: "🇺🇸" },
-  { code: "+44", flag: "🇬🇧" },
-  { code: "+971", flag: "🇦🇪" }
+  { code: "+91", country: "India" },
+  { code: "+1", country: "USA" },
+  { code: "+44", country: "UK" },
+  { code: "+971", country: "UAE" }
 ]
 
 const inputClass = authInputClass
@@ -251,12 +252,14 @@ function SignupForm() {
                 <Label htmlFor="phone" className="text-[13px] font-medium text-[#333]">Phone number</Label>
                 <div className="flex gap-2">
                   <Select value={countryCode} onValueChange={setCountryCode}>
-                    <SelectTrigger className="w-[112px] h-11 rounded-lg text-[13px] border-neutral-200 bg-white" aria-label="Country code">
+                    <SelectTrigger className="w-[128px] shrink-0 !h-11 rounded-lg text-[14px] border-neutral-200 bg-white shadow-none focus:ring-2 focus:ring-gold/30 focus:border-gold" aria-label="Country code">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {countryCodes.map((c) => (
-                        <SelectItem key={c.code} value={c.code} className="text-sm">{c.flag} {c.code}</SelectItem>
+                        <SelectItem key={c.code} value={c.code} className="text-sm">
+                          <span className="font-medium">{c.code}</span> <span className="text-neutral-500">{c.country}</span>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
