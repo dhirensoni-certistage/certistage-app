@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 import { toast } from "sonner"
 import { getPlanFeaturesMap } from "@/lib/auth"
+import { fetchClientProfile, invalidateClientProfile } from "@/lib/client-profile"
 
 interface UserProfile {
   id: string
@@ -45,11 +46,12 @@ export default function SettingsPage() {
       if (!session.userId) { router.push("/client/login"); return }
 
       try {
-        const res = await fetch(`/api/client/profile?userId=${session.userId}`)
-        const data = await res.json()
-        if (res.ok && data.user) {
-          setProfile(data.user)
-          setProfileForm({ name: data.user.name || "", phone: data.user.phone || "", organization: data.user.organization || "" })
+        const result = await fetchClientProfile()
+        if (result.ok && result.user) {
+          setProfile(result.user as UserProfile)
+          setProfileForm({ name: result.user.name || "", phone: result.user.phone || "", organization: result.user.organization || "" })
+        } else {
+          toast.error("Failed to load profile")
         }
       } catch (error) { toast.error("Failed to load profile") }
       setIsLoading(false)
@@ -68,6 +70,7 @@ export default function SettingsPage() {
       })
       const data = await res.json()
       if (res.ok) {
+        invalidateClientProfile()
         setProfile({ ...profile, ...data.user })
         const sessionStr = localStorage.getItem("clientSession")
         if (sessionStr) { const s = JSON.parse(sessionStr); s.userName = data.user.name; localStorage.setItem("clientSession", JSON.stringify(s)) }

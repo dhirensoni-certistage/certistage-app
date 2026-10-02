@@ -11,6 +11,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { PageTransition } from "@/components/ui/page-transition"
+import { fetchClientProfile, applyProfileToSession } from "@/lib/client-profile"
 
 // Page title mapping
 const pageTitles: Record<string, string> = {
@@ -45,32 +46,19 @@ export default function ClientLayout({
     document.title = baseTitle
   }, [pathname])
 
-  // Sync session with server to get latest plan
+  // Sync the stored plan with the server (shared, cached request)
   const syncSessionWithServer = async (session: ReturnType<typeof getClientSession>) => {
     if (!session || session.loginType !== "user" || !session.userId) return
-
-    try {
-      const res = await fetch("/api/client/profile")
-      if (res.status === 401) {
-        // Server session missing or expired: the local copy is stale
-        clearClientSession()
-        router.replace("/client/login")
-        return
-      }
-      if (res.ok) {
-        const data = await res.json()
-        const serverPlan = normalizePlan(data.user?.plan)
-        const updatedSession = {
-          ...session,
-          userPlan: serverPlan,
-          planExpiresAt: data.user?.planExpiresAt,
-          pendingPlan: data.user?.pendingPlan || session.pendingPlan || null
-        }
-        localStorage.setItem("clientSession", JSON.stringify(updatedSession))
-        setUserPlan(serverPlan)
-      }
-    } catch (error) {
-      console.error("Failed to sync session:", error)
+    const result = await fetchClientProfile()
+    if (result.status === 401) {
+      // Server session missing or expired: the local copy is stale
+      clearClientSession()
+      router.replace("/client/login")
+      return
+    }
+    if (result.ok && result.user) {
+      const updated = applyProfileToSession(result.user)
+      if (updated) setUserPlan(normalizePlan(updated.userPlan))
     }
   }
 
@@ -81,11 +69,15 @@ export default function ClientLayout({
   useEffect(() => {
     const seedPlanConfig = async () => {
       try {
+        // Plans change rarely: reuse the local copy for 10 minutes
+        const seededAt = Number(localStorage.getItem("plan_config_at") || 0)
+        if (localStorage.getItem("plan_config") && Date.now() - seededAt < 10 * 60 * 1000) return
         const res = await fetch("/api/plan-config")
         if (!res.ok) return
         const data = await res.json()
         if (Array.isArray(data?.plans)) {
           localStorage.setItem("plan_config", JSON.stringify(data.plans))
+          localStorage.setItem("plan_config_at", String(Date.now()))
         }
       } catch {
         // Ignore plan config failures
@@ -118,9 +110,9 @@ export default function ClientLayout({
       const eventSelected = !!(session.eventId && session.loginType === "user")
       setHasEventSelected(eventSelected)
 
-      // Always sync plan from DB before rendering child pages
-      await syncSessionWithServer(session)
+      // Render right away from the stored session; the plan check runs in the background
       setIsLoading(false)
+      syncSessionWithServer(session)
     }
 
     initialize()

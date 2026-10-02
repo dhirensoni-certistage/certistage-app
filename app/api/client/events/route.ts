@@ -20,25 +20,35 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .lean()
 
-    // Get stats for each event
-    const eventsWithStats = await Promise.all(events.map(async (event) => {
-      const certTypesCount = await CertificateType.countDocuments({ eventId: event._id })
-      const recipientsCount = await Recipient.countDocuments({ eventId: event._id })
-      const downloadedCount = await Recipient.countDocuments({ eventId: event._id, downloadCount: { $gt: 0 } })
-      
+    // Stats for all events in two grouped queries instead of three counts per event
+    const eventIds = events.map((e) => e._id)
+    const [typeCounts, recipientCounts, usage] = await Promise.all([
+      CertificateType.aggregate([
+        { $match: { eventId: { $in: eventIds } } },
+        { $group: { _id: "$eventId", count: { $sum: 1 } } }
+      ]),
+      Recipient.aggregate([
+        { $match: { eventId: { $in: eventIds } } },
+        { $group: { _id: "$eventId", total: { $sum: 1 }, downloaded: { $sum: { $cond: [{ $gt: [{ $ifNull: ["$downloadCount", 0] }, 0] }, 1, 0] } } } }
+      ]),
+      getUserUsageStats(userId)
+    ])
+    const typeMap = new Map(typeCounts.map((t) => [String(t._id), t.count]))
+    const recipientMap = new Map(recipientCounts.map((r) => [String(r._id), r]))
+
+    const eventsWithStats = events.map((event) => {
+      const key = String(event._id)
+      const rc = recipientMap.get(key) || { total: 0, downloaded: 0 }
       return {
         ...event,
         stats: {
-          certificateTypesCount: certTypesCount,
-          total: recipientsCount,
-          downloaded: downloadedCount,
-          pending: recipientsCount - downloadedCount
+          certificateTypesCount: typeMap.get(key) || 0,
+          total: rc.total,
+          downloaded: rc.downloaded,
+          pending: rc.total - rc.downloaded
         }
       }
-    }))
-
-    // Get usage stats
-    const usage = await getUserUsageStats(userId)
+    })
 
     return NextResponse.json({
       events: eventsWithStats,

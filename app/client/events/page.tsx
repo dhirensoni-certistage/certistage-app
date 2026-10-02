@@ -22,6 +22,7 @@ import { format } from "date-fns"
 import { CreateEventDialog } from "@/components/client/create-event-dialog"
 import { EditEventDialog } from "@/components/client/edit-event-dialog"
 import { cn } from "@/lib/utils"
+import { fetchClientProfile, applyProfileToSession } from "@/lib/client-profile"
 
 interface EventWithStats {
   _id: string
@@ -52,24 +53,11 @@ export default function EventsPage() {
 
   const normalizePlan = (plan?: string): PlanType => normalizePlanId(plan)
 
-  const syncPlanFromServer = async (uid: string) => {
-    try {
-      const res = await fetch(`/api/client/profile?userId=${encodeURIComponent(uid)}`)
-      if (!res.ok) return
-      const data = await res.json()
-      const serverPlan = normalizePlan(data.user?.plan)
-      setUserPlan(serverPlan)
-
-      const sessionStr = localStorage.getItem("clientSession")
-      if (sessionStr) {
-        const session = JSON.parse(sessionStr)
-        session.userPlan = serverPlan
-        session.planExpiresAt = data.user?.planExpiresAt
-        localStorage.setItem("clientSession", JSON.stringify(session))
-      }
-    } catch (error) {
-      console.error("Failed to sync plan:", error)
-    }
+  const syncPlanFromServer = async () => {
+    const result = await fetchClientProfile()
+    if (!result.ok || !result.user) return
+    const updated = applyProfileToSession(result.user)
+    if (updated) setUserPlan(normalizePlan(updated.userPlan))
   }
 
   useEffect(() => {
@@ -89,7 +77,7 @@ export default function EventsPage() {
     setUserPlan(normalizePlan(session.userPlan))
     setActiveEventId(session.eventId || null)
     loadEvents(session.userId)
-    syncPlanFromServer(session.userId)
+    syncPlanFromServer()
 
     if (searchParams.get("create") === "true") {
       setCreateDialogOpen(true)
