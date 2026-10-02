@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { usePlanConfig } from "@/hooks/use-plan-config"
 import { formatInr } from "@/lib/plan-config"
-import { AuthSidePanel, AuthMobileBar, AuthTrustRow, authInputClass, authPrimaryButtonClass, authGoogleButtonClass } from "@/components/landing/auth-side-panel"
+import { AuthSidePanel, AuthMobileBar, authInputClass, authPrimaryButtonClass, authGoogleButtonClass } from "@/components/landing/auth-side-panel"
 import { Reveal } from "@/components/landing/reveal"
 import { ArrowRight } from "lucide-react"
 
@@ -191,19 +191,24 @@ function SignupForm() {
       />
 
       <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-8 bg-white overflow-y-auto">
-        <Reveal className="w-full max-w-[420px] py-6" y={14}>
+        <Reveal className="w-full max-w-[420px]" y={14}>
           <AuthMobileBar linkLabel="Log in" linkHref="/client/login" />
 
-          <div className="space-y-2 mb-7">
-            <h2 className="text-[26px] font-semibold tracking-tight text-black">Create your account</h2>
-            <p className="text-[14px] text-[#666]">Start free. Upgrade whenever your event needs it.</p>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div className="space-y-1.5">
+              <h2 className="text-[26px] font-semibold tracking-tight text-black">Create your account</h2>
+              <p className="text-[14px] text-[#666]">Start free. No credit card needed.</p>
+            </div>
+            <Link href="/client/login" className="hidden lg:inline-block mt-2 text-[13px] font-medium text-neutral-600 hover:text-black whitespace-nowrap underline underline-offset-4">
+              Log in
+            </Link>
           </div>
 
           {isPaidPlan && selectedPlan && (
-            <div className="mb-6 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+            <div className="mb-5 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
               <div className="h-0.5 bg-gradient-to-r from-gold via-gold-light to-gold" />
-              <div className="px-4 py-3.5">
-                <div className="flex items-center justify-between mb-2">
+              <div className="px-4 py-3">
+                <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-500">Selected plan</span>
                   <Link href="/#pricing" className="text-[12px] font-medium text-neutral-600 hover:text-black underline underline-offset-4">
                     Change
@@ -217,16 +222,15 @@ function SignupForm() {
                     <span className="text-[15px] font-semibold text-black truncate">{selectedPlan.name}</span>
                   </div>
                   <div className="text-right shrink-0 leading-tight">
-                    <span className="text-[15px] font-semibold text-black">{formatInr(selectedPlan.price)}</span>
-                    <span className="text-[12px] text-neutral-500"> / year</span>
+                    <div><span className="text-[15px] font-semibold text-black">{formatInr(selectedPlan.price)}</span><span className="text-[12px] text-neutral-500"> / year</span></div>
+                    <div className="text-[11px] text-neutral-500">billed after email verification</div>
                   </div>
                 </div>
-                <p className="mt-2.5 text-[12px] text-neutral-500">Billed after you verify your email. Nothing is charged today.</p>
               </div>
             </div>
           )}
 
-          <div className="space-y-5">
+          <div className="space-y-4">
             <Button type="button" variant="outline" onClick={handleGoogleSignIn} className={authGoogleButtonClass}>
               <GoogleIcon /> Continue with Google
             </Button>
@@ -237,7 +241,7 @@ function SignupForm() {
               <div className="h-px bg-[#E5E5E5] flex-1" />
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
               <div className="space-y-1.5">
                 <Label htmlFor="name" className="text-[13px] font-medium text-[#333]">Full name</Label>
                 <Input id="name" name="name" autoComplete="name" className={inputClass} placeholder="Your name" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
@@ -278,20 +282,12 @@ function SignupForm() {
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Create account <ArrowRight className="h-4 w-4 ml-1.5 transition-transform duration-200 group-hover:translate-x-1" /></>}
               </Button>
 
-              <p className="text-[12px] text-center text-[#666] leading-relaxed">
+              <p className="text-[12px] text-center text-[#666] leading-snug pt-1">
                 By creating an account you agree to our <Link href="/terms" className="text-black font-medium hover:underline">Terms</Link> and <Link href="/privacy" className="text-black font-medium hover:underline">Privacy Policy</Link>.
               </p>
             </form>
           </div>
 
-          <div className="mt-7">
-            <AuthTrustRow items={["Free plan, 50 certificates", "No credit card", "Cancel anytime"]} />
-          </div>
-
-          <p className="hidden lg:block text-center text-[13px] text-[#666] mt-6">
-            Already have an account?{" "}
-            <Link href="/client/login" className="text-black font-medium hover:underline underline-offset-4">Log in</Link>
-          </p>
         </Reveal>
       </div>
     </div>

@@ -95,21 +95,6 @@ export default function EventDownloadPage() {
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
 
-  // Disable right-click and shortcuts
-  useEffect(() => {
-    const handleContextMenu = (e: MouseEvent) => e.preventDefault()
-    document.addEventListener("contextmenu", handleContextMenu)
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey && (e.key === "s" || e.key === "p" || e.key === "u")) || e.key === "F12") {
-        e.preventDefault()
-      }
-    }
-    document.addEventListener("keydown", handleKeyDown)
-    return () => {
-      document.removeEventListener("contextmenu", handleContextMenu)
-      document.removeEventListener("keydown", handleKeyDown)
-    }
-  }, [])
 
   // Load event and certificate types
   useEffect(() => {
