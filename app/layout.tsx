@@ -22,13 +22,8 @@ const jsonLd = {
     "price": "0",
     "priceCurrency": "INR"
   },
-  "aggregateRating": {
-    "@type": "AggregateRating",
-    "ratingValue": "4.9",
-    "ratingCount": "580"
-  },
-  "description": "Create, customize, and distribute professional certificates for events, courses, and achievements.",
-  "featureList": "Bulk Generation, Drag & Drop Editor, Email Distribution, Analytics",
+  "description": "Issue certificates to thousands of attendees, students and participants. For events, colleges, institutes and training programs.",
+  "featureList": "Excel import, Visual template editor, Self-service download page, Download tracking",
   "author": {
     "@type": "Organization",
     "name": "CertiStage",
@@ -39,10 +34,10 @@ const jsonLd = {
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.certistage.com'),
   title: {
-    default: "CertiStage - Professional Certificate Generation Platform",
+    default: "CertiStage - Certificates for Events, Colleges and Institutes",
     template: "%s | CertiStage"
   },
-  description: "Create, customize, and distribute professional certificates for events, courses, and achievements. Bulk generation, custom templates, easy recipient download. Trusted by 500+ organizations.",
+  description: "Issue certificates to thousands of attendees, students and participants in minutes. Upload your design and an Excel sheet; every recipient downloads their own certificate. For events, colleges, institutes and training programs.",
   keywords: [
     "certificate generator",
     "online certificate maker",
@@ -79,8 +74,8 @@ export const metadata: Metadata = {
     locale: 'en_IN',
     url: 'https://www.certistage.com',
     siteName: 'CertiStage',
-    title: 'CertiStage - Professional Certificate Generation Platform',
-    description: 'Create, customize, and distribute professional certificates for events, courses, and achievements. Trusted by 500+ organizations.',
+    title: 'CertiStage - Certificates for Events, Colleges and Institutes',
+    description: 'Issue certificates to thousands of attendees, students and participants in minutes. For events, colleges, institutes and training programs.',
     images: [
       {
         url: '/og-image.png',
@@ -92,8 +87,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'CertiStage - Professional Certificate Generation Platform',
-    description: 'Create, customize, and distribute professional certificates for events, courses, and achievements.',
+    title: 'CertiStage - Certificates for Events, Colleges and Institutes',
+    description: 'Issue certificates to thousands of attendees, students and participants in minutes. For events, colleges, institutes and training programs.',
     images: ['/og-image.png'],
   },
   verification: {
