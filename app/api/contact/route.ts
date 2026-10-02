@@ -31,8 +31,11 @@ export async function POST(request: NextRequest) {
     const topic = TOPICS[String(body.topic || "")] ? String(body.topic) : "general"
     const message = String(body.message || "").trim()
 
-    if (!name || !email || !message) {
-      return NextResponse.json({ error: "Name, email and message are required" }, { status: 400 })
+    if (!name || !email || !phone || !message) {
+      return NextResponse.json({ error: "Name, email, phone and message are required" }, { status: 400 })
+    }
+    if (phone.replace(/\D/g, "").length < 8) {
+      return NextResponse.json({ error: "Please enter a valid phone number" }, { status: 400 })
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Please enter a valid email address" }, { status: 400 })
@@ -44,7 +47,7 @@ export async function POST(request: NextRequest) {
     const rows = [
       ["Name", name],
       ["Email", email],
-      ["Phone", phone || "-"],
+      ["Phone", phone],
       ["Organization", organization || "-"],
       ["Topic", TOPICS[topic]]
     ]
