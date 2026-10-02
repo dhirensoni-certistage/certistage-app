@@ -38,6 +38,7 @@ import {
 import { motion } from "framer-motion" // Added framer-motion
 import { DashboardCardSkeleton, ChartSkeleton } from "@/components/ui/skeletons"
 import { cn } from "@/lib/utils"
+import { fetchClientProfile, applyProfileToSession } from "@/lib/client-profile"
 
 const COLORS = {
   downloaded: "#171717", // Neutral 900
@@ -147,24 +148,11 @@ export default function ClientDashboard() {
   useEffect(() => {
     const syncPlanFromServer = async () => {
       if (!session?.userId || session.loginType !== "user") return
-      try {
-        const res = await fetch(`/api/client/profile?userId=${encodeURIComponent(session.userId)}`)
-        if (!res.ok) return
-        const data = await res.json()
-        const serverPlan = normalizePlan(data.user?.plan)
-        const updatedSession = {
-          ...session,
-          userPlan: serverPlan,
-          planExpiresAt: data.user?.planExpiresAt,
-          pendingPlan: data.user?.pendingPlan || session.pendingPlan || null
-        }
-        localStorage.setItem("clientSession", JSON.stringify(updatedSession))
-        setSession(updatedSession)
-      } catch (error) {
-        console.error("Failed to sync dashboard plan:", error)
-      }
+      const result = await fetchClientProfile()
+      if (!result.ok || !result.user) return
+      const updated = applyProfileToSession(result.user)
+      if (updated) setSession(updated)
     }
-
     syncPlanFromServer()
   }, [session?.userId, session?.loginType])
 

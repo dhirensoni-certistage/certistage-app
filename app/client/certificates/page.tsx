@@ -67,6 +67,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { useRefreshOnFocus } from "@/hooks/use-refresh-on-focus"
 
 export default function CertificatesPage() {
   const router = useRouter()
@@ -297,21 +298,10 @@ export default function CertificatesPage() {
     }
   }, [refreshEvent, searchParams])
 
-  // Only poll when NOT actively editing (dragging/resizing)
-  useEffect(() => {
-    // Don't poll while user is interacting with the editor
-    if (isDraggingText || draggingFieldId) {
-      return
-    }
-
-    // Also don't poll when in template editor tab with a selected type
-    if (selectedTypeId && activeTab === "template") {
-      return
-    }
-
-    const interval = setInterval(refreshEvent, 5000) // Increased to 5 seconds
-    return () => clearInterval(interval)
-  }, [refreshEvent, isDraggingText, draggingFieldId, selectedTypeId, activeTab])
+  // Refresh when the tab comes back into view (plus a slow safety interval),
+  // never while the user is editing a template.
+  const canRefresh = !isDraggingText && !draggingFieldId && !(selectedTypeId && activeTab === "template")
+  useRefreshOnFocus(refreshEvent, 60_000, canRefresh)
 
   // No need to load Google Fonts anymore - using only PDF-compatible system fonts
 

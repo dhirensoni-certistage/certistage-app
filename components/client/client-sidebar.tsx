@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation"
 import { getClientSession, clearClientSession, clearSessionEvent, getPlanFeaturesMap, getTrialStatus, normalizePlanId, type PlanType } from "@/lib/auth"
 import { toast } from "sonner"
 import { Progress } from "@/components/ui/progress"
+import { fetchClientProfile, applyProfileToSession } from "@/lib/client-profile"
  
 
 export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void } = {}) {
@@ -75,29 +76,13 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
     const syncPlanFromServer = async () => {
       const session = getClientSession()
       if (!session?.userId || session.loginType !== "user") return
-      try {
-        const res = await fetch(`/api/client/profile?userId=${encodeURIComponent(session.userId)}`)
-        if (!res.ok) return
-        const data = await res.json()
-        const serverPlan = normalizePlan(data.user?.plan)
-        setUserPlan(serverPlan)
-
-        const updatedSession = {
-          ...session,
-          userPlan: serverPlan,
-          planExpiresAt: data.user?.planExpiresAt,
-          pendingPlan: data.user?.pendingPlan || session.pendingPlan || null
-        }
-        localStorage.setItem("clientSession", JSON.stringify(updatedSession))
-      } catch (error) {
-        console.error("Failed to sync sidebar plan:", error)
-      }
+      const result = await fetchClientProfile()
+      if (!result.ok || !result.user) return
+      const updated = applyProfileToSession(result.user)
+      if (updated) setUserPlan(normalizePlan(updated.userPlan))
     }
-
     syncPlanFromServer()
   }, [])
-
-
 
   const handleLogout = () => {
     clearClientSession()

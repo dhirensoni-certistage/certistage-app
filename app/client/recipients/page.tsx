@@ -36,6 +36,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { getDownloadLink } from "@/lib/events"
+import { useRefreshOnFocus } from "@/hooks/use-refresh-on-focus"
 
 // Types for API response
 interface EventRecipient {
@@ -160,15 +161,8 @@ export default function RecipientsPage() {
     refreshData(true)
   }, [])
 
-  // Background refresh
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (eventId) {
-        fetchEventData(eventId)
-      }
-    }, 10000) // Refresh every 10 seconds
-    return () => clearInterval(interval)
-  }, [eventId])
+  // Refresh when the tab comes back into view, plus a slow safety interval
+  useRefreshOnFocus(() => { if (eventId) fetchEventData(eventId) }, 60_000, !!eventId)
 
   // Get all recipients across all certificate types
   const getAllRecipients = (): (EventRecipient & { certTypeName: string; certTypeId: string })[] => {
