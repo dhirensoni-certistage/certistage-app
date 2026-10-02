@@ -17,11 +17,12 @@ import { AuthSidePanel, AuthMobileBar, AuthTrustRow, authInputClass, authPrimary
 import { Reveal } from "@/components/landing/reveal"
 import { ArrowRight } from "lucide-react"
 
+// Plain text labels: flag emoji render as letters on Windows
 const countryCodes = [
-  { code: "+91", flag: "🇮🇳" },
-  { code: "+1", flag: "🇺🇸" },
-  { code: "+44", flag: "🇬🇧" },
-  { code: "+971", flag: "🇦🇪" }
+  { code: "+91", country: "India" },
+  { code: "+1", country: "USA" },
+  { code: "+44", country: "UK" },
+  { code: "+971", country: "UAE" }
 ]
 
 const inputClass = authInputClass
@@ -199,17 +200,29 @@ function SignupForm() {
           </div>
 
           {isPaidPlan && selectedPlan && (
-            <div className="mb-6 flex items-center justify-between gap-3 rounded-lg border border-gold/40 bg-gold-soft px-3.5 py-2.5">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <Crown className="h-4 w-4 text-gold-deep shrink-0" />
-                <div className="text-[13px] leading-tight">
-                  <span className="font-semibold text-black">{selectedPlan.name} plan</span>
-                  <span className="text-[#666]"> · {formatInr(selectedPlan.price)}/year, paid after email verification</span>
+            <div className="mb-6 rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+              <div className="h-0.5 bg-gradient-to-r from-gold via-gold-light to-gold" />
+              <div className="px-4 py-3.5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-500">Selected plan</span>
+                  <Link href="/#pricing" className="text-[12px] font-medium text-neutral-600 hover:text-black underline underline-offset-4">
+                    Change
+                  </Link>
                 </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="h-8 w-8 rounded-full bg-gold-soft border border-gold/30 flex items-center justify-center shrink-0">
+                      <Crown className="h-4 w-4 text-gold-deep" />
+                    </span>
+                    <span className="text-[15px] font-semibold text-black truncate">{selectedPlan.name}</span>
+                  </div>
+                  <div className="text-right shrink-0 leading-tight">
+                    <span className="text-[15px] font-semibold text-black">{formatInr(selectedPlan.price)}</span>
+                    <span className="text-[12px] text-neutral-500"> / year</span>
+                  </div>
+                </div>
+                <p className="mt-2.5 text-[12px] text-neutral-500">Billed after you verify your email. Nothing is charged today.</p>
               </div>
-              <button type="button" onClick={() => setFormData((p) => ({ ...p, plan: "free" }))} className="text-[12px] font-medium text-gold-deep hover:underline underline-offset-4 shrink-0">
-                Change
-              </button>
             </div>
           )}
 
@@ -239,12 +252,14 @@ function SignupForm() {
                 <Label htmlFor="phone" className="text-[13px] font-medium text-[#333]">Phone number</Label>
                 <div className="flex gap-2">
                   <Select value={countryCode} onValueChange={setCountryCode}>
-                    <SelectTrigger className="w-[112px] h-11 rounded-lg text-[13px] border-neutral-200 bg-white" aria-label="Country code">
+                    <SelectTrigger className="w-[128px] shrink-0 !h-11 rounded-lg text-[14px] border-neutral-200 bg-white shadow-none focus:ring-2 focus:ring-gold/30 focus:border-gold" aria-label="Country code">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {countryCodes.map((c) => (
-                        <SelectItem key={c.code} value={c.code} className="text-sm">{c.flag} {c.code}</SelectItem>
+                        <SelectItem key={c.code} value={c.code} className="text-sm">
+                          <span className="font-medium">{c.code}</span> <span className="text-neutral-500">{c.country}</span>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

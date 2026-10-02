@@ -41,8 +41,12 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
-      toast.error("Please fill in your name, email and message")
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.message.trim()) {
+      toast.error("Please fill in your name, email, phone and message")
+      return
+    }
+    if (form.phone.replace(/\D/g, "").length < 8) {
+      toast.error("Please enter a valid phone number")
       return
     }
     setIsSubmitting(true)
@@ -83,12 +87,12 @@ export default function ContactPage() {
       </section>
 
       <main className="px-6 pb-24">
-        <div className="max-w-6xl mx-auto grid lg:grid-cols-12 gap-6 items-start">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-12 gap-6 items-stretch">
           {/* Dark info card */}
-          <Reveal className="lg:col-span-5" delay={0.05}>
-            <div className="relative overflow-hidden rounded-2xl bg-neutral-950 text-white p-8 md:p-10">
+          <Reveal className="lg:col-span-5 h-full" delay={0.05}>
+            <div className="relative overflow-hidden rounded-2xl bg-neutral-950 text-white p-8 md:p-10 h-full flex flex-col">
               <div className="absolute -top-32 -right-24 h-80 w-80 rounded-full bg-gold/20 blur-[100px] pointer-events-none" />
-              <div className="relative space-y-8">
+              <div className="relative flex flex-col gap-8 flex-1">
                 <div>
                   <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-neutral-400 mb-3">
                     <Mail className="h-3.5 w-3.5 text-gold-light" /> Email
@@ -120,7 +124,7 @@ export default function ContactPage() {
                   </ul>
                 </div>
 
-                <div className="pt-6 border-t border-white/10 flex flex-col gap-2 text-sm">
+                <div className="mt-auto pt-6 border-t border-white/10 flex flex-col gap-2 text-sm">
                   {[
                     { href: "/#faq", label: "Frequently asked questions" },
                     { href: "/#pricing", label: "Plans and pricing" },
@@ -136,10 +140,10 @@ export default function ContactPage() {
           </Reveal>
 
           {/* Form card */}
-          <Reveal className="lg:col-span-7" delay={0.1}>
-            <div className="relative rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.25)] overflow-hidden">
+          <Reveal className="lg:col-span-7 h-full" delay={0.1}>
+            <div className="relative h-full flex flex-col rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.25)] overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-gold via-gold-light to-gold" />
-              <div className="p-6 md:p-10">
+              <div className="p-6 md:p-10 flex-1 flex flex-col">
                 {isSubmitted ? (
                   <div className="text-center py-10">
                     <div className="h-14 w-14 rounded-full bg-gold-soft dark:bg-gold/10 flex items-center justify-center mx-auto mb-5">
@@ -159,7 +163,7 @@ export default function ContactPage() {
                     </div>
                   </div>
                 ) : (
-                  <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+                  <form onSubmit={handleSubmit} className="space-y-6 flex-1 flex flex-col" noValidate>
                     <div>
                       <Label className="mb-2.5 block text-[13px] font-medium text-neutral-800 dark:text-neutral-200">What is this about?</Label>
                       <div className="flex flex-wrap gap-2">
@@ -198,8 +202,8 @@ export default function ContactPage() {
 
                     <div className="grid sm:grid-cols-2 gap-5">
                       <div className="space-y-2">
-                        <Label htmlFor="phone" className="text-[13px] font-medium">Phone <span className="text-neutral-400 font-normal">(optional)</span></Label>
-                        <Input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+91 98XXX XXXXX" value={form.phone} onChange={(e) => update("phone")(e.target.value)} className={inputClass} />
+                        <Label htmlFor="phone" className="text-[13px] font-medium">Phone</Label>
+                        <Input id="phone" name="phone" type="tel" autoComplete="tel" inputMode="tel" placeholder="+91 98XXX XXXXX" value={form.phone} onChange={(e) => update("phone")(e.target.value)} required className={inputClass} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="organization" className="text-[13px] font-medium">Organization <span className="text-neutral-400 font-normal">(optional)</span></Label>
@@ -207,7 +211,7 @@ export default function ContactPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 flex-1 flex flex-col">
                       <Label htmlFor="message" className="text-[13px] font-medium">Message</Label>
                       <Textarea
                         id="message"
@@ -217,7 +221,7 @@ export default function ContactPage() {
                         value={form.message}
                         onChange={(e) => update("message")(e.target.value)}
                         required
-                        className="rounded-lg bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 focus-visible:ring-2 focus-visible:ring-gold/30 focus-visible:border-gold placeholder:text-neutral-400 text-[14px]"
+                        className="flex-1 min-h-[140px] rounded-lg bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 focus-visible:ring-2 focus-visible:ring-gold/30 focus-visible:border-gold placeholder:text-neutral-400 text-[14px]"
                       />
                     </div>
 
