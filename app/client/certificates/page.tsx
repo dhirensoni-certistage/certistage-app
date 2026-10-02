@@ -838,10 +838,8 @@ export default function CertificatesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[11px] font-semibold text-[#888] uppercase tracking-[0.15em]">Configure</span>
-          </div>
-          <h1 className="text-[24px] font-semibold text-black tracking-tight leading-none">Manage Certificates</h1>
+          <h1 className="text-[24px] font-semibold text-neutral-900 tracking-tight leading-none">Certificates</h1>
+          <p className="text-[13px] text-neutral-500 mt-1.5">Each certificate has its own design, recipients and download link.</p>
         </div>
         <Button
           onClick={() => setShowAddDialog(true)}
@@ -849,7 +847,7 @@ export default function CertificatesPage() {
           className="h-9 px-4 text-sm bg-black text-white hover:bg-[#222]"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Create New Certificate
+          New certificate
           {maxCertificateTypes !== -1 && event.certificateTypes.length >= maxCertificateTypes && <Lock className="h-3 w-3 ml-1 inline" />}
         </Button>
       </div>
@@ -896,7 +894,7 @@ export default function CertificatesPage() {
               <FileText className="h-6 w-6 text-[#999]" />
             </div>
             <h3 className="text-[15px] font-semibold text-black mb-1">No certificates created</h3>
-            <p className="text-[13px] text-[#666] mb-6 max-w-[300px]">Design your first certificate template visually and send it to attendees.</p>
+            <p className="text-[13px] text-[#666] mb-6 max-w-[300px]">Design your first certificate template visually and send it to recipients.</p>
             <Button onClick={() => setShowAddDialog(true)} className="h-9 text-xs font-medium bg-black text-white hover:bg-[#333] px-5 rounded-md shadow-sm">
               Create First Certificate
             </Button>
@@ -993,14 +991,14 @@ export default function CertificatesPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h3 className="text-[14px] font-semibold text-[#0F0F0F] leading-snug group-hover:text-black transition-colors">{certType.name}</h3>
-                        <p className="text-[11px] text-[#666] mt-0.5 line-clamp-1">Created on {new Date(certType.createdAt || Date.now()).toLocaleDateString()}</p>
+                        <p className="text-[11px] text-[#666] mt-0.5 line-clamp-1">Created {new Date(certType.createdAt || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
                       </div>
                     </div>
 
                     {/* Stats Grid */}
                     <div className="flex items-center gap-4 py-2 border-t border-dashed border-[#F0F0F0]">
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-medium text-[#888] uppercase tracking-wide">Attendees</span>
+                        <span className="text-[10px] font-medium text-[#888] uppercase tracking-wide">Recipients</span>
                         <div className="flex items-center gap-1.5">
                           <Users className="h-3.5 w-3.5 text-[#444]" />
                           <span className="text-[13px] font-semibold text-[#171717]">{certType.stats.total}</span>
@@ -1042,8 +1040,8 @@ export default function CertificatesPage() {
                     <Plus className="h-5 w-5 text-[#666] group-hover:text-black transition-colors" />
                   </div>
                   <div className="text-center">
-                    <span className="block text-[13px] font-semibold text-[#444] group-hover:text-black transition-colors">Create New Type</span>
-                    <span className="text-[11px] text-[#888] group-hover:text-[#666]">Add a new certificate template</span>
+                    <span className="block text-[13px] font-semibold text-[#444] group-hover:text-black transition-colors">New certificate</span>
+                    <span className="text-[11px] text-[#888] group-hover:text-[#666]">Add another design for this event</span>
                   </div>
                 </button>
               </motion.div>
@@ -1566,7 +1564,7 @@ function TemplateEditor({
                 <div className="space-y-3">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-[#666]">Search Configuration</h3>
                   <p className="text-[11px] text-[#666] leading-relaxed">
-                    Control which fields attendees can use to find their certificates on the public download page.
+                    Control which fields recipients can use to find their certificates on the public download page.
                   </p>
 
                   <div className="space-y-2 mt-4">
@@ -1659,7 +1657,7 @@ function LinksTab({ certType, eventId }: { certType: CertificateType; eventId: s
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div>
             <h3 className="text-sm font-semibold text-[#171717]">Public Download Link</h3>
-            <p className="text-xs text-[#666] mt-1">Share this with all attendees. They can verify using their registered details.</p>
+            <p className="text-xs text-[#666] mt-1">Share this with all recipients. They can verify using their registered details.</p>
           </div>
           <Button onClick={handleCopyPublicLink} className="h-8 text-xs bg-black text-white hover:bg-[#333]">
             <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy Public Link

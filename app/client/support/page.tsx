@@ -95,8 +95,8 @@ export default function SupportPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Support</h1>
-          <p className="text-muted-foreground mt-1">Get help with CertiStage and track your request.</p>
+          <h1 className="text-[24px] font-semibold text-neutral-900 tracking-tight leading-none">Support</h1>
+          <p className="text-[13px] text-neutral-500 mt-1.5">Write to us from here. We reply to your account email.</p>
         </div>
         <div className="text-xs text-muted-foreground">
           {isProfessionalOrHigher ? "Priority response within 24 hours" : "Standard response within 48 hours"}
@@ -124,15 +124,6 @@ export default function SupportPage() {
                   >
                     support@certistage.com
                   </a>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <MessageSquare className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Manage Attendees</p>
-                  <Link href="/client/recipients" className="text-xs text-primary hover:underline">
-                    Manage Attendees
-                  </Link>
                 </div>
               </div>
 
@@ -179,7 +170,7 @@ export default function SupportPage() {
                 size="sm"
                 onClick={() => setResourceModal("docs")}
               >
-                Documentation
+                Quick guide
               </Button>
               <Button
                 variant="outline"
@@ -188,14 +179,6 @@ export default function SupportPage() {
                 onClick={() => setResourceModal("faqs")}
               >
                 FAQs
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start text-sm"
-                size="sm"
-                onClick={() => setResourceModal("videos")}
-              >
-                Video Tutorials
               </Button>
             </CardContent>
           </Card>
@@ -297,20 +280,20 @@ export default function SupportPage() {
           <div className="grid md:grid-cols-2 gap-4">
             {[
               {
-                title: "Certificate not generating?",
-                body: "Make sure your template image is uploaded and all required fields are filled in."
+                title: "Certificate preview is blank?",
+                body: "Upload a design image for the certificate and place the name field on it in the editor."
               },
               {
-                title: "Can't upload attendees?",
-                body: "Check that your Excel file has the correct headers: Name, Email, Mobile."
+                title: "Excel import fails?",
+                body: "Download the sample file from Import and keep its column headers: Name, Email, Mobile, Registration No."
               },
               {
                 title: "Download link not working?",
-                body: "Generate certificates first and check plan download limits."
+                body: "The certificate needs an uploaded design, and the recipient's details must match the imported data."
               },
               {
-                title: "Need more features?",
-                body: "Upgrade your plan to unlock bulk import and advanced analytics."
+                title: "Hit a plan limit?",
+                body: "Free plans cap events and certificates. Paid plans raise the limits and add Excel import and exports."
               },
             ].map((item, i) => (
               <div key={i} className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
@@ -326,12 +309,12 @@ export default function SupportPage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {resourceModal === "docs" && "Documentation"}
+              {resourceModal === "docs" && "Quick guide"}
               {resourceModal === "faqs" && "FAQs"}
               {resourceModal === "videos" && "Video Tutorials"}
             </DialogTitle>
             <DialogDescription>
-              {resourceModal === "docs" && "Quick steps to use CertiStage."}
+              {resourceModal === "docs" && "From a new event to downloaded certificates."}
               {resourceModal === "faqs" && "Most asked questions and quick answers."}
               {resourceModal === "videos" && "Watch short how-to clips."}
             </DialogDescription>
@@ -339,19 +322,19 @@ export default function SupportPage() {
           <div className="space-y-3 text-sm text-muted-foreground">
             {resourceModal === "docs" && (
               <ul className="list-disc list-inside space-y-1">
-                <li>Create event and certificate type, then design the template.</li>
-                <li>Import attendees (Excel: Name, Email, Mobile, Registration No).</li>
-                <li>Generate certificates and share download links.</li>
-                <li>Export reports for downloaded vs pending attendees.</li>
+                <li>Create an event, then add a certificate and upload its design.</li>
+                <li>Place the name and any other fields on the design in the editor.</li>
+                <li>Import recipients from Excel (Name, Email, Mobile, Registration No) or add them one by one.</li>
+                <li>Share the public download link. Each recipient finds their certificate with their own details.</li>
+                <li>Track downloads on the dashboard and export reports.</li>
               </ul>
             )}
             {resourceModal === "faqs" && (
               <div className="space-y-2">
-                <p><span className="font-medium text-foreground">How do I bulk import attendees?</span> Go to the 'Attendees' tab, click on 'Import', and download the sample Excel file. Fill in your attendee data and upload it back.</p>
-                <p><span className="font-medium text-foreground">Import steps:</span> Attendees -&gt; choose type -&gt; Import Excel with required columns.</p>
-                <p><span className="font-medium text-foreground">Downloads blocked:</span> Generate certificates and check plan limits.</p>
-                <p><span className="font-medium text-foreground">Edit after sending:</span> Update template, regenerate, resend links.</p>
-                <p><span className="font-medium text-foreground">Paid plans:</span> More events, bulk import, unlimited downloads/exports, priority support.</p>
+                <p><span className="font-medium text-foreground">How do I bulk import recipients?</span> Go to the 'Recipients' tab, click on 'Import', and download the sample Excel file. Fill in your recipient data and upload it back.</p>
+                <p><span className="font-medium text-foreground">A recipient cannot find their certificate:</span> their name, email or mobile must match what was imported. Check the spelling in the Recipients page.</p>
+                <p><span className="font-medium text-foreground">Changing the design after sharing:</span> update the design in the editor. The same link keeps working and new downloads use the new design.</p>
+                <p><span className="font-medium text-foreground">Paid plans:</span> more events and certificates, Excel import, report exports, priority support.</p>
               </div>
             )}
             {resourceModal === "videos" && (

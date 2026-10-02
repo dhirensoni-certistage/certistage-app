@@ -144,8 +144,8 @@ export default function ClientReportsPage() {
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, "Attendees")
-    XLSX.writeFile(wb, `${name}-attendees-${new Date().toISOString().split('T')[0]}.xlsx`)
+    XLSX.utils.book_append_sheet(wb, ws, "Recipients")
+    XLSX.writeFile(wb, `${name}-recipients-${new Date().toISOString().split('T')[0]}.xlsx`)
     toast.success("File exported successfully!")
   }
 
@@ -216,11 +216,8 @@ export default function ClientReportsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[11px] font-semibold text-[#888] uppercase tracking-[0.15em]">Analytics</span>
-          </div>
           <div className="flex items-center gap-3">
-            <h1 className="text-[24px] font-semibold text-black tracking-tight leading-none">Data Reports</h1>
+            <h1 className="text-[24px] font-semibold text-neutral-900 tracking-tight leading-none">Reports</h1>
             {!canExport && (
               <div className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-amber-200 bg-amber-50 text-amber-700 text-[10px] font-semibold uppercase tracking-wider">
                 <Lock className="h-3 w-3" /> Locked
@@ -239,7 +236,7 @@ export default function ClientReportsPage() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-sm font-semibold">Custom Report</p>
-                <p className="text-[12px] text-neutral-500">Choose filters and export exactly what you need.</p>
+                <p className="text-[12px] text-neutral-500">Filter by certificate, status and download date, then export to Excel.</p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
@@ -284,7 +281,7 @@ export default function ClientReportsPage() {
           <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-semibold">Download All</p>
-              <Badge variant="outline" className="text-[10px]">All Attendees</Badge>
+              <Badge variant="outline" className="text-[10px]">All Recipients</Badge>
             </div>
             <p className="text-[12px] text-neutral-500 mb-4">Full dataset for all templates and statuses.</p>
             <Button variant="outline" onClick={exportAll} className="h-9">
@@ -295,19 +292,19 @@ export default function ClientReportsPage() {
 
           <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
             <p className="text-sm font-semibold mb-2">Downloaded Only</p>
-            <p className="text-[12px] text-neutral-500 mb-4">Only attendees who downloaded certificates.</p>
+            <p className="text-[12px] text-neutral-500 mb-4">Only recipients who downloaded certificates.</p>
             <Button variant="outline" onClick={exportDownloaded} className="h-9">Export Downloaded</Button>
           </div>
 
           <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
             <p className="text-sm font-semibold mb-2">Pending Only</p>
-            <p className="text-[12px] text-neutral-500 mb-4">Attendees who haven’t downloaded yet.</p>
+            <p className="text-[12px] text-neutral-500 mb-4">Recipients who haven’t downloaded yet.</p>
             <Button variant="outline" onClick={exportPending} className="h-9">Export Pending</Button>
           </div>
 
           <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
             <p className="text-sm font-semibold mb-2">By Template</p>
-            <p className="text-[12px] text-neutral-500 mb-4">Export attendees for a selected certificate template.</p>
+            <p className="text-[12px] text-neutral-500 mb-4">Export recipients for a selected certificate template.</p>
             <Button variant="outline" onClick={() => setIsTemplateExportOpen(true)} className="h-9">Choose Template</Button>
           </div>
 
@@ -319,13 +316,13 @@ export default function ClientReportsPage() {
 
           <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
             <p className="text-sm font-semibold mb-2">Missing Contacts</p>
-            <p className="text-[12px] text-neutral-500 mb-4">Attendees missing email or mobile.</p>
+            <p className="text-[12px] text-neutral-500 mb-4">Recipients missing email or mobile.</p>
             <Button variant="outline" onClick={exportMissingContacts} className="h-9">Export Missing</Button>
           </div>
 
           <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
             <p className="text-sm font-semibold mb-2">Top Downloads</p>
-            <p className="text-[12px] text-neutral-500 mb-4">Top 100 attendees by download count.</p>
+            <p className="text-[12px] text-neutral-500 mb-4">Top 100 recipients by download count.</p>
             <Button variant="outline" onClick={exportTopDownloads} className="h-9">Export Top 100</Button>
           </div>
         </div>
@@ -347,7 +344,7 @@ export default function ClientReportsPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Export by Template</DialogTitle>
-            <DialogDescription>Select a certificate template to export its attendees.</DialogDescription>
+            <DialogDescription>Select a certificate template to export its recipients.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Select value={templateExportId} onValueChange={setTemplateExportId}>

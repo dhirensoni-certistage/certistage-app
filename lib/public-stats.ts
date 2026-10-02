@@ -16,7 +16,8 @@ export interface PublicStats {
  */
 export function formatApproxCount(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return "0"
-  if (value < 20) return value.toLocaleString("en-IN")
+  // Small counts show the exact number with a plus (they only grow)
+  if (value < 20) return `${value.toLocaleString("en-IN")}+`
   const step = value >= 1000 ? 100 : 10
   const rounded = Math.floor(value / step) * step
   return `${rounded.toLocaleString("en-IN")}+`

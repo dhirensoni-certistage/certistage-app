@@ -157,7 +157,7 @@ export default function CertTypeLinksPage() {
             Public Download Link
           </CardTitle>
           <CardDescription>
-            Share this link for "{certType.name}" certificates. Attendees verify with email/mobile.
+            Share this link for "{certType.name}" certificates. Recipients verify with email/mobile.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -196,7 +196,7 @@ export default function CertTypeLinksPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Individual Links</CardTitle>
-              <CardDescription>Direct download links for each attendee</CardDescription>
+              <CardDescription>Direct download links for each recipient</CardDescription>
             </div>
             <div className="flex gap-2">
               <div className="relative">
@@ -213,7 +213,7 @@ export default function CertTypeLinksPage() {
           {certType.recipients.length === 0 ? (
             <div className="text-center py-12">
               <LinkIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Add attendees first to generate links</p>
+              <p className="text-muted-foreground">Add recipients first to generate links</p>
             </div>
           ) : (
             <div className="rounded-lg border overflow-hidden max-h-[500px] overflow-auto">
