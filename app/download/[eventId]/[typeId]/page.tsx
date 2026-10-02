@@ -491,10 +491,10 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F6F4] text-neutral-900">
       <header>
-        <div className="max-w-5xl mx-auto px-5 h-14 flex items-center">
-          <a href="https://www.certistage.com?utm_source=download_page&utm_medium=header" target="_blank" rel="noopener" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <Image src="/Certistage_icon.svg" alt="CertiStage" width={24} height={24} />
-            <span className="font-semibold text-[14px]">CertiStage</span>
+        <div className="max-w-5xl mx-auto px-5 h-20 flex items-center justify-center">
+          <a href="https://www.certistage.com?utm_source=download_page&utm_medium=header" target="_blank" rel="noopener" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+            <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
+            <span className="font-semibold text-[20px] tracking-tight">CertiStage</span>
           </a>
         </div>
       </header>
