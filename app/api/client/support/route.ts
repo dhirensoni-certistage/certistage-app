@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
-import { sendEmail } from "@/lib/email"
+import { sendEmail, renderInternalEmail } from "@/lib/email"
 import { requireClientUser } from "@/lib/client-auth.server"
 import { checkRateLimit, getClientIP, rateLimitResponse } from "@/lib/rate-limit"
 
@@ -40,26 +40,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 })
     }
 
-    const rows = [
-      ["Name", user.name || "-"],
-      ["Email", user.email],
-      ["Phone", user.phone || "-"],
-      ["Organization", user.organization || "-"],
-      ["Plan", `${user.plan || "free"}${user.pendingPlan ? ` (pending: ${user.pendingPlan})` : ""}`],
-      ["Event", eventName || "-"],
-      ["User ID", auth.userId]
-    ]
-      .map(([k, v]) => `<tr><td style="padding:6px 12px 6px 0;color:#6b7280;white-space:nowrap">${k}</td><td style="padding:6px 0">${escapeHtml(String(v))}</td></tr>`)
-      .join("")
-
-    const html = `
-      <div style="font-family: Arial, sans-serif; color: #111; max-width: 640px; margin: 0 auto; padding: 24px;">
-        <h2 style="margin: 0 0 4px;">Support request</h2>
-        <p style="margin: 0 0 16px; font-size: 15px;"><strong>${escapeHtml(subject)}</strong></p>
-        <table style="border-collapse: collapse; font-size: 14px;">${rows}</table>
-        <div style="margin-top: 20px; padding: 16px; background: #f5f5f5; border-radius: 8px; font-size: 14px; white-space: pre-wrap;">${escapeHtml(message)}</div>
-        <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">Reply directly to ${escapeHtml(user.email)}.${pageUrl ? ` Sent from ${escapeHtml(pageUrl)}.` : ""}</p>
-      </div>`
+    const html = renderInternalEmail({
+      title: `Support request: ${subject}`,
+      rows: [
+        ["Name", user.name || "-"],
+        ["Email", user.email],
+        ["Phone", user.phone || "-"],
+        ["Organization", user.organization || "-"],
+        ["Plan", `${user.plan || "free"}${user.pendingPlan ? ` (pending: ${user.pendingPlan})` : ""}`],
+        ["Event", eventName || "-"],
+        ["User ID", auth.userId]
+      ],
+      message,
+      note: `Reply directly to ${escapeHtml(user.email)}.${pageUrl ? ` Sent from ${escapeHtml(pageUrl)}.` : ""}`
+    })
 
     const result = await sendEmail({
       to: SUPPORT_EMAIL,

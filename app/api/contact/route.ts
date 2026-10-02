@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { sendEmail } from "@/lib/email"
+import { sendEmail, renderInternalEmail } from "@/lib/email"
 import { checkRateLimit, getClientIP, rateLimitResponse } from "@/lib/rate-limit"
 
 const SUPPORT_EMAIL = "support@certistage.com"
@@ -44,23 +44,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "One of the fields is too long" }, { status: 400 })
     }
 
-    const rows = [
-      ["Name", name],
-      ["Email", email],
-      ["Phone", phone],
-      ["Organization", organization || "-"],
-      ["Topic", TOPICS[topic]]
-    ]
-      .map(([k, v]) => `<tr><td style="padding:6px 12px 6px 0;color:#6b7280;white-space:nowrap">${k}</td><td style="padding:6px 0">${escapeHtml(v)}</td></tr>`)
-      .join("")
-
-    const html = `
-      <div style="font-family: Arial, sans-serif; color: #111; max-width: 640px; margin: 0 auto; padding: 24px;">
-        <h2 style="margin: 0 0 16px;">New contact form message</h2>
-        <table style="border-collapse: collapse; font-size: 14px;">${rows}</table>
-        <div style="margin-top: 20px; padding: 16px; background: #f5f5f5; border-radius: 8px; font-size: 14px; white-space: pre-wrap;">${escapeHtml(message)}</div>
-        <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">Reply directly to ${escapeHtml(email)}.</p>
-      </div>`
+    const html = renderInternalEmail({
+      title: "New contact form message",
+      rows: [["Name", name], ["Email", email], ["Phone", phone], ["Organization", organization || "-"], ["Topic", TOPICS[topic]]],
+      message,
+      note: `Reply directly to ${escapeHtml(email)}.`
+    })
 
     const result = await sendEmail({
       to: SUPPORT_EMAIL,
