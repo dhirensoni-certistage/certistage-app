@@ -221,9 +221,9 @@ function LoginForm() {
         footnote="Need help signing in? support@certistage.com"
       />
 
-      <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-8 bg-white">
+      <div className="flex-1 flex flex-col justify-start lg:justify-center items-center px-6 pt-10 pb-8 sm:px-8 lg:py-8 bg-white">
         <Reveal className="w-full max-w-[400px]" y={14}>
-          <AuthMobileBar linkLabel="Create account" linkHref="/signup" />
+          <AuthMobileBar prompt="New to CertiStage?" linkLabel="Create account" linkHref="/signup" />
 
           <div className="flex items-start justify-between gap-4 mb-6">
             <div className="space-y-1.5">

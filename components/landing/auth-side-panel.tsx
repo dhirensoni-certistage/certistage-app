@@ -91,16 +91,17 @@ export function AuthSidePanel({ headline, footnote }: { headline: string; footno
 }
 
 /** Small logo bar shown above auth forms on phones, where the side panel is hidden. */
-export function AuthMobileBar({ linkLabel, linkHref }: { linkLabel: string; linkHref: string }) {
+export function AuthMobileBar({ linkLabel, linkHref, prompt }: { linkLabel: string; linkHref: string; prompt?: string }) {
   return (
-    <div className="lg:hidden w-full flex items-center justify-between mb-5">
-      <Link href="/" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity">
-        <Image src="/Certistage_icon.svg" alt="CertiStage" width={28} height={28} className="w-7 h-7" />
-        <span className="font-semibold tracking-tight text-black">CertiStage</span>
+    <div className="lg:hidden w-full flex flex-col items-center text-center mb-7">
+      <Link href="/" className="inline-flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+        <Image src="/Certistage_icon.svg" alt="CertiStage" width={40} height={40} className="w-10 h-10" />
+        <span className="text-[22px] font-semibold tracking-tight text-black">CertiStage</span>
       </Link>
-      <Link href={linkHref} className="text-[13px] font-medium text-black hover:underline underline-offset-4">
-        {linkLabel}
-      </Link>
+      <p className="mt-2 text-[13px] text-neutral-500">
+        {prompt && <>{prompt} </>}
+        <Link href={linkHref} className="font-medium text-black underline underline-offset-4">{linkLabel}</Link>
+      </p>
     </div>
   )
 }
