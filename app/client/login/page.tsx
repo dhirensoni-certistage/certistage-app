@@ -10,9 +10,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { AuthSidePanel, AuthMobileBar } from "@/components/landing/auth-side-panel"
+import { AuthSidePanel, AuthMobileBar, AuthTrustRow, authInputClass, authPrimaryButtonClass, authGoogleButtonClass } from "@/components/landing/auth-side-panel"
+import { Reveal } from "@/components/landing/reveal"
+import { ArrowRight } from "lucide-react"
 
-const inputClass = "h-10 px-3 text-[14px] bg-white border-[#E5E5E5] focus-visible:ring-1 focus-visible:ring-gold focus-visible:border-gold transition-all placeholder:text-[#BBB]"
+const inputClass = authInputClass
 
 // Only ever send people back inside the app, never to an external URL
 const safeCallback = (value: string | null): string | null =>
@@ -116,16 +118,16 @@ function LoginForm() {
       />
 
       <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-8 bg-white">
-        <div className="w-full max-w-[380px] py-6">
+        <Reveal className="w-full max-w-[400px] py-6" y={14}>
           <AuthMobileBar linkLabel="Create account" linkHref="/signup" />
 
           <div className="space-y-2 mb-7">
-            <h2 className="text-2xl font-semibold tracking-tight text-black">Sign in to CertiStage</h2>
+            <h2 className="text-[26px] font-semibold tracking-tight text-black">Sign in to CertiStage</h2>
             <p className="text-[14px] text-[#666]">Welcome back. Pick up where you left off.</p>
           </div>
 
           <div className="space-y-5">
-            <Button type="button" variant="outline" onClick={handleGoogleSignIn} className="w-full h-10 bg-white border-[#E5E5E5] text-[#333] hover:bg-[#FAFAFA] hover:text-black font-medium text-[13px] shadow-sm">
+            <Button type="button" variant="outline" onClick={handleGoogleSignIn} className={authGoogleButtonClass}>
               <GoogleIcon /> Continue with Google
             </Button>
 
@@ -172,7 +174,7 @@ function LoginForm() {
                   <button
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
-                    className="absolute inset-y-0 right-0 px-3 text-[#999] hover:text-black"
+                    className="absolute inset-y-0 right-0 px-3.5 text-neutral-400 hover:text-black"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     tabIndex={-1}
                   >
@@ -181,17 +183,21 @@ function LoginForm() {
                 </div>
               </div>
 
-              <Button type="submit" className={cn("w-full h-10 mt-1 bg-black text-white hover:bg-[#222] font-medium text-[13px] shadow-sm", isLoading && "opacity-70")} disabled={isLoading}>
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
+              <Button type="submit" className={cn(authPrimaryButtonClass, "mt-1", isLoading && "opacity-70")} disabled={isLoading}>
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Sign in <ArrowRight className="h-4 w-4 ml-1.5 transition-transform duration-200 group-hover:translate-x-1" /></>}
               </Button>
             </form>
           </div>
 
-          <p className="hidden lg:block text-center text-[13px] text-[#666] mt-8">
+          <div className="mt-7">
+            <AuthTrustRow items={["Secure sign-in", "Your data stays yours", "Help: support@certistage.com"]} />
+          </div>
+
+          <p className="hidden lg:block text-center text-[13px] text-[#666] mt-6">
             New to CertiStage?{" "}
             <Link href="/signup" className="text-black font-medium hover:underline underline-offset-4">Create an account</Link>
           </p>
-        </div>
+        </Reveal>
       </div>
     </div>
   )
