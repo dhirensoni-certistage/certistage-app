@@ -10,7 +10,8 @@ import {
   Users,
   HelpCircle,
   Crown,
-  ChevronLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   FolderOpen
 } from "lucide-react"
@@ -38,12 +39,17 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
   const [isOnTrial, setIsOnTrial] = useState(false)
   const [isUserLogin, setIsUserLogin] = useState(false)
   const [hasEventSelected, setHasEventSelected] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsedState] = useState(false)
+  const setCollapsed = (value: boolean) => {
+    setCollapsedState(value)
+    try { localStorage.setItem("sidebarCollapsed", value ? "1" : "0") } catch {}
+  }
 
   const normalizePlan = (plan?: string): PlanType => normalizePlanId(plan)
 
   useEffect(() => {
     setMounted(true)
+    try { if (!mobile && localStorage.getItem("sidebarCollapsed") === "1") setCollapsedState(true) } catch {}
     const session = getClientSession()
     if (session) {
       if (session.loginType === "event") {
@@ -118,22 +124,46 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
       >
 
 
-        {/* Brand / current event */}
-        <div className={cn("h-16 flex items-center border-b border-neutral-200", collapsed ? "justify-center" : "px-4")}>
-          <div className="flex items-center gap-3 min-w-0 w-full">
+        {/* Brand / current event + panel toggle */}
+        {collapsed ? (
+          <div className="flex flex-col items-center gap-2 pt-3 pb-2 border-b border-neutral-200">
+            <Link href="/client/events" title="Events" className="h-10 w-10 flex items-center justify-center">
+              <Image src="/Certistage_icon.svg" alt="CertiStage" width={28} height={28} />
+            </Link>
+            <button
+              type="button"
+              onClick={() => setCollapsed(false)}
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
+              className="h-8 w-8 rounded-md flex items-center justify-center text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="h-16 flex items-center gap-2 border-b border-neutral-200 pl-4 pr-2">
             <Image src="/Certistage_icon.svg" alt="CertiStage" width={28} height={28} className="shrink-0" />
-            {!collapsed && (
-              <div className="flex flex-col min-w-0 flex-1">
-                <span className="font-semibold text-[14px] text-neutral-900 truncate leading-tight">{eventName || "CertiStage"}</span>
-                {hasEventSelected && isUserLogin ? (
-                  <Link href="/client/events" onClick={onNavigate} className="text-[11px] text-neutral-500 hover:text-neutral-900 leading-tight">Switch event</Link>
-                ) : (
-                  <span className="text-[11px] text-neutral-500 leading-tight">CertiStage</span>
-                )}
-              </div>
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="font-semibold text-[14px] text-neutral-900 truncate leading-tight">{eventName || "CertiStage"}</span>
+              {hasEventSelected && isUserLogin ? (
+                <Link href="/client/events" onClick={onNavigate} className="text-[11px] text-neutral-500 hover:text-neutral-900 leading-tight">Switch event</Link>
+              ) : (
+                <span className="text-[11px] text-neutral-500 leading-tight">CertiStage</span>
+              )}
+            </div>
+            {!mobile && (
+              <button
+                type="button"
+                onClick={() => setCollapsed(true)}
+                title="Collapse sidebar"
+                aria-label="Collapse sidebar"
+                className="h-8 w-8 shrink-0 rounded-md flex items-center justify-center text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
             )}
           </div>
-        </div>
+        )}
 
         {/* Dynamic Nav Indicator handled by active classes below */}
 
@@ -155,7 +185,7 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
                   isActive
                     ? "bg-neutral-100 text-neutral-900 shadow-sm ring-1 ring-neutral-200/60"
                     : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50",
-                  collapsed && "justify-center px-0 h-10 w-10 mx-auto"
+                  collapsed && "justify-center px-0 h-10 w-10 mx-auto rounded-lg"
                 )}
               >
                 {isActive && !collapsed && (
@@ -207,19 +237,13 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
               collapsed ? "justify-center p-0" : "justify-start gap-3 px-3"
             )}
             onClick={handleLogout}
+            title={collapsed ? "Log out" : undefined}
           >
             <LogOut className="h-5 w-5" />
             {!collapsed && <span className="text-sm font-medium">Log out</span>}
           </Button>
         </div>
 
-        {/* Toggle Collapse Button - Inset */}
-        {!mobile && <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 bg-white border border-neutral-200 rounded-full p-1 shadow-sm text-neutral-400 hover:text-neutral-900 transition-colors z-50"
-        >
-          <ChevronLeft className={cn("h-3.5 w-3.5 transition-transform duration-200", collapsed && "rotate-180")} />
-        </button>}
       </aside>
   )
 }
