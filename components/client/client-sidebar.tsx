@@ -4,16 +4,16 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
-  BarChart3,
+  ChartColumnIncreasing,
   LogOut,
-  FileText,
+  Award,
   Users,
-  HelpCircle,
+  LifeBuoy,
   Crown,
   PanelLeftClose,
   PanelLeftOpen,
-  Settings,
-  FolderOpen
+  Settings2,
+  CalendarDays
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -99,13 +99,13 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
   }
 
   const navItems = [
-    { href: "/client/events", label: "Events", icon: FolderOpen, requiresEvent: false },
+    { href: "/client/events", label: "Events", icon: CalendarDays, requiresEvent: false },
     { href: "/client/dashboard", label: "Dashboard", icon: LayoutDashboard, requiresEvent: true },
-    { href: "/client/certificates", label: "Certificates", icon: FileText, requiresEvent: true },
+    { href: "/client/certificates", label: "Certificates", icon: Award, requiresEvent: true },
     { href: "/client/recipients", label: "Recipients", icon: Users, requiresEvent: true },
-    { href: "/client/reports", label: "Reports", icon: BarChart3, requiresEvent: true },
-    { href: "/client/settings", label: "Settings", icon: Settings, requiresEvent: false },
-    { href: "/client/support", label: "Support", icon: HelpCircle, requiresEvent: false },
+    { href: "/client/reports", label: "Reports", icon: ChartColumnIncreasing, requiresEvent: true },
+    { href: "/client/settings", label: "Settings", icon: Settings2, requiresEvent: false },
+    { href: "/client/support", label: "Support", icon: LifeBuoy, requiresEvent: false },
   ]
 
   const filteredNavItems = navItems.filter(item => {
@@ -168,7 +168,7 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
         {/* Dynamic Nav Indicator handled by active classes below */}
 
         {/* Navigation */}
-        <nav className="flex-1 p-2 space-y-1 overflow-y-auto mt-2 scrollbar-minimal">
+        <nav className={cn("flex-1 overflow-y-auto scrollbar-minimal", collapsed ? "px-3 py-3 space-y-1.5" : "px-3 py-3 space-y-0.5")}>
           {filteredNavItems.map((item) => {
             const isActive = item.href === "/client/certificates"
               ? pathname.startsWith("/client/certificates")
@@ -180,18 +180,16 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
                 href={item.href}
                 onClick={onNavigate}
                 title={collapsed ? item.label : undefined}
+                aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all group relative",
+                  "flex items-center gap-2.5 rounded-md text-[13.5px] transition-colors",
+                  collapsed ? "justify-center h-10 w-10 mx-auto" : "h-9 px-2.5",
                   isActive
-                    ? "bg-neutral-100 text-neutral-900 shadow-sm ring-1 ring-neutral-200/60"
-                    : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50",
-                  collapsed && "justify-center px-0 h-10 w-10 mx-auto rounded-lg"
+                    ? "bg-neutral-100 text-neutral-900 font-medium"
+                    : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50"
                 )}
               >
-                {isActive && !collapsed && (
-                  <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-neutral-900" />
-                )}
-                <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-neutral-900" : "text-neutral-400 group-hover:text-neutral-900")} />
+                <item.icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-neutral-900" : "text-neutral-500")} strokeWidth={isActive ? 2 : 1.75} />
                 {!collapsed && <span className="truncate">{item.label}</span>}
               </Link>
             )
