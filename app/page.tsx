@@ -7,6 +7,7 @@ import { ArrowRight, Shield, Check, BarChart3, Gift, Briefcase, Crown, Gem, Layo
 import { Button } from "@/components/ui/button"
 import { mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
 import { formatApproxCount, type PublicStats } from "@/lib/public-stats"
+import { Reveal } from "@/components/landing/reveal"
 
 const planIcons: Record<string, any> = {
   free: Gift,
@@ -16,14 +17,15 @@ const planIcons: Record<string, any> = {
 }
 
 // Client logos for the "Trusted by" strip. Add files under public/clients/ and list them here.
-const TRUSTED_BY: { name: string; caption: string; logo: string; width: number; height: number; rounded?: boolean }[] = [
-  { name: "IMA NATCON 2025", caption: "National conference, IMA Gujarat State Branch", logo: "/clients/ima-natcon-2025.png", width: 320, height: 320, rounded: true },
-  { name: "OSSICON 2026", caption: "23rd Annual Conference of OSSI, Ahmedabad", logo: "/clients/ossicon-2026.png", width: 800, height: 364 },
-  { name: "Arise Learning Festival", caption: "Student learning festival by Arise", logo: "/clients/arise-learning-festival.png", width: 500, height: 202 }
+// Logos are transparent PNGs; they render as uniform grey marks via .logo-mono
+const TRUSTED_BY: { name: string; logo: string; width: number; height: number }[] = [
+  { name: "IMA NATCON 2025, Ahmedabad Medical Association", logo: "/clients/ima-natcon-2025.png", width: 318, height: 320 },
+  { name: "OSSICON 2026, Obesity and Metabolic Surgery Society of India", logo: "/clients/ossicon-2026.png", width: 772, height: 296 },
+  { name: "Arise Learning Festival", logo: "/clients/arise-learning-festival.png", width: 481, height: 173 }
 ]
 
 // Repeat the logo set so one half of the marquee track is wider than any screen
-const MARQUEE_HALF = Array.from({ length: 3 }, () => TRUSTED_BY).flat()
+const MARQUEE_HALF = Array.from({ length: 4 }, () => TRUSTED_BY).flat()
 
 // Real customer quotes only. Add an entry once the person has approved their quote in writing.
 const TESTIMONIALS: { quote: string; name: string; role: string; org: string }[] = []
@@ -154,6 +156,8 @@ export default function HomePage() {
   )
 
   const [menuOpen, setMenuOpen] = useState(false)
+  // FAQ accordion: only one answer open at a time
+  const [openFaq, setOpenFaq] = useState<number | null>(0)
 
   // Live platform numbers (cached server-side for an hour)
   const [publicStats, setPublicStats] = useState<PublicStats | null>(null)
@@ -247,21 +251,27 @@ export default function HomePage() {
       {/* Hero */}
       <section className="pt-16 md:pt-20 pb-16 md:pb-24 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="inline-flex items-center gap-2 text-xs font-medium text-gold-deep dark:text-gold-light bg-gold-soft dark:bg-gold/10 border border-gold/30 dark:border-gold/30 rounded-full px-3 py-1 mb-6">
-            <Award className="h-3.5 w-3.5" />
-            <span>For events, colleges, institutes and training programs</span>
-          </p>
-          <h1 className="text-[40px] md:text-[56px] font-bold tracking-tight text-neutral-900 dark:text-white leading-[1.1] mb-6">
-            Issue <span className="text-gold-deep dark:text-gold-light">certificates</span> to thousands{" "}
-            <br className="hidden md:block" />
-            of people in minutes
-          </h1>
+          <Reveal y={12}>
+            <p className="inline-flex items-center gap-2 text-xs font-medium text-gold-deep dark:text-gold-light bg-gold-soft dark:bg-gold/10 border border-gold/30 dark:border-gold/30 rounded-full px-3 py-1 mb-6">
+              <Award className="h-3.5 w-3.5" />
+              <span>For events, colleges, institutes and training programs</span>
+            </p>
+          </Reveal>
+          <Reveal delay={0.08}>
+            <h1 className="text-[40px] md:text-[56px] font-bold tracking-tight text-neutral-900 dark:text-white leading-[1.1] mb-6">
+              Issue <span className="text-gold-deep dark:text-gold-light">certificates</span> to thousands{" "}
+              <br className="hidden md:block" />
+              of people in minutes
+            </h1>
+          </Reveal>
 
-          <p className="text-lg md:text-xl text-neutral-600 dark:text-neutral-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Upload your certificate design and an Excel sheet of names. Every attendee, student or participant finds and downloads their own certificate. No designer, no manual emailing.
-          </p>
+          <Reveal delay={0.16}>
+            <p className="text-lg md:text-xl text-neutral-600 dark:text-neutral-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+              Upload your certificate design and an Excel sheet of names. Every attendee, student or participant finds and downloads their own certificate. No designer, no manual emailing.
+            </p>
+          </Reveal>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
+          <Reveal delay={0.24} className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
             <Button size="lg" asChild className="group h-11 px-6 text-sm font-medium rounded-lg">
               <Link href="/signup">
                 Start free <ArrowRight className="h-4 w-4 ml-1.5 transition-transform duration-200 ease-out group-hover:translate-x-1" />
@@ -272,10 +282,10 @@ export default function HomePage() {
                 See how it works
               </Link>
             </Button>
-          </div>
+          </Reveal>
 
           {/* Certificate mockup with recipient download card */}
-          <div className="relative mx-auto max-w-4xl mt-4 md:mt-8 sm:pb-8">
+          <Reveal delay={0.32} y={32} amount={0.1} className="relative mx-auto max-w-4xl mt-4 md:mt-8 sm:pb-8">
             <div className="relative rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-2xl shadow-neutral-900/10 dark:shadow-black/50 overflow-hidden">
               <div className="relative aspect-[1.414/1] sm:aspect-[16/9] p-5 sm:p-8 md:p-10 bg-[#fffdf8] dark:bg-neutral-950">
                 <div className="absolute inset-3 sm:inset-5 border-[3px] border-gold/80 rounded-sm pointer-events-none" />
@@ -319,14 +329,14 @@ export default function HomePage() {
                 <Download className="h-3.5 w-3.5" /> Download PDF
               </div>
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* Stats - Minimal */}
       <section className="py-12 border-y border-neutral-200 dark:border-neutral-800">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <Reveal className="grid grid-cols-2 md:grid-cols-4 gap-8" y={16}>
             {(landingStats ?? [
               { label: "Certificates Issued", value: null },
               { label: "Certificates Downloaded", value: null },
@@ -345,63 +355,60 @@ export default function HomePage() {
                 <p className="text-xs text-neutral-500 dark:text-neutral-500 uppercase tracking-wide">{stat.label}</p>
               </div>
             ))}
-          </div>
+          </Reveal>
         </div>
       </section>
 
-      {/* Trusted by: auto-scrolling logo marquee on a black band (logos have black backgrounds) */}
+      {/* Trusted by: compact, muted logo marquee */}
       {TRUSTED_BY.length > 0 && (
-        <section className="py-14 bg-black border-y border-neutral-800 overflow-hidden">
-          <p className="text-xs text-neutral-400 uppercase tracking-wide text-center mb-10 px-6">Trusted by organizers of</p>
-          <div
-            className="logo-marquee relative [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]"
-            aria-label="Client logos"
-          >
-            <div className="logo-marquee-track flex w-max">
-              {[0, 1].map((half) => (
-                <div key={half} className="flex shrink-0 items-start" aria-hidden={half === 1}>
-                  {MARQUEE_HALF.map((client, i) => (
-                    <div key={`${half}-${i}`} className="flex flex-col items-center w-[280px] md:w-[320px] px-6 group">
-                      <div className="h-24 md:h-28 flex items-center">
+        <section className="py-10 bg-white dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-800 overflow-hidden">
+          <Reveal y={10}>
+            <p className="text-[11px] text-neutral-500 uppercase tracking-[0.2em] text-center mb-7 px-6">Trusted by organizers of</p>
+            <div
+              className="logo-marquee relative [mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)]"
+              aria-label="Client logos"
+            >
+              <div className="logo-marquee-track flex w-max items-center">
+                {[0, 1].map((half) => (
+                  <div key={half} className="flex shrink-0 items-center" aria-hidden={half === 1}>
+                    {MARQUEE_HALF.map((client, i) => (
+                      <div key={`${half}-${i}`} className="flex items-center justify-center px-8 md:px-12 h-14">
                         <Image
                           src={client.logo}
                           alt={half === 0 ? client.name : ""}
                           title={client.name}
                           width={client.width}
                           height={client.height}
-                          className={`max-h-24 md:max-h-28 w-auto max-w-[220px] md:max-w-[260px] object-contain opacity-85 group-hover:opacity-100 transition-all duration-300 group-hover:scale-105 ${client.rounded ? "rounded-full" : ""}`}
+                          className="logo-mono h-10 md:h-12 w-auto max-w-[180px] object-contain opacity-80 hover:opacity-100"
                         />
                       </div>
-                      <div className="mt-4 text-center">
-                        <div className="text-sm font-medium text-white">{client.name}</div>
-                        <div className="text-[11px] text-neutral-500 mt-0.5">{client.caption}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          </Reveal>
         </section>
       )}
 
       {/* Features */}
       <section id="features" className="py-24 px-6 scroll-mt-16">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
+          <Reveal className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold text-neutral-900 dark:text-white mb-4">
               Everything you need to issue certificates
             </h2>
             <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
               From a 50-person workshop to a 10,000-attendee conference or an entire graduating batch.
             </p>
-          </div>
+          </Reveal>
 
           <div className="grid md:grid-cols-3 gap-4">
-            {FEATURES.map((feature) => (
-              <div
+            {FEATURES.map((feature, i) => (
+              <Reveal
                 key={feature.title}
-                className={`${feature.wide ? "md:col-span-2" : ""} p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-gold/50 dark:hover:border-gold/50 transition-colors`}
+                delay={i * 0.07}
+                className={`${feature.wide ? "md:col-span-2" : ""} p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-gold/50 dark:hover:border-gold/50 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-neutral-900/5 transition-[border-color,transform,box-shadow] duration-300`}
               >
                 <div className="w-10 h-10 rounded-lg bg-gold-soft dark:bg-gold/10 flex items-center justify-center text-gold-deep dark:text-gold-light mb-6">
                   <feature.icon className="w-5 h-5" />
@@ -412,12 +419,12 @@ export default function HomePage() {
                 <p className={`${feature.wide ? "text-[15px]" : "text-sm"} text-neutral-600 dark:text-neutral-400 leading-relaxed`}>
                   {feature.desc}
                 </p>
-              </div>
+              </Reveal>
             ))}
           </div>
 
           {/* Dashboard preview */}
-          <div className="mt-4 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-white dark:bg-neutral-950">
+          <Reveal y={28} amount={0.1} className="mt-4 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-white dark:bg-neutral-950">
             <div className="p-6 md:p-8 border-b border-neutral-200 dark:border-neutral-800">
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-1">One dashboard for every event and batch</h3>
               <p className="text-sm text-neutral-600 dark:text-neutral-400">Attendees, downloads, pending recipients and completion rate, all in one place.</p>
@@ -430,21 +437,21 @@ export default function HomePage() {
                 className="object-cover object-top"
               />
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* How it Works - Simple Steps */}
       <section id="how-it-works" className="py-24 px-6 bg-neutral-50 dark:bg-neutral-950 scroll-mt-16">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
+          <Reveal className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
               How it works
             </h2>
             <p className="text-lg text-neutral-600 dark:text-neutral-400">
               From setup to delivery in three simple steps
             </p>
-          </div>
+          </Reveal>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
@@ -452,14 +459,14 @@ export default function HomePage() {
               { step: "02", title: "Upload design and Excel", icon: LayoutTemplate, desc: "Place the name and other fields on your certificate design" },
               { step: "03", title: "Share the link", icon: Check, desc: "Recipients find and download their certificate instantly" }
             ].map((item, i) => (
-              <div key={i} className="text-center">
+              <Reveal key={i} delay={i * 0.1} className="text-center">
                 <div className="inline-flex w-12 h-12 rounded-full bg-white dark:bg-neutral-900 border border-gold/30 dark:border-gold/30 items-center justify-center text-gold-deep dark:text-gold-light mb-6">
                   <item.icon className="w-5 h-5" />
                 </div>
                 <div className="text-xs font-mono text-gold-deep dark:text-gold-light mb-2">{item.step}</div>
                 <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">{item.title}</h3>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">{item.desc}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -495,16 +502,16 @@ export default function HomePage() {
       {/* Pricing - Clean Cards */}
       <section id="pricing" className="py-24 px-6 scroll-mt-16">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
+          <Reveal className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
               Simple, transparent pricing
             </h2>
             <p className="text-lg text-neutral-600 dark:text-neutral-400">
               Choose the plan that fits your needs
             </p>
-          </div>
+          </Reveal>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {visiblePlans.map((plan) => {
+            {visiblePlans.map((plan, i) => {
               const Icon = planIcons[plan.id] || Sparkles
               const badge = plan.badge || (plan.highlight ? "Popular" : "")
               const priceLabel = formatPrice(plan.price, plan.currency || "INR")
@@ -524,12 +531,13 @@ export default function HomePage() {
                   : `/signup?plan=${plan.id}`
 
               return (
-                <div
+                <Reveal
                   key={plan.id}
+                  delay={i * 0.07}
                   className={`p-6 rounded-xl border ${plan.highlight
                     ? "border-gold dark:border-gold-light shadow-lg shadow-gold/10"
                     : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700"
-                    } bg-white dark:bg-neutral-950 transition-colors relative`}
+                    } bg-white dark:bg-neutral-950 hover:-translate-y-0.5 transition-[border-color,transform] duration-300 relative`}
                 >
                   {badge && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gold text-neutral-900 text-[10px] font-semibold rounded-full uppercase tracking-wide">
@@ -564,7 +572,7 @@ export default function HomePage() {
                   >
                     <Link href={ctaHref}>{ctaLabel}</Link>
                   </Button>
-                </div>
+                </Reveal>
               )
             })}
           </div>
@@ -574,21 +582,28 @@ export default function HomePage() {
       {/* FAQ */}
       <section id="faq" className="py-24 px-6 bg-neutral-50 dark:bg-neutral-950 scroll-mt-16">
         <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
+          <Reveal className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
               Questions organizers ask
             </h2>
             <p className="text-lg text-neutral-600 dark:text-neutral-400">
               Anything else? <Link href="/contact" className="text-gold-deep dark:text-gold-light underline underline-offset-4">Contact us</Link>
             </p>
-          </div>
-          <div className="space-y-3">
-            {FAQS.map((faq) => (
+          </Reveal>
+          <Reveal className="space-y-3" delay={0.1} amount={0.1}>
+            {FAQS.map((faq, i) => (
               <details
                 key={faq.q}
-                className="group rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 open:border-gold/50"
+                open={openFaq === i}
+                className="group rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 open:border-gold/50 transition-colors"
               >
-                <summary className="flex items-center justify-between gap-4 cursor-pointer list-none px-6 py-4 text-[15px] font-medium text-neutral-900 dark:text-white [&::-webkit-details-marker]:hidden">
+                <summary
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setOpenFaq(openFaq === i ? null : i)
+                  }}
+                  className="flex items-center justify-between gap-4 cursor-pointer list-none px-6 py-4 text-[15px] font-medium text-neutral-900 dark:text-white [&::-webkit-details-marker]:hidden"
+                >
                   {faq.q}
                   <ChevronDown className="h-4 w-4 shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
                 </summary>
@@ -603,13 +618,13 @@ export default function HomePage() {
                 </div>
               </details>
             ))}
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* CTA - Minimal */}
       <section className="py-24 px-6 border-y border-neutral-200 dark:border-neutral-800">
-        <div className="max-w-3xl mx-auto text-center">
+        <Reveal className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
             Ready to issue your next batch of certificates?
           </h2>
@@ -623,7 +638,7 @@ export default function HomePage() {
               Start free <ArrowRight className="h-4 w-4 ml-1.5 transition-transform duration-200 ease-out group-hover:translate-x-1" />
             </Link>
           </Button>
-        </div>
+        </Reveal>
       </section>
 
       {/* Footer - Clean */}
