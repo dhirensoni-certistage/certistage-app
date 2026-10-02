@@ -209,9 +209,9 @@ function SignupForm() {
           headline="Certificates for your next event, batch or convocation."
           footnote="No credit card required. Free plan includes 50 certificates."
         />
-        <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-8 bg-white overflow-y-auto">
+        <div className="flex-1 flex flex-col justify-start lg:justify-center items-center px-6 pt-10 pb-8 sm:px-8 lg:py-8 bg-white overflow-y-auto">
           <Reveal className="w-full max-w-[420px]" y={14}>
-            <AuthMobileBar linkLabel="Log in" linkHref="/client/login" />
+            <AuthMobileBar prompt="Already have an account?" linkLabel="Log in" linkHref="/client/login" />
 
             <h2 className="text-[26px] font-semibold tracking-tight text-black">Verify your email</h2>
             <p className="text-[13px] text-neutral-600 leading-snug mt-2">
@@ -266,9 +266,9 @@ function SignupForm() {
         footnote="No credit card required. Free plan includes 50 certificates."
       />
 
-      <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-8 bg-white overflow-y-auto">
+      <div className="flex-1 flex flex-col justify-start lg:justify-center items-center px-6 pt-10 pb-8 sm:px-8 lg:py-8 bg-white overflow-y-auto">
         <Reveal className="w-full max-w-[420px]" y={14}>
-          <AuthMobileBar linkLabel="Log in" linkHref="/client/login" />
+          <AuthMobileBar prompt="Already have an account?" linkLabel="Log in" linkHref="/client/login" />
 
           <div className="flex items-start justify-between gap-4 mb-4">
             <div className="space-y-1.5">
