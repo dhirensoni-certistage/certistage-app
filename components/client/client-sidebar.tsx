@@ -4,16 +4,16 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
-  BarChart3,
+  ChartColumnIncreasing,
   LogOut,
-  FileText,
+  Award,
   Users,
-  HelpCircle,
+  LifeBuoy,
   Crown,
   PanelLeftClose,
   PanelLeftOpen,
-  Settings,
-  FolderOpen
+  Settings2,
+  CalendarDays
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -99,13 +99,13 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
   }
 
   const navItems = [
-    { href: "/client/events", label: "Events", icon: FolderOpen, requiresEvent: false },
+    { href: "/client/events", label: "Events", icon: CalendarDays, requiresEvent: false },
     { href: "/client/dashboard", label: "Dashboard", icon: LayoutDashboard, requiresEvent: true },
-    { href: "/client/certificates", label: "Certificates", icon: FileText, requiresEvent: true },
+    { href: "/client/certificates", label: "Certificates", icon: Award, requiresEvent: true },
     { href: "/client/recipients", label: "Recipients", icon: Users, requiresEvent: true },
-    { href: "/client/reports", label: "Reports", icon: BarChart3, requiresEvent: true },
-    { href: "/client/settings", label: "Settings", icon: Settings, requiresEvent: false },
-    { href: "/client/support", label: "Support", icon: HelpCircle, requiresEvent: false },
+    { href: "/client/reports", label: "Reports", icon: ChartColumnIncreasing, requiresEvent: true },
+    { href: "/client/settings", label: "Settings", icon: Settings2, requiresEvent: false },
+    { href: "/client/support", label: "Support", icon: LifeBuoy, requiresEvent: false },
   ]
 
   const filteredNavItems = navItems.filter(item => {
