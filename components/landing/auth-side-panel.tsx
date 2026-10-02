@@ -93,7 +93,7 @@ export function AuthSidePanel({ headline, footnote }: { headline: string; footno
 /** Small logo bar shown above auth forms on phones, where the side panel is hidden. */
 export function AuthMobileBar({ linkLabel, linkHref }: { linkLabel: string; linkHref: string }) {
   return (
-    <div className="lg:hidden w-full flex items-center justify-between mb-8">
+    <div className="lg:hidden w-full flex items-center justify-between mb-5">
       <Link href="/" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity">
         <Image src="/Certistage_icon.svg" alt="CertiStage" width={28} height={28} className="w-7 h-7" />
         <span className="font-semibold tracking-tight text-black">CertiStage</span>

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
-import { Award, Download, Check, AlertCircle, Loader2, Search, ArrowLeft, FileText, User, Mail, Phone, Hash } from "lucide-react"
+import Image from "next/image"
+import { Download, Check, AlertCircle, Loader2, Search, ArrowLeft, FileText, User, Mail, Phone, Hash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -105,27 +106,10 @@ export default function CertTypeDownloadPage() {
     }
   }
 
-  // Disable right-click and shortcuts
-  useEffect(() => {
-    const handleContextMenu = (e: MouseEvent) => e.preventDefault()
-    document.addEventListener("contextmenu", handleContextMenu)
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey && (e.key === "s" || e.key === "p" || e.key === "u")) || e.key === "F12") {
-        e.preventDefault()
-      }
-    }
-    document.addEventListener("keydown", handleKeyDown)
-    return () => {
-      document.removeEventListener("contextmenu", handleContextMenu)
-      document.removeEventListener("keydown", handleKeyDown)
-    }
-  }, [])
-
   // Load certificate type data
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log("[INFO] [Type Download] Loading data for eventId:", eventId, "typeId:", typeId)
         const res = await fetch(`/api/download?eventId=${eventId}&typeId=${typeId}`)
         if (!res.ok) {
           const data = await res.json()
@@ -136,16 +120,12 @@ export default function CertTypeDownloadPage() {
         }
 
         const data = await res.json()
-        console.log("[INFO] [Type Download] API Response:", data)
-        console.log("[INFO] [Type Download] Template Image:", data.certificateType?.templateImage)
-        console.log("[INFO] [Type Download] Search Fields:", data.certificateType?.searchFields)
         
         setEvent(data.event)
         setCertType(data.certificateType)
 
         // Set default search field based on enabled fields
         const sf = data.certificateType?.searchFields || { name: true, email: false, mobile: false, regNo: false }
-        console.log("Setting search field based on:", sf)
         if (sf.name) setSearchField("name")
         else if (sf.email) setSearchField("email")
         else if (sf.mobile) setSearchField("mobile")
@@ -224,7 +204,6 @@ export default function CertTypeDownloadPage() {
       })
 
       const data = await res.json()
-      console.log("[INFO] [Search Response]:", data)
 
       if (!data.found || data.recipients.length === 0) {
         toast.error("No certificate found. Please check your details and try again.")
@@ -252,9 +231,6 @@ export default function CertTypeDownloadPage() {
           regNo: data.recipients[0].regNo,
           downloadCount: data.recipients[0].downloadCount || 0
         }
-        console.log("[OK] [Single Match] Setting recipient:", recipient)
-        console.log("[INFO] [CertType Check] Current certType:", certType)
-        console.log("[INFO] [Template Check] Template Image:", certType?.templateImage)
         setSelectedRecipient(recipient)
         setStep("preview")
       } else {
@@ -369,9 +345,10 @@ export default function CertTypeDownloadPage() {
       <main className="flex-1 flex items-center justify-center p-4 overflow-x-hidden">
         <div className="max-w-xl w-full space-y-6 overflow-x-hidden">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-foreground mb-1">{event?.name}</h1>
-            <p className="text-muted-foreground">{certType?.name} - Download Certificate</p>
-            <p className="text-xs text-primary mt-1">v2.0 - Dynamic Search</p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900 mb-2">{event?.name}</h1>
+            <span className="inline-flex items-center rounded-full border border-gold/40 bg-gold-soft px-3 py-1 text-xs font-medium text-gold-deep">
+              {certType?.name} certificate
+            </span>
           </div>
 
           {/* Step 1: Search */}
@@ -379,13 +356,13 @@ export default function CertTypeDownloadPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Search className="h-5 w-5" />
-                  Find Your Certificate
+                  <Search className="h-5 w-5 text-gold-deep" />
+                  Find your certificate
                 </CardTitle>
                 <CardDescription>
                   {enabledFields.length === 1 
-                    ? `Enter your ${getSearchFieldLabel(enabledFields[0]).toLowerCase()}`
-                    : "Search using your registered details"
+                    ? `Enter the ${getSearchFieldLabel(enabledFields[0]).toLowerCase()} you registered with`
+                    : "Use the details you registered with"
                   }
                 </CardDescription>
               </CardHeader>
@@ -431,7 +408,7 @@ export default function CertTypeDownloadPage() {
                   {isSearching ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Searching...</>
                   ) : (
-                    <><Search className="h-4 w-4 mr-2" />Find Certificate</>
+                    <><Search className="h-4 w-4 mr-2" />Find my certificate</>
                   )}
                 </Button>
               </CardContent>
@@ -447,9 +424,9 @@ export default function CertTypeDownloadPage() {
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                   <div>
-                    <CardTitle>Select Your Certificate</CardTitle>
+                    <CardTitle>Which one is you?</CardTitle>
                     <CardDescription>
-                      {matchedRecipients.length} certificates found
+                      {matchedRecipients.length} matches. Contact details are partly hidden for privacy.
                     </CardDescription>
                   </div>
                 </div>
@@ -476,7 +453,7 @@ export default function CertTypeDownloadPage() {
                           )}
                         </div>
                         {recipient.certificateId && (
-                          <Badge variant="outline">Reg: {recipient.certificateId}</Badge>
+                          <Badge variant="outline" className="font-mono">{recipient.certificateId}</Badge>
                         )}
                       </div>
                     </button>
@@ -505,10 +482,10 @@ export default function CertTypeDownloadPage() {
               ) : (
               <Card>
                 <CardHeader className="text-center pb-2">
-                  <Badge className="w-fit mx-auto mb-2">{certType.name}</Badge>
-                  <CardTitle>Certificate Preview</CardTitle>
+                  <Badge className="w-fit mx-auto mb-2 bg-gold text-neutral-900 hover:bg-gold">{certType.name}</Badge>
+                  <CardTitle>Your certificate is ready</CardTitle>
                   <CardDescription>
-                    For <span className="font-medium text-foreground">{selectedRecipient.name}</span>
+                    Issued to <span className="font-medium text-foreground">{selectedRecipient.name}</span>. The download is a print-quality PDF.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-4">
@@ -633,16 +610,21 @@ export default function CertTypeDownloadPage() {
 
                   <div className="mt-4 flex justify-center">
                     {downloaded ? (
-                      <div className="flex items-center gap-2 px-6 py-3 rounded-lg bg-neutral-500/10 text-neutral-600">
-                        <Check className="h-5 w-5" />
-                        <span className="font-medium">Downloaded!</span>
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="flex items-center gap-2 px-6 py-3 rounded-lg bg-gold-soft text-gold-deep">
+                          <Check className="h-5 w-5" />
+                          <span className="font-medium">Downloaded. Check your downloads folder.</span>
+                        </div>
+                        <button type="button" onClick={handleDownload} disabled={isDownloading} className="text-sm text-neutral-500 hover:text-neutral-900 underline underline-offset-4">
+                          Download again
+                        </button>
                       </div>
                     ) : (
                       <Button size="lg" onClick={handleDownload} disabled={isDownloading} className="min-w-48">
                         {isDownloading ? (
                           <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating...</>
                         ) : (
-                          <><Download className="h-4 w-4 mr-2" />Download Certificate</>
+                          <><Download className="h-4 w-4 mr-2" />Download PDF</>
                         )}
                       </Button>
                     )}
@@ -662,14 +644,12 @@ export default function CertTypeDownloadPage() {
 
 function Header() {
   return (
-    <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
+    <header className="border-b border-neutral-200 bg-white/80 backdrop-blur-sm">
       <div className="container mx-auto px-4 h-16 flex items-center justify-center">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-            <Award className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="font-semibold text-lg">CertiStage</span>
-        </div>
+        <a href="https://www.certistage.com?utm_source=download_page&utm_medium=header" target="_blank" rel="noopener" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+          <Image src="/Certistage_icon.svg" alt="CertiStage" width={32} height={32} />
+          <span className="font-semibold text-lg text-neutral-900">CertiStage</span>
+        </a>
       </div>
     </header>
   )
@@ -677,13 +657,16 @@ function Header() {
 
 function Footer() {
   return (
-    <footer className="border-t border-border/50 bg-card/50 py-4">
-      <div className="container mx-auto px-4 text-center">
-        <p className="text-sm text-muted-foreground">
-          Powered by <span className="font-semibold text-primary">CertiStage</span>
+    <footer className="border-t border-neutral-200 bg-white py-5">
+      <div className="container mx-auto px-4 text-center space-y-1">
+        <p className="text-sm text-neutral-500">
+          Powered by{" "}
+          <a href="https://www.certistage.com?utm_source=download_page&utm_medium=footer" target="_blank" rel="noopener" className="font-semibold text-neutral-900 hover:text-gold-deep transition-colors">
+            CertiStage
+          </a>
         </p>
+        <p className="text-xs text-neutral-400">Issue certificates for your own event, college or course in minutes.</p>
       </div>
     </footer>
   )
 }
-

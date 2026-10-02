@@ -194,16 +194,38 @@ export async function GET(request: NextRequest) {
   }
 }
 
+function maskEmail(email?: string): string {
+  if (!email) return ""
+  const [user, domain] = email.split("@")
+  if (!domain) return "***"
+  const visible = user.slice(0, Math.min(2, user.length))
+  return `${visible}${"*".repeat(Math.max(3, user.length - visible.length))}@${domain}`
+}
+
+function maskMobile(mobile?: string): string {
+  if (!mobile) return ""
+  const digits = mobile.replace(/\D/g, "")
+  if (digits.length < 4) return "****"
+  return `${"*".repeat(Math.max(0, digits.length - 4))}${digits.slice(-4)}`
+}
+
 // POST - Search recipient and track download
 export async function POST(request: NextRequest) {
   try {
     await connectDB()
 
-    const { eventId, typeId, searchQuery, searchType } = await request.json()
+    const body = await request.json()
+    const { eventId, typeId, searchType } = body
+    const searchQuery = String(body.searchQuery || "").trim()
 
     if (!eventId || !typeId || !searchQuery) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
+    if (searchQuery.length < 3) {
+      return NextResponse.json({ error: "Please enter at least 3 characters" }, { status: 400 })
+    }
+    // User input goes into a regex: escape it so it is matched literally
+    const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
     // Build search query
     const query: Record<string, unknown> = {
@@ -213,20 +235,20 @@ export async function POST(request: NextRequest) {
 
     // Search by different fields
     if (searchType === "email") {
-      query.email = { $regex: searchQuery, $options: "i" }
+      query.email = { $regex: escapeRegex(searchQuery), $options: "i" }
     } else if (searchType === "mobile") {
-      query.mobile = { $regex: searchQuery, $options: "i" }
+      query.mobile = { $regex: escapeRegex(searchQuery.replace(/\D/g, "")), $options: "i" }
     } else if (searchType === "regNo") {
-      query.regNo = { $regex: searchQuery, $options: "i" }
+      query.regNo = { $regex: escapeRegex(searchQuery), $options: "i" }
     } else {
       // Default: search by name - split into words for partial matching
       const searchWords = searchQuery.trim().split(/\s+/).filter((w: string) => w.length > 0)
       if (searchWords.length > 1) {
         query.$and = searchWords.map((word: string) => ({
-          name: { $regex: word, $options: "i" }
+          name: { $regex: escapeRegex(word), $options: "i" }
         }))
       } else {
-        query.name = { $regex: searchQuery, $options: "i" }
+        query.name = { $regex: escapeRegex(searchQuery), $options: "i" }
       }
     }
 
@@ -246,13 +268,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       found: true,
+      // Contact details are masked: this is a public page and a common first name can match several people
       recipients: recipients.map(r => ({
         id: r._id,
         name: r.name,
-        email: r.email,
-        mobile: r.mobile,
+        email: maskEmail(r.email),
+        mobile: maskMobile(r.mobile),
         regNo: r.regNo,
-        customFields: r.customFields,
         downloadCount: r.downloadCount
       })),
       certificateType: certType ? {

@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { AuthSidePanel, AuthMobileBar, AuthTrustRow, authInputClass, authPrimaryButtonClass, authGoogleButtonClass } from "@/components/landing/auth-side-panel"
+import { AuthSidePanel, AuthMobileBar, authInputClass, authPrimaryButtonClass, authGoogleButtonClass } from "@/components/landing/auth-side-panel"
 import { Reveal } from "@/components/landing/reveal"
 import { ArrowRight } from "lucide-react"
 
@@ -121,9 +121,14 @@ function LoginForm() {
         <Reveal className="w-full max-w-[400px] py-6" y={14}>
           <AuthMobileBar linkLabel="Create account" linkHref="/signup" />
 
-          <div className="space-y-2 mb-7">
-            <h2 className="text-[26px] font-semibold tracking-tight text-black">Sign in to CertiStage</h2>
-            <p className="text-[14px] text-[#666]">Welcome back. Pick up where you left off.</p>
+          <div className="flex items-start justify-between gap-4 mb-7">
+            <div className="space-y-1.5">
+              <h2 className="text-[26px] font-semibold tracking-tight text-black">Sign in</h2>
+              <p className="text-[14px] text-[#666]">Welcome back. Pick up where you left off.</p>
+            </div>
+            <Link href="/signup" className="hidden lg:inline-block mt-2 text-[13px] font-medium text-neutral-600 hover:text-black whitespace-nowrap underline underline-offset-4">
+              Create account
+            </Link>
           </div>
 
           <div className="space-y-5">
@@ -189,14 +194,6 @@ function LoginForm() {
             </form>
           </div>
 
-          <div className="mt-7">
-            <AuthTrustRow items={["Secure sign-in", "Your data stays yours", "Help: support@certistage.com"]} />
-          </div>
-
-          <p className="hidden lg:block text-center text-[13px] text-[#666] mt-6">
-            New to CertiStage?{" "}
-            <Link href="/signup" className="text-black font-medium hover:underline underline-offset-4">Create an account</Link>
-          </p>
         </Reveal>
       </div>
     </div>
