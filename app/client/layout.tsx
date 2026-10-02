@@ -49,7 +49,13 @@ export default function ClientLayout({
     if (!session || session.loginType !== "user" || !session.userId) return
 
     try {
-      const res = await fetch(`/api/client/profile?userId=${encodeURIComponent(session.userId)}`)
+      const res = await fetch("/api/client/profile")
+      if (res.status === 401) {
+        // Server session missing or expired: the local copy is stale
+        clearClientSession()
+        router.replace("/client/login")
+        return
+      }
       if (res.ok) {
         const data = await res.json()
         const serverPlan = normalizePlan(data.user?.plan)

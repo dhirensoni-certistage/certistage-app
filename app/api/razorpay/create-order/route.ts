@@ -5,11 +5,15 @@ import connectDB from "@/lib/mongodb"
 import Settings from "@/models/Settings"
 import User from "@/models/User"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
+import { requireClientUser } from "@/lib/client-auth.server"
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
     const body = await request.json()
-    const { plan, userId, userEmail, userName, keyId, keySecret } = body
+    const { plan, userEmail, userName } = body
 
     if (!plan) {
       return NextResponse.json({ error: "Invalid plan selected" }, { status: 400 })
@@ -66,8 +70,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Try to get credentials from database first
-    let razorpayKeyId = keyId
-    let razorpayKeySecret = keySecret
+    // Gateway keys come only from server-side config, never from the request
+    let razorpayKeyId: string | undefined
+    let razorpayKeySecret: string | undefined
     
     if (!razorpayKeyId || !razorpayKeySecret) {
       try {

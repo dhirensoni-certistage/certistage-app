@@ -4,11 +4,15 @@ import { calculateProRataUpgrade } from "@/lib/pro-rata"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
+import { requireClientUser } from "@/lib/client-auth.server"
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
     const body = await request.json()
-    const { plan, userId } = body
+    const { plan } = body
 
     if (!plan) {
       return NextResponse.json({ error: "Invalid plan selected" }, { status: 400 })
@@ -17,9 +21,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Test plan is disabled" }, { status: 400 })
     }
 
-    if (!userId) {
-      return NextResponse.json({ error: "User ID required" }, { status: 400 })
-    }
 
     await connectDB()
 

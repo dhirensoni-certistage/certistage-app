@@ -3,6 +3,7 @@ import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import EmailVerificationToken from "@/models/EmailVerificationToken"
 import bcrypt from "bcryptjs"
+import { signClientSessionToken, setClientSessionCookie } from "@/lib/client-auth.server"
 
 // POST - Complete signup with password
 export async function POST(request: NextRequest) {
@@ -144,13 +145,8 @@ export async function POST(request: NextRequest) {
       message: "Account created successfully"
     })
 
-    // Set cookie for middleware to recognize authenticated session
-    response.cookies.set('clientSession', 'true', {
-      path: '/',
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7 // 7 days
-    })
+    // Signed, httpOnly session cookie: API routes identify the user from this
+    setClientSessionCookie(response, signClientSessionToken({ id: user._id.toString(), email: user.email }))
 
     return response
   } catch (error) {

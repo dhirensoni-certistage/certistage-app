@@ -4,6 +4,8 @@ import User from "@/models/User"
 import Event from "@/models/Event"
 import bcrypt from "bcryptjs"
 import { isDisposableEmail } from "@/lib/disposable-email"
+import { signClientSessionToken, setClientSessionCookie } from "@/lib/client-auth.server"
+import { checkRateLimit, getClientIP, rateLimitResponse } from "@/lib/rate-limit"
 
 // POST - User login
 export async function POST(request: NextRequest) {
@@ -14,6 +16,13 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 })
+    }
+
+    // Slow down password guessing: per IP and per account
+    const ip = getClientIP(request)
+    const limit = await checkRateLimit("login", `${ip}:${String(email).toLowerCase().trim()}`)
+    if (!limit.success) {
+      return rateLimitResponse(limit, "Too many login attempts. Please wait a few minutes and try again.")
     }
 
     if (isDisposableEmail(email)) {
@@ -74,13 +83,8 @@ export async function POST(request: NextRequest) {
       } : null
     })
 
-    // Set cookie for middleware to recognize authenticated session
-    response.cookies.set('clientSession', 'true', {
-      path: '/',
-      httpOnly: false, // Accessible by client-side if needed, but middleware needs it
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7 // 7 days
-    })
+    // Signed, httpOnly session cookie: API routes identify the user from this
+    setClientSessionCookie(response, signClientSessionToken({ id: user._id.toString(), email: user.email }))
 
     return response
   } catch (error) {

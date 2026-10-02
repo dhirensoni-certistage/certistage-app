@@ -4,18 +4,16 @@ import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 import { canUserCreateEvent, getUserUsageStats, verifyEventOwnership } from "@/lib/plan-limits"
+import { requireClientUser } from "@/lib/client-auth.server"
 
 // GET - List user's events
 export async function GET(request: NextRequest) {
   try {
     await connectDB()
     
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId")
-    
-    if (!userId) {
-      return NextResponse.json({ error: "User ID required" }, { status: 400 })
-    }
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
 
     // Get user's events with stats
     const events = await Event.find({ ownerId: userId, isActive: true })
@@ -57,10 +55,13 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB()
     
-    const { userId, name, description } = await request.json()
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
+    const { name, description } = await request.json()
     
-    if (!userId || !name) {
-      return NextResponse.json({ error: "User ID and name required" }, { status: 400 })
+    if (!name) {
+      return NextResponse.json({ error: "Event name required" }, { status: 400 })
     }
 
     // Check plan limits
@@ -127,10 +128,13 @@ export async function PUT(request: NextRequest) {
   try {
     await connectDB()
     
-    const { userId, eventId, name, description } = await request.json()
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
+    const { eventId, name, description } = await request.json()
     
-    if (!userId || !eventId) {
-      return NextResponse.json({ error: "User ID and Event ID required" }, { status: 400 })
+    if (!eventId) {
+      return NextResponse.json({ error: "Event ID required" }, { status: 400 })
     }
 
     // Verify ownership
@@ -176,11 +180,13 @@ export async function DELETE(request: NextRequest) {
     
     const { searchParams } = new URL(request.url)
     const eventId = searchParams.get("eventId")
-    const userId = searchParams.get("userId")
     const permanent = searchParams.get("permanent") === "true"
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
     
-    if (!userId || !eventId) {
-      return NextResponse.json({ error: "User ID and Event ID required" }, { status: 400 })
+    if (!eventId) {
+      return NextResponse.json({ error: "Event ID required" }, { status: 400 })
     }
 
     // Verify ownership

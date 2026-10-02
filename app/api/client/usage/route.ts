@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import { getUserUsageStats } from "@/lib/plan-limits"
+import { requireClientUser } from "@/lib/client-auth.server"
 
 // GET - Get user's plan usage stats
 export async function GET(request: NextRequest) {
   try {
     await connectDB()
     
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId")
-    
-    if (!userId) {
-      return NextResponse.json({ error: "User ID required" }, { status: 400 })
-    }
+    const auth = await requireClientUser(request)
+    if (auth.response) return auth.response
+    const userId = auth.userId
 
     const usage = await getUserUsageStats(userId)
 

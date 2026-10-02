@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { AuditLog } from "@/models/AuditLog";
-import { getClientSession } from "@/lib/auth";
+import { requireClientUser } from "@/lib/client-auth.server"
 
 export async function GET(req: Request) {
     try {
-        const session = await getClientSession();
-        if (!session || !session.userId) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+        const auth = await requireClientUser(req)
+        if (auth.response) return auth.response
+        const session = { userId: auth.userId }
 
         await connectDB();
 
