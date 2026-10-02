@@ -13,7 +13,9 @@ import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { usePlanConfig } from "@/hooks/use-plan-config"
 import { formatInr } from "@/lib/plan-config"
-import { AuthSidePanel, AuthMobileBar } from "@/components/landing/auth-side-panel"
+import { AuthSidePanel, AuthMobileBar, AuthTrustRow, authInputClass, authPrimaryButtonClass, authGoogleButtonClass } from "@/components/landing/auth-side-panel"
+import { Reveal } from "@/components/landing/reveal"
+import { ArrowRight } from "lucide-react"
 
 const countryCodes = [
   { code: "+91", flag: "🇮🇳" },
@@ -22,7 +24,7 @@ const countryCodes = [
   { code: "+971", flag: "🇦🇪" }
 ]
 
-const inputClass = "h-10 px-3 text-[14px] bg-white border-[#E5E5E5] focus-visible:ring-1 focus-visible:ring-gold focus-visible:border-gold transition-all placeholder:text-[#BBB]"
+const inputClass = authInputClass
 
 function GoogleIcon() {
   return (
@@ -188,11 +190,11 @@ function SignupForm() {
       />
 
       <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-8 bg-white overflow-y-auto">
-        <div className="w-full max-w-[420px] py-6">
+        <Reveal className="w-full max-w-[420px] py-6" y={14}>
           <AuthMobileBar linkLabel="Log in" linkHref="/client/login" />
 
           <div className="space-y-2 mb-7">
-            <h2 className="text-2xl font-semibold tracking-tight text-black">Create your account</h2>
+            <h2 className="text-[26px] font-semibold tracking-tight text-black">Create your account</h2>
             <p className="text-[14px] text-[#666]">Start free. Upgrade whenever your event needs it.</p>
           </div>
 
@@ -212,7 +214,7 @@ function SignupForm() {
           )}
 
           <div className="space-y-5">
-            <Button type="button" variant="outline" onClick={handleGoogleSignIn} className="w-full h-10 bg-white border-[#E5E5E5] text-[#333] hover:bg-[#FAFAFA] hover:text-black font-medium text-[13px] shadow-sm">
+            <Button type="button" variant="outline" onClick={handleGoogleSignIn} className={authGoogleButtonClass}>
               <GoogleIcon /> Continue with Google
             </Button>
 
@@ -237,7 +239,7 @@ function SignupForm() {
                 <Label htmlFor="phone" className="text-[13px] font-medium text-[#333]">Phone number</Label>
                 <div className="flex gap-2">
                   <Select value={countryCode} onValueChange={setCountryCode}>
-                    <SelectTrigger className="w-[112px] h-10 text-[13px] border-[#E5E5E5] bg-white" aria-label="Country code">
+                    <SelectTrigger className="w-[112px] h-11 rounded-lg text-[13px] border-neutral-200 bg-white" aria-label="Country code">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -257,8 +259,8 @@ function SignupForm() {
                 <Input id="organization" name="organization" autoComplete="organization" className={inputClass} placeholder="College, company or event name" value={formData.organization} onChange={(e) => setFormData({ ...formData, organization: e.target.value })} />
               </div>
 
-              <Button type="submit" className={cn("w-full h-10 mt-1 bg-black text-white hover:bg-[#222] font-medium text-[13px] shadow-sm", isSubmitting && "opacity-70")} disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
+              <Button type="submit" className={cn(authPrimaryButtonClass, "mt-1", isSubmitting && "opacity-70")} disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Create account <ArrowRight className="h-4 w-4 ml-1.5 transition-transform duration-200 group-hover:translate-x-1" /></>}
               </Button>
 
               <p className="text-[12px] text-center text-[#666] leading-relaxed">
@@ -267,11 +269,15 @@ function SignupForm() {
             </form>
           </div>
 
-          <p className="hidden lg:block text-center text-[13px] text-[#666] mt-8">
+          <div className="mt-7">
+            <AuthTrustRow items={["Free plan, 50 certificates", "No credit card", "Cancel anytime"]} />
+          </div>
+
+          <p className="hidden lg:block text-center text-[13px] text-[#666] mt-6">
             Already have an account?{" "}
             <Link href="/client/login" className="text-black font-medium hover:underline underline-offset-4">Log in</Link>
           </p>
-        </div>
+        </Reveal>
       </div>
     </div>
   )
