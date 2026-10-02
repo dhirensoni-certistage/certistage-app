@@ -16,11 +16,14 @@ const planIcons: Record<string, any> = {
 }
 
 // Client logos for the "Trusted by" strip. Add files under public/clients/ and list them here.
-const TRUSTED_BY: { name: string; logo: string; width: number; height: number; rounded?: boolean }[] = [
-  { name: "IMA NATCON 2025, Ahmedabad Medical Association", logo: "/clients/ima-natcon-2025.png", width: 320, height: 320, rounded: true },
-  { name: "OSSICON 2026, Obesity and Metabolic Surgery Society of India", logo: "/clients/ossicon-2026.png", width: 800, height: 364 },
-  { name: "Arise Learning Festival", logo: "/clients/arise-learning-festival.png", width: 500, height: 202 }
+const TRUSTED_BY: { name: string; caption: string; logo: string; width: number; height: number; rounded?: boolean }[] = [
+  { name: "IMA NATCON 2025", caption: "National conference, IMA Gujarat State Branch", logo: "/clients/ima-natcon-2025.png", width: 320, height: 320, rounded: true },
+  { name: "OSSICON 2026", caption: "23rd Annual Conference of OSSI, Ahmedabad", logo: "/clients/ossicon-2026.png", width: 800, height: 364 },
+  { name: "Arise Learning Festival", caption: "Student learning festival by Arise", logo: "/clients/arise-learning-festival.png", width: 500, height: 202 }
 ]
+
+// Repeat the logo set so one half of the marquee track is wider than any screen
+const MARQUEE_HALF = Array.from({ length: 3 }, () => TRUSTED_BY).flat()
 
 // Real customer quotes only. Add an entry once the person has approved their quote in writing.
 const TESTIMONIALS: { quote: string; name: string; role: string; org: string }[] = []
@@ -259,9 +262,9 @@ export default function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
-            <Button size="lg" asChild className="h-11 px-6 text-sm font-medium rounded-lg">
+            <Button size="lg" asChild className="group h-11 px-6 text-sm font-medium rounded-lg">
               <Link href="/signup">
-                Start free <ArrowRight className="h-4 w-4 ml-1.5" />
+                Start free <ArrowRight className="h-4 w-4 ml-1.5 transition-transform duration-200 ease-out group-hover:translate-x-1" />
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild className="h-11 px-6 text-sm font-medium rounded-lg">
@@ -346,22 +349,36 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Trusted by: dark band so full-colour conference logos sit well together */}
+      {/* Trusted by: auto-scrolling logo marquee on a black band (logos have black backgrounds) */}
       {TRUSTED_BY.length > 0 && (
-        <section className="py-14 px-6 bg-black border-y border-neutral-800">
-          <div className="max-w-6xl mx-auto text-center">
-            <p className="text-xs text-neutral-400 uppercase tracking-wide mb-8">Trusted by organizers of</p>
-            <div className="flex flex-wrap items-center justify-center gap-x-14 gap-y-8">
-              {TRUSTED_BY.map((client) => (
-                <Image
-                  key={client.name}
-                  src={client.logo}
-                  alt={client.name}
-                  title={client.name}
-                  width={client.width}
-                  height={client.height}
-                  className={`h-20 md:h-24 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity ${client.rounded ? "rounded-full" : ""}`}
-                />
+        <section className="py-14 bg-black border-y border-neutral-800 overflow-hidden">
+          <p className="text-xs text-neutral-400 uppercase tracking-wide text-center mb-10 px-6">Trusted by organizers of</p>
+          <div
+            className="logo-marquee relative [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]"
+            aria-label="Client logos"
+          >
+            <div className="logo-marquee-track flex w-max">
+              {[0, 1].map((half) => (
+                <div key={half} className="flex shrink-0 items-start" aria-hidden={half === 1}>
+                  {MARQUEE_HALF.map((client, i) => (
+                    <div key={`${half}-${i}`} className="flex flex-col items-center w-[280px] md:w-[320px] px-6 group">
+                      <div className="h-24 md:h-28 flex items-center">
+                        <Image
+                          src={client.logo}
+                          alt={half === 0 ? client.name : ""}
+                          title={client.name}
+                          width={client.width}
+                          height={client.height}
+                          className={`max-h-24 md:max-h-28 w-auto max-w-[220px] md:max-w-[260px] object-contain opacity-85 group-hover:opacity-100 transition-all duration-300 group-hover:scale-105 ${client.rounded ? "rounded-full" : ""}`}
+                        />
+                      </div>
+                      <div className="mt-4 text-center">
+                        <div className="text-sm font-medium text-white">{client.name}</div>
+                        <div className="text-[11px] text-neutral-500 mt-0.5">{client.caption}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ))}
             </div>
           </div>
@@ -601,9 +618,9 @@ export default function HomePage() {
               ? `Join ${formatApproxCount(publicStats.organizations)} organizations using CertiStage`
               : "Join event organizers and institutions using CertiStage"}
           </p>
-          <Button size="lg" asChild className="h-11 px-6 text-sm">
+          <Button size="lg" asChild className="group h-11 px-6 text-sm">
             <Link href="/signup">
-              Start free
+              Start free <ArrowRight className="h-4 w-4 ml-1.5 transition-transform duration-200 ease-out group-hover:translate-x-1" />
             </Link>
           </Button>
         </div>
