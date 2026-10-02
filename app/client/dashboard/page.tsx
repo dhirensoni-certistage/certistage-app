@@ -98,6 +98,7 @@ interface DashboardEvent {
       name: string
       downloadCount: number
       status: string
+      downloadedAt?: string
     }[]
     stats: {
       total: number
@@ -172,17 +173,14 @@ export default function ClientDashboard() {
       setShowUpgradeBanner(false)
       return
     }
-    const plan = session.userPlan || "free"
-    if (plan === "premium" && !session.pendingPlan) {
-      setShowUpgradeBanner(false)
-      return
-    }
-    setShowUpgradeBanner(true)
+    // Only nudge free accounts, or anyone with an unpaid plan waiting
+    const plan = normalizePlan(session.userPlan)
+    setShowUpgradeBanner(plan === "free" || !!session.pendingPlan)
   }, [session])
 
   if (isLoading) {
     return (
-      <div className="p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
+      <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
         <div className="space-y-4">
           <div className="h-8 w-64 bg-neutral-100 dark:bg-neutral-900 rounded-md animate-pulse" />
           <div className="h-4 w-48 bg-neutral-100 dark:bg-neutral-900 rounded-md animate-pulse opacity-60" />
@@ -287,13 +285,13 @@ export default function ClientDashboard() {
   })()
 
   return (
-    <div className="min-h-screen w-full bg-[#FDFDFD] text-[#171717] relative">
+    <div className="min-h-full w-full bg-[#FDFDFD] text-[#171717] relative">
       {/* Background Texture from Login Page */}
       <div className="absolute inset-0 z-0 opacity-[0.4] pointer-events-none"
         style={{ backgroundImage: 'radial-gradient(#D4D4D4 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
       </div>
 
-      <div className="relative z-10 p-8 space-y-8 max-w-[1400px] mx-auto">
+      <div className="relative z-10 p-4 md:p-8 space-y-6 md:space-y-8 max-w-[1400px] mx-auto">
 
         {/* Banner */}
         {showUpgradeBanner && (
@@ -309,16 +307,16 @@ export default function ClientDashboard() {
               </div>
               <div>
                 <p className="font-semibold text-[15px] text-[#171717] tracking-tight">
-                  {session?.pendingPlan ? `Finalize your ${planFeaturesMap[session.pendingPlan]?.displayName} Plan` : "Upgrade to Pro"}
+                  {session?.pendingPlan ? `Complete payment for your ${planFeaturesMap[session.pendingPlan]?.displayName} plan` : "You are on the Free plan"}
                 </p>
                 <p className="text-[13px] text-[#666] font-medium mt-0.5">
-                  Unlock higher limits and remove branding.
+                  {session?.pendingPlan ? "Your plan activates as soon as the payment goes through." : "Paid plans add more certificates, Excel import and report exports."}
                 </p>
               </div>
             </div>
             <div className="p-5 pt-0 md:pt-5">
               <Button asChild className="h-9 px-6 bg-black hover:bg-[#333] text-white font-medium text-[13px] shadow-sm transition-all rounded-md">
-                <Link href="/client/upgrade">View Options</Link>
+                <Link href={session?.pendingPlan ? "/client/complete-payment" : "/client/upgrade"}>{session?.pendingPlan ? "Complete payment" : "See plans"}</Link>
               </Button>
             </div>
           </motion.div>

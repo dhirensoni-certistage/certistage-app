@@ -50,29 +50,36 @@ export default function SupportPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!name || !email || !subject || !message) {
-      toast.error("Please fill in all fields")
+    if (!subject.trim() || !message.trim()) {
+      toast.error("Please add a subject and describe the issue")
       return
     }
 
     setIsSubmitting(true)
-
-    // Simulate submission
-    await new Promise(resolve => setTimeout(resolve, 1500))
-
-    // In production, this would send to your support system
-    console.log("Support Request:", { name, email, subject, message, plan: planFeatures?.displayName })
-
-    setSubmitted(true)
-    setIsSubmitting(false)
-    toast.success("Support request submitted successfully!")
-
-    // Reset form after 3 seconds
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/client/support", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: subject.trim(),
+          message: message.trim(),
+          eventName: session?.eventName || "",
+          pageUrl: typeof window !== "undefined" ? window.location.href : ""
+        })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error || "Could not send your request. Please try again.")
+        return
+      }
+      setSubmitted(true)
       setSubject("")
       setMessage("")
-      setSubmitted(false)
-    }, 3000)
+    } catch {
+      toast.error("Connection failed. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const isProfessionalOrHigher = useMemo(() =>
@@ -84,7 +91,7 @@ export default function SupportPage() {
   )
 
   return (
-    <div className="p-8 space-y-6 max-w-6xl mx-auto">
+    <div className="p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
@@ -211,38 +218,27 @@ export default function SupportPage() {
                 <div className="h-16 w-16 rounded-full bg-neutral-500/10 flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="h-8 w-8 text-neutral-600" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Request Submitted!</h3>
+                <h3 className="text-xl font-semibold mb-2">Request sent</h3>
                 <p className="text-muted-foreground mb-1">
-                  We've received your support request
+                  We emailed your request to support and will reply to <span className="font-medium text-foreground">{email}</span>.
                 </p>
                 <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
                   <Clock className="h-4 w-4" />
                   {isProfessionalOrHigher ? "Response within 24 hours" : "Response within 48 hours"}
                 </p>
+                <Button type="button" variant="outline" className="mt-6" onClick={() => setSubmitted(false)}>Send another request</Button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Your name"
-                      required
-                    />
+                    <Input id="name" value={name} readOnly className="bg-muted/50" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="your.email@example.com"
-                      required
-                    />
+                    <Input id="email" type="email" value={email} readOnly className="bg-muted/50" />
+                    <p className="text-xs text-muted-foreground">We reply to your account email.</p>
                   </div>
                 </div>
 

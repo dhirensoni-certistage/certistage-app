@@ -26,8 +26,7 @@ import {
   FileSpreadsheet,
   Lock,
   Loader2,
-  ArrowUpRight
-} from "lucide-react"
+  ArrowUpRight, Search } from "lucide-react"
 import * as XLSX from "xlsx"
 import { toast } from "sonner"
 
@@ -213,7 +212,7 @@ export default function ClientReportsPage() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto flex flex-col animate-in fade-in duration-500 pb-12">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto flex flex-col animate-in fade-in duration-500 pb-12">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
         <div className="space-y-1">

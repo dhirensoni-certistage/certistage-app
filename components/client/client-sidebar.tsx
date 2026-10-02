@@ -24,7 +24,7 @@ import { toast } from "sonner"
 import { Progress } from "@/components/ui/progress"
  
 
-export function ClientSidebar() {
+export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void } = {}) {
   const pathname = usePathname()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -125,8 +125,8 @@ export function ClientSidebar() {
   return (
       <aside
         className={cn(
-          "h-screen bg-white border-r border-neutral-200 flex flex-col transition-all duration-200 ease-in-out relative z-30",
-          collapsed ? "w-[72px]" : "w-[260px]"
+          "bg-white flex flex-col transition-all duration-200 ease-in-out relative z-30",
+          mobile ? "h-full w-full" : cn("h-screen border-r border-neutral-200", collapsed ? "w-[72px]" : "w-[260px]")
         )}
       >
 
@@ -166,6 +166,7 @@ export function ClientSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={onNavigate}
                 title={collapsed ? item.label : undefined}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all group relative",
@@ -238,12 +239,12 @@ export function ClientSidebar() {
         </div>
 
         {/* Toggle Collapse Button - Inset */}
-        <button
+        {!mobile && <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-20 bg-white border border-neutral-200 rounded-full p-1 shadow-sm text-neutral-400 hover:text-neutral-900 transition-colors z-50"
         >
           <ChevronLeft className={cn("h-3.5 w-3.5 transition-transform duration-200", collapsed && "rotate-180")} />
-        </button>
+        </button>}
       </aside>
   )
 }

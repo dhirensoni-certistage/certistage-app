@@ -678,7 +678,7 @@ export default function RecipientsPage() {
   const showTableSkeleton = isLoading || !event
 
   return (
-    <div className="p-6 flex flex-col h-screen overflow-hidden bg-[#FDFDFD]">
+    <div className="p-4 md:p-6 flex flex-col h-full overflow-hidden bg-[#FDFDFD]">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-shrink-0">
         <div>
@@ -802,7 +802,7 @@ export default function RecipientsPage() {
 
           {/* Table with sticky header */}
           <div className="flex-1 overflow-auto min-h-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <table className="w-full text-xs table-fixed">
+            <table className="w-full min-w-[960px] text-xs table-fixed">
               <thead className="sticky top-0 bg-[#FAFAFA] z-10 border-b border-[#E5E5E5]">
                 <tr>
                   <th className="text-center px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[40px]">

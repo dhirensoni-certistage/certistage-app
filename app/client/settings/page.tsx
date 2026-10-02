@@ -88,7 +88,7 @@ export default function SettingsPage() {
   const daysLeft = profile.planExpiresAt ? Math.max(0, Math.ceil((new Date(profile.planExpiresAt).getTime() - Date.now()) / 86400000)) : null
 
   return (
-    <div className="p-6 md:p-8 max-w-4xl mx-auto pl-8 md:pl-12">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto">
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[11px] font-semibold text-[#888] uppercase tracking-[0.15em]">Account</span>
