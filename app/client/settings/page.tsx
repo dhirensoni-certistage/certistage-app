@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
-  User, Lock, Loader2, Eye, EyeOff, Save, LogOut, Crown,
+  User, Loader2, Save, LogOut, Crown,
   Mail, Phone, Building2, Shield, ChevronRight, Check
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -33,12 +33,9 @@ export default function SettingsPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
-  const [isSavingPassword, setIsSavingPassword] = useState(false)
-  const [showPasswords, setShowPasswords] = useState(false)
   const [activeTab, setActiveTab] = useState("profile")
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [profileForm, setProfileForm] = useState({ name: "", phone: "", organization: "" })
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" })
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -78,25 +75,6 @@ export default function SettingsPage() {
       } else { toast.error(data.error || "Failed to update profile") }
     } catch { toast.error("Something went wrong") }
     setIsSavingProfile(false)
-  }
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!profile) return
-    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) { toast.error("Please fill all fields"); return }
-    if (passwordForm.newPassword.length < 6) { toast.error("Password must be at least 6 characters"); return }
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) { toast.error("Passwords do not match"); return }
-    setIsSavingPassword(true)
-    try {
-      const res = await fetch("/api/client/auth/change-password", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: profile.id, currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword })
-      })
-      const data = await res.json()
-      if (res.ok) { setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" }); toast.success("Password changed successfully") }
-      else { toast.error(data.error || "Failed to change password") }
-    } catch { toast.error("Something went wrong") }
-    setIsSavingPassword(false)
   }
 
   const handleLogout = () => { localStorage.removeItem("clientSession"); toast.success("Logged out"); router.push("/client/login") }
@@ -173,73 +151,24 @@ export default function SettingsPage() {
 
         <TabsContent value="security" className="space-y-6">
           <Card><CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Change Password</h3>
-            <form onSubmit={handleChangePassword} className="space-y-5">
-              <div className="space-y-2">
-                <Label>Current Password</Label>
-                <div className="relative">
-                  <Input
-                    type={showPasswords ? "text" : "password"}
-                    value={passwordForm.currentPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full hover:bg-transparent"
-                    onClick={() => setShowPasswords(!showPasswords)}
-                  >
-                    {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
+            <h3 className="text-lg font-semibold mb-1">How you sign in</h3>
+            <p className="text-sm text-muted-foreground mb-5">CertiStage does not use passwords. Each sign-in is confirmed with a one-time code sent to your email, or through Google.</p>
+            <div className="divide-y rounded-lg border">
+              <div className="flex items-start gap-3 p-4">
+                <Mail className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Email code</p>
+                  <p className="text-sm text-muted-foreground">A 6-digit code is sent to <span className="font-medium text-foreground">{profile.email}</span>. It expires in 10 minutes and works once.</p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <Label>New Password</Label>
-                  <div className="relative">
-                    <Input
-                      type={showPasswords ? "text" : "password"}
-                      value={passwordForm.newPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                      placeholder="Min 6 characters"
-                      className="pr-10"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full hover:bg-transparent"
-                      onClick={() => setShowPasswords(!showPasswords)}
-                    >
-                      {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Confirm Password</Label>
-                  <div className="relative">
-                    <Input
-                      type={showPasswords ? "text" : "password"}
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                      className="pr-10"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full hover:bg-transparent"
-                      onClick={() => setShowPasswords(!showPasswords)}
-                    >
-                      {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
+              <div className="flex items-start gap-3 p-4">
+                <Shield className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Keep your inbox secure</p>
+                  <p className="text-sm text-muted-foreground">Anyone with access to this email inbox can sign in to your account. Use a strong password and two-step verification on your email provider.</p>
                 </div>
               </div>
-              <div className="flex justify-end"><Button type="submit" disabled={isSavingPassword} className="gap-2">{isSavingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}Update Password</Button></div>
-            </form>
+            </div>
           </CardContent></Card>
         </TabsContent>
 
