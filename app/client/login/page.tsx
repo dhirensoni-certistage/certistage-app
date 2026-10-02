@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, Eye, EyeOff, ArrowRight, Check, MailCheck, UserX } from "lucide-react"
+import { Loader2, Eye, EyeOff, ArrowRight, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -104,10 +104,6 @@ function LoginForm() {
     if (!res.ok) {
       if (data.notFound) {
         setNoAccount(email.trim())
-        toast.error("No account found with this email", {
-          description: "Create a free account to get started.",
-          action: { label: "Sign up", onClick: () => router.push(`/signup?email=${encodeURIComponent(email.trim())}`) }
-        })
         return false
       }
       toast.error(data.error || "Could not send the code. Please try again.")
@@ -268,23 +264,17 @@ function LoginForm() {
                 <div className="space-y-1.5">
                   <Label htmlFor="email" className="text-[13px] font-medium text-[#333]">Email</Label>
                   <Input id="email" name="email" type="email" autoComplete="email" inputMode="email" autoFocus value={email}
-                    onChange={(e) => { setEmail(e.target.value); if (noAccount) setNoAccount(null) }} className={inputClass} placeholder="you@example.com" disabled={isLoading} />
-                </div>
-                <AnimatePresence initial={false}>
+                    onChange={(e) => { setEmail(e.target.value); if (noAccount) setNoAccount(null) }}
+                    className={cn(inputClass, noAccount && "border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/10")}
+                    aria-invalid={!!noAccount} aria-describedby={noAccount ? "email-error" : undefined}
+                    placeholder="you@example.com" disabled={isLoading} />
                   {noAccount && (
-                    <motion.div key="no-account" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}>
-                      <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3">
-                        <UserX className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
-                        <div className="text-[13px] text-neutral-700 leading-snug">
-                          <p>No account found for <span className="font-medium text-black">{noAccount}</span>.</p>
-                          <Link href={`/signup?email=${encodeURIComponent(noAccount)}`} className="inline-flex items-center gap-1 mt-1 font-medium text-black underline underline-offset-4 hover:text-gold-deep">
-                            Create a free account <ArrowRight className="h-3.5 w-3.5" />
-                          </Link>
-                        </div>
-                      </div>
-                    </motion.div>
+                    <p id="email-error" className="text-[13px] text-red-600 pt-0.5">
+                      No account found for this email.{" "}
+                      <Link href={`/signup?email=${encodeURIComponent(noAccount)}`} className="text-black underline underline-offset-4 hover:text-neutral-600">Create a free account</Link>
+                    </p>
                   )}
-                </AnimatePresence>
+                </div>
                 <Button type="submit" className={cn(authPrimaryButtonClass, isLoading && "opacity-70")} disabled={isLoading}>
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Send code <ArrowRight className="h-4 w-4 ml-1.5 transition-transform duration-200 group-hover:translate-x-1" /></>}
                 </Button>
@@ -294,13 +284,10 @@ function LoginForm() {
             {mode === "otp" && codeSent && (
               <motion.div key="otp-code" className="space-y-5"
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
-                <div className="flex items-start gap-3 rounded-lg border border-gold/30 bg-gold-soft px-3.5 py-3">
-                  <MailCheck className="h-4 w-4 text-gold-deep mt-0.5 shrink-0" />
-                  <p className="text-[13px] text-neutral-700 leading-snug">
-                    Code sent to <span className="font-medium text-black">{email.trim()}</span>.{" "}
-                    <button type="button" onClick={() => switchMode("otp")} className="text-gold-deep font-medium underline underline-offset-4">Change</button>
-                  </p>
-                </div>
+                <p className="text-[13px] text-neutral-600 leading-snug">
+                  We sent a code to <span className="font-medium text-black">{email.trim()}</span>.{" "}
+                  <button type="button" onClick={() => switchMode("otp")} className="text-black underline underline-offset-4 hover:text-neutral-600">Change email</button>
+                </p>
 
                 <div className="space-y-2">
                   <Label className="text-[13px] font-medium text-[#333]">Enter the 6-digit code</Label>
