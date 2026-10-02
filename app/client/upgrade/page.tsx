@@ -130,7 +130,7 @@ function UpgradePageContent() {
   }
 
   return (
-    <div className="p-8 md:p-12 max-w-7xl mx-auto animate-in fade-in duration-700">
+    <div className="p-4 md:p-12 max-w-7xl mx-auto animate-in fade-in duration-700">
       {/* Back Link */}
       <Link href="/client/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors mb-8 group">
         <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />

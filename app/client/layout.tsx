@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { ClientSidebar } from "@/components/client/client-sidebar"
+import { MobileTopBar } from "@/components/client/mobile-top-bar"
 import { getClientSession, clearClientSession, getPlanFeaturesMap, normalizePlanId } from "@/lib/auth"
 import { Loader2, LogOut } from "lucide-react"
 import Image from "next/image"
@@ -201,9 +202,12 @@ export default function ClientLayout({
 
   // Full layout with sidebar (when event is selected)
   return (
-    <div className="flex h-screen bg-[#FDFDFD] overflow-hidden">
-      <ClientSidebar />
-      <main className="flex-1 overflow-y-auto overflow-x-hidden border-l border-[#E5E5E5] bg-[#FDFDFD] scrollbar-minimal">
+    <div className="flex h-screen flex-col lg:flex-row bg-[#FDFDFD] overflow-hidden">
+      <MobileTopBar />
+      <div className="hidden lg:flex h-full shrink-0">
+        <ClientSidebar />
+      </div>
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden lg:border-l border-[#E5E5E5] bg-[#FDFDFD] scrollbar-minimal">
         <PageTransition>
           {children}
         </PageTransition>
