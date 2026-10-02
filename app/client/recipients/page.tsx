@@ -930,10 +930,10 @@ export default function RecipientsPage() {
           </div>
 
           {/* Footer with pagination - always at bottom */}
-          <div className="mt-auto flex-shrink-0 bg-background border-t px-4 py-3 flex items-center justify-between">
+          <div className="mt-auto flex-shrink-0 bg-background border-t px-4 py-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4">
-              <div className="text-sm text-muted-foreground">
-                Total: <span className="text-primary font-medium">{filteredRecipients.length}</span>
+              <div className="text-sm text-muted-foreground whitespace-nowrap">
+                {filteredRecipients.length > 0 ? startIndex + 1 : 0}–{Math.min(endIndex, filteredRecipients.length)} of {filteredRecipients.length}
               </div>
               {selectedIds.size > 0 && (
                 <Button
@@ -946,9 +946,9 @@ export default function RecipientsPage() {
                 </Button>
               )}
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Rows</span>
+                <span className="text-sm text-muted-foreground hidden sm:inline">Rows</span>
                 <Select value={String(rowsPerPage)} onValueChange={(v) => setRowsPerPage(Number(v))}>
                   <SelectTrigger className="w-[80px] h-8">
                     <SelectValue />
@@ -961,9 +961,6 @@ export default function RecipientsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <span className="text-sm text-muted-foreground">
-                Showing {filteredRecipients.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredRecipients.length)} of {filteredRecipients.length}
-              </span>
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
