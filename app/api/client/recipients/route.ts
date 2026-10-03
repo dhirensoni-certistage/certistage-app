@@ -5,6 +5,9 @@ import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 import { canUserAddRecipients, verifyEventOwnership, canUserUseFeature } from "@/lib/plan-limits"
 import { requireClientUser } from "@/lib/client-auth.server"
+import { trashRecipients } from "@/lib/trash.server"
+import { logAudit } from "@/lib/audit-logger"
+import mongoose from "mongoose"
 
 // GET - List recipients for a certificate type
 export async function GET(request: NextRequest) {
@@ -176,13 +179,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE - Remove recipient(s)
+// DELETE - Move recipient(s) to Recently deleted (restorable for 30 days)
 export async function DELETE(request: NextRequest) {
   try {
     await connectDB()
-    
+
     const { searchParams } = new URL(request.url)
     const recipientId = searchParams.get("recipientId")
+    const recipientIdsParam = searchParams.get("recipientIds")
     const certificateTypeId = searchParams.get("certificateTypeId")
     const clearAll = searchParams.get("clearAll") === "true"
     const auth = await requireClientUser(request)
@@ -190,40 +194,52 @@ export async function DELETE(request: NextRequest) {
     const userId = auth.userId
 
     if (clearAll && certificateTypeId) {
-      // Clear all recipients from a certificate type
-      const certType = await CertificateType.findById(certificateTypeId).populate("eventId")
+      const certType = await CertificateType.findById(certificateTypeId).lean()
       if (!certType) {
         return NextResponse.json({ error: "Certificate type not found" }, { status: 404 })
       }
-
-      // Verify ownership
-      const event = await Event.findById(certType.eventId)
-      if (!event || event.ownerId.toString() !== userId) {
+      const isOwner = await verifyEventOwnership(certType.eventId.toString(), userId)
+      if (!isOwner) {
         return NextResponse.json({ error: "Access denied" }, { status: 403 })
       }
-
-      const result = await Recipient.deleteMany({ certificateTypeId })
-      return NextResponse.json({ success: true, deletedCount: result.deletedCount })
+      const { batchId, count } = await trashRecipients({ filter: { certificateTypeId }, ownerId: userId, certTypeName: certType.name })
+      await logAudit({ userId, action: "DELETE_RECIPIENTS", resourceId: certificateTypeId, details: { count, batchId, clearAll: true } })
+      return NextResponse.json({ success: true, deletedCount: count, batchId })
     }
 
-    if (recipientId) {
-      // Delete single recipient
-      const recipient = await Recipient.findById(recipientId)
-      if (!recipient) {
-        return NextResponse.json({ error: "Recipient not found" }, { status: 404 })
-      }
-
-      // Verify ownership through event
-      const event = await Event.findById(recipient.eventId)
-      if (!event || event.ownerId.toString() !== userId) {
-        return NextResponse.json({ error: "Access denied" }, { status: 403 })
-      }
-
-      await Recipient.findByIdAndDelete(recipientId)
-      return NextResponse.json({ success: true })
+    const ids = (recipientId ? [recipientId] : (recipientIdsParam || "").split(","))
+      .map((id) => id.trim())
+      .filter((id) => mongoose.isValidObjectId(id))
+    if (ids.length === 0) {
+      return NextResponse.json({ error: "Recipient ID or clearAll flag required" }, { status: 400 })
     }
 
-    return NextResponse.json({ error: "Recipient ID or clearAll flag required" }, { status: 400 })
+    const recipients = await Recipient.find({ _id: { $in: ids } }).select("_id eventId certificateTypeId").lean()
+    if (recipients.length === 0) {
+      return NextResponse.json({ error: "Recipient not found" }, { status: 404 })
+    }
+
+    // Every recipient must belong to an event this organiser owns
+    const eventIds = Array.from(new Set(recipients.map((r) => String(r.eventId))))
+    const ownedEvents = await Event.countDocuments({ _id: { $in: eventIds }, ownerId: userId })
+    if (ownedEvents !== eventIds.length) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    }
+
+    const typeIds = Array.from(new Set(recipients.map((r) => String(r.certificateTypeId))))
+    let certTypeName = ""
+    if (typeIds.length === 1) {
+      const certType = await CertificateType.findById(typeIds[0]).select("name").lean()
+      certTypeName = certType?.name || ""
+    }
+
+    const { batchId, count } = await trashRecipients({
+      filter: { _id: { $in: recipients.map((r) => r._id) } },
+      ownerId: userId,
+      certTypeName
+    })
+    await logAudit({ userId, action: "DELETE_RECIPIENTS", resourceId: batchId, details: { count, batchId } })
+    return NextResponse.json({ success: true, deletedCount: count, batchId })
   } catch (error) {
     console.error("Recipients DELETE error:", error)
     return NextResponse.json({ error: "Failed to delete recipient" }, { status: 500 })

@@ -5,6 +5,7 @@ import Event from "@/models/Event"
 import Payment from "@/models/Payment"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
+import TrashItem from "@/models/TrashItem"
 import { getPlanConfigFromDb } from "@/lib/plan-config.server"
 
 export async function GET(
@@ -160,6 +161,9 @@ export async function DELETE(
 
     // Delete all events
     const deletedEvents = await Event.deleteMany({ ownerId: userId })
+
+    // Nothing of theirs should linger in Recently deleted either
+    await TrashItem.deleteMany({ ownerId: userId })
 
     // Delete all payments
     await Payment.deleteMany({ userId })

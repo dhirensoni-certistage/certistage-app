@@ -38,6 +38,7 @@ import { toast } from "sonner"
 import { getDownloadLink } from "@/lib/events"
 import { useRefreshOnFocus } from "@/hooks/use-refresh-on-focus"
 import { cn } from "@/lib/utils"
+import { toastDeleted } from "@/lib/client-trash"
 
 // Types for API response
 interface EventRecipient {
@@ -267,30 +268,25 @@ export default function RecipientsPage() {
     if (!eventId || !deleteTarget || !userId) return
 
     try {
-      if (deleteTarget.type === 'single' && deleteTarget.recipient) {
-        const res = await fetch(`/api/client/recipients?recipientId=${deleteTarget.recipient.id}&userId=${userId}`, {
-          method: 'DELETE'
-        })
-        if (res.ok) {
-          toast.success(`${deleteTarget.recipient.name} deleted`)
-        } else {
-          toast.error("Failed to delete recipient")
-        }
-      } else if (deleteTarget.type === 'bulk') {
-        const selectedRecipients = paginatedRecipients.filter(r => selectedIds.has(r.id))
-        for (const r of selectedRecipients) {
-          await fetch(`/api/client/recipients?recipientId=${r.id}&userId=${userId}`, {
-            method: 'DELETE'
-          })
-        }
-        toast.success(`${selectedIds.size} recipients deleted`)
+      const single = deleteTarget.type === 'single' && deleteTarget.recipient
+      const ids = single
+        ? [deleteTarget.recipient!.id]
+        : paginatedRecipients.filter(r => selectedIds.has(r.id)).map(r => r.id)
+      if (ids.length === 0) return
+
+      const query = single ? `recipientId=${ids[0]}` : `recipientIds=${ids.join(",")}`
+      const res = await fetch(`/api/client/recipients?${query}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        const label = single ? `${deleteTarget.recipient!.name} deleted` : `${data.deletedCount ?? ids.length} recipients deleted`
+        toastDeleted(label, data.batchId, () => fetchEventData(eventId))
         setSelectedIds(new Set())
+      } else {
+        toast.error(data.error || "Failed to delete")
       }
 
       // Refresh data
-      if (eventId) {
-        fetchEventData(eventId)
-      }
+      fetchEventData(eventId)
     } catch (error) {
       toast.error("Failed to delete")
     }
@@ -1021,8 +1017,8 @@ export default function RecipientsPage() {
             </DialogTitle>
             <DialogDescription>
               {deleteTarget?.type === 'single'
-                ? `Are you sure you want to delete "${deleteTarget.recipient?.name}"? This action cannot be undone.`
-                : `Are you sure you want to delete ${selectedIds.size} selected recipients? This action cannot be undone.`
+                ? `Delete "${deleteTarget.recipient?.name}"? You can restore them from Recently deleted for 30 days.`
+                : `Delete ${selectedIds.size} selected recipients? You can restore them from Recently deleted for 30 days.`
               }
             </DialogDescription>
           </DialogHeader>

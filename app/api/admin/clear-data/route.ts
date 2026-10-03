@@ -5,6 +5,7 @@ import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 import Payment from "@/models/Payment"
+import TrashItem from "@/models/TrashItem"
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,6 +26,7 @@ export async function POST(request: NextRequest) {
       const result = await Recipient.deleteMany({})
       results.recipients = result.deletedCount
       deleted.push(`${result.deletedCount} recipients`)
+      await TrashItem.deleteMany({})
     }
 
     // Certificate Types (depends on Event)
