@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { ArrowRight, ChevronRight } from "lucide-react"
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts"
+import { ArrowRight, ChevronRight, Users, Download, Clock, Award, CalendarDays } from "lucide-react"
+import { BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts"
 import { Button } from "@/components/ui/button"
 import { getClientSession, getPlanFeaturesMap, normalizePlanId } from "@/lib/auth"
 import { fetchClientProfile, applyProfileToSession } from "@/lib/client-profile"
@@ -160,11 +160,16 @@ export default function ClientDashboard() {
   const recentDownloads = downloadsByDay.reduce((sum, d) => sum + d.downloads, 0)
 
   const stats = [
-    { label: "Recipients", value: event.stats.total.toLocaleString("en-IN"), sub: `${event.stats.certificateTypesCount} certificate${event.stats.certificateTypesCount === 1 ? "" : "s"}` },
-    { label: "Downloaded", value: event.stats.downloaded.toLocaleString("en-IN"), sub: `${recentDownloads} in the last 14 days` },
-    { label: "Pending", value: event.stats.pending.toLocaleString("en-IN"), sub: "not downloaded yet" },
-    { label: "Completion", value: `${completionRate}%`, sub: "of recipients downloaded", bar: completionRate }
+    { label: "Recipients", value: event.stats.total.toLocaleString("en-IN"), sub: `${event.stats.certificateTypesCount} certificate${event.stats.certificateTypesCount === 1 ? "" : "s"}`, icon: Users, tile: "bg-sky-50 text-sky-600" },
+    { label: "Downloaded", value: event.stats.downloaded.toLocaleString("en-IN"), sub: `${recentDownloads} in the last 14 days`, icon: Download, tile: "bg-emerald-50 text-emerald-600", spark: true },
+    { label: "Pending", value: event.stats.pending.toLocaleString("en-IN"), sub: "not downloaded yet", icon: Clock, tile: "bg-amber-50 text-amber-600" },
+    { label: "Completion", value: `${completionRate}%`, sub: "of recipients downloaded", icon: Award, tile: "bg-gold-soft text-gold-deep", bar: completionRate }
   ]
+
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"
+  const firstName = (session?.userName || "").trim().split(" ")[0]
+  const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" })
 
   const fade = (delay: number) => ({ initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35, delay } })
 
@@ -190,26 +195,55 @@ export default function ClientDashboard() {
       {/* Header */}
       <motion.div {...fade(0.05)} className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[12px] font-medium text-neutral-500 mb-1">Event</p>
-          <h1 className="text-[26px] md:text-[30px] font-semibold text-neutral-900 tracking-tight leading-tight truncate">{event.name}</h1>
+          <h1 className="text-[26px] md:text-[30px] font-semibold text-neutral-900 tracking-tight leading-tight">
+            {greeting}{firstName ? `, ${firstName}` : ""}
+          </h1>
+          <p className="text-[14px] text-neutral-500 mt-1 truncate">
+            Here is how <span className="font-medium text-neutral-900">{event.name}</span> is doing.
+          </p>
         </div>
-        <Button variant="outline" asChild size="sm" className="h-9 px-3.5 text-[13px] border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 shrink-0 w-fit">
-          <Link href="/client/events" className="flex items-center gap-1.5">Switch event <ChevronRight className="h-3.5 w-3.5 opacity-60" /></Link>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="hidden md:inline-flex items-center gap-2 h-9 px-3.5 rounded-md border border-neutral-200 bg-white text-[13px] text-neutral-700">
+            <CalendarDays className="h-4 w-4 text-neutral-400" /> {today}
+          </span>
+          <Button variant="outline" asChild size="sm" className="h-9 px-3.5 text-[13px] border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 w-fit">
+            <Link href="/client/events" className="flex items-center gap-1.5">Switch event <ChevronRight className="h-3.5 w-3.5 opacity-60" /></Link>
+          </Button>
+        </div>
       </motion.div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s, i) => (
-          <motion.div key={s.label} {...fade(0.1 + i * 0.05)} className="rounded-xl border border-neutral-200 bg-white p-5">
-            <p className="text-[13px] text-neutral-500">{s.label}</p>
-            <p className="text-[28px] font-semibold text-neutral-900 tracking-tight leading-none mt-2">{s.value}</p>
+          <motion.div key={s.label} {...fade(0.1 + i * 0.05)} className="relative overflow-hidden rounded-xl border border-neutral-200 bg-white p-5">
+            <div className="flex items-center gap-3">
+              <span className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", s.tile)}>
+                <s.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              </span>
+              <p className="text-[13px] text-neutral-500">{s.label}</p>
+            </div>
+            <p className="text-[28px] font-semibold text-neutral-900 tracking-tight leading-none mt-4">{s.value}</p>
             {s.bar !== undefined ? (
-              <div className="h-1 w-full bg-neutral-100 rounded-full overflow-hidden mt-3">
+              <div className="h-1.5 w-full bg-neutral-100 rounded-full overflow-hidden mt-3.5">
                 <motion.div initial={{ width: 0 }} animate={{ width: `${s.bar}%` }} transition={{ duration: 0.8, delay: 0.4 }} className="h-full rounded-full" style={{ background: GOLD }} />
               </div>
             ) : (
               <p className="text-[12px] text-neutral-400 mt-3 truncate">{s.sub}</p>
+            )}
+            {s.spark && downloadsByDay.some((d) => d.downloads > 0) && (
+              <div className="hidden md:block absolute right-3 bottom-3 h-10 w-[42%] pointer-events-none">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={downloadsByDay} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
+                        <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Area type="monotone" dataKey="downloads" stroke="#10b981" strokeWidth={1.5} fill="url(#sparkFill)" dot={false} isAnimationActive={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </motion.div>
         ))}
