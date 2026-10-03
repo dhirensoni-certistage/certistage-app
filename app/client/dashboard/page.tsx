@@ -178,7 +178,7 @@ export default function ClientDashboard() {
     { label: "Pending", value: event.stats.pending.toLocaleString("en-IN"), sub: "not downloaded yet", icon: Clock, tile: "bg-amber-50 text-amber-600" },
     { label: "Completion", value: `${completionRate}%`, sub: "of recipients downloaded", icon: Award, tile: "bg-gold-soft text-gold-deep", bar: completionRate },
     // Recipients who opened "Add to LinkedIn profile" (LinkedIn does not report whether they saved it)
-    { label: "To LinkedIn", value: linkedinCount.toLocaleString("en-IN"), sub: event.stats.downloaded > 0 ? `${linkedinRate}% of downloads` : "opened Add to profile", icon: Linkedin, tile: "bg-[#0A66C2]/10 text-[#0A66C2]" }
+    { label: "LinkedIn", value: linkedinCount.toLocaleString("en-IN"), sub: event.stats.downloaded > 0 ? `Clicked by ${linkedinRate}% of people who downloaded` : "No downloads yet", icon: Linkedin, tile: "bg-[#0A66C2]/10 text-[#0A66C2]", wrap: true }
   ]
 
   const hour = new Date().getHours()
@@ -243,7 +243,7 @@ export default function ClientDashboard() {
                 <motion.div initial={{ width: 0 }} animate={{ width: `${s.bar}%` }} transition={{ duration: 0.8, delay: 0.4 }} className="h-full rounded-full" style={{ background: GOLD }} />
               </div>
             ) : (
-              <p className="text-[12px] text-neutral-400 mt-3 truncate">{s.sub}</p>
+              <p className={cn("text-[12px] text-neutral-400 mt-3", s.wrap ? "leading-snug" : "truncate")}>{s.sub}</p>
             )}
             {s.spark && downloadsByDay.some((d) => d.downloads > 0) && (
               <div className="hidden md:block absolute right-3 bottom-3 h-10 w-[42%] pointer-events-none">
@@ -341,7 +341,7 @@ export default function ClientDashboard() {
                 <th className="px-5 py-3 font-medium text-right">Recipients</th>
                 <th className="px-5 py-3 font-medium text-right">Downloaded</th>
                 <th className="px-5 py-3 font-medium text-right">Pending</th>
-                <th className="px-5 py-3 font-medium text-right">To LinkedIn</th>
+                <th className="px-5 py-3 font-medium text-right">LinkedIn clicks</th>
                 <th className="px-5 py-3 font-medium w-[200px]">Completion</th>
               </tr>
             </thead>
