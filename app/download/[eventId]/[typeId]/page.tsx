@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { useTemplateTextScale } from "@/lib/certificate-text"
 
 interface SearchFields {
   name: boolean
@@ -109,6 +110,8 @@ export default function CertTypeDownloadPage() {
 
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
+  // Preview text uses the same scale rule as the PDF (see lib/certificate-text)
+  const { ref: previewImgRef, scale: textScale } = useTemplateTextScale()
 
   useEffect(() => {
     const loadData = async () => {
@@ -407,6 +410,7 @@ export default function CertTypeDownloadPage() {
                   <div className="w-full flex justify-center">
                     <div className="relative inline-block max-w-full border border-neutral-200 bg-white select-none">
                       <img
+                        ref={previewImgRef}
                         src={certType.templateImage}
                         alt={`${certType.name} certificate`}
                         className="block w-auto max-w-full h-auto pointer-events-none"
@@ -418,7 +422,7 @@ export default function CertTypeDownloadPage() {
                         <span
                           className="whitespace-nowrap leading-none select-none"
                           style={{
-                            fontSize: `clamp(8px, ${(certType.fontSize || 24) * 0.04}cqw, ${(certType.fontSize || 24) * 0.7}px)`,
+                            fontSize: `${(certType.fontSize || 24) * textScale}px`,
                             fontFamily: `"${certType.fontFamily || "Arial"}", sans-serif`,
                             fontWeight: certType.fontBold ? "bold" : "normal",
                             fontStyle: certType.fontItalic ? "italic" : "normal",
@@ -436,7 +440,7 @@ export default function CertTypeDownloadPage() {
                             <span
                               className="whitespace-nowrap leading-none select-none"
                               style={{
-                                fontSize: `clamp(6px, ${(field.fontSize || 24) * 0.04}cqw, ${(field.fontSize || 24) * 0.7}px)`,
+                                fontSize: `${(field.fontSize || 24) * textScale}px`,
                                 fontFamily: `"${field.fontFamily || "Arial"}", sans-serif`,
                                 fontWeight: field.fontBold ? "bold" : "normal",
                                 fontStyle: field.fontItalic ? "italic" : "normal",

@@ -44,6 +44,7 @@ import {
 } from "@/lib/events"
 import { motion, AnimatePresence } from "framer-motion"
 import { TextColorPicker } from "@/components/client/text-color-picker"
+import { useTemplateTextScale } from "@/lib/certificate-text"
 import { usePlanConfig } from "@/hooks/use-plan-config"
 import { formatInr, getStartingPaidPlan } from "@/lib/plan-config"
 
@@ -635,28 +636,31 @@ export default function CertificatesPage() {
   // If a certificate type is selected, show the editor
   if (selectedType) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-5">
         {/* Header with Back Button */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={handleBackToList}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">{selectedType.name}</h1>
-            <p className="text-muted-foreground">Configure template and manage download links</p>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={handleBackToList} aria-label="Back to certificates"
+            className="h-9 w-9 rounded-md border border-neutral-200 bg-white flex items-center justify-center text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 shrink-0">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight leading-tight truncate">{selectedType.name}</h1>
+            <p className="text-[13px] text-neutral-500">
+              {selectedType.stats.total.toLocaleString("en-IN")} recipient{selectedType.stats.total === 1 ? "" : "s"} · {selectedType.stats.downloaded.toLocaleString("en-IN")} downloaded
+            </p>
           </div>
         </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="template" className="gap-2">
-              <Image className="h-4 w-4" />
-              Template
+          <TabsList className="h-9 bg-neutral-100 p-1 rounded-lg">
+            <TabsTrigger value="template" className="gap-1.5 h-7 px-3 text-[13px] rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Image className="h-3.5 w-3.5" />
+              Design
             </TabsTrigger>
-            <TabsTrigger value="links" className="gap-2">
-              <LinkIcon className="h-4 w-4" />
-              Download Links
+            <TabsTrigger value="links" className="gap-1.5 h-7 px-3 text-[13px] rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <LinkIcon className="h-3.5 w-3.5" />
+              Download links
             </TabsTrigger>
           </TabsList>
 
@@ -836,7 +840,7 @@ export default function CertificatesPage() {
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h1 className="text-[24px] font-semibold text-neutral-900 tracking-tight leading-none">Certificates</h1>
           <p className="text-[13px] text-neutral-500 mt-1.5">Each certificate has its own design, recipients and download link.</p>
@@ -844,7 +848,7 @@ export default function CertificatesPage() {
         <Button
           onClick={() => setShowAddDialog(true)}
           disabled={maxCertificateTypes !== -1 && event.certificateTypes.length >= maxCertificateTypes}
-          className="h-9 px-4 text-sm bg-black text-white hover:bg-[#222]"
+          className="h-9 px-4 text-sm bg-neutral-900 text-white hover:bg-black shrink-0"
         >
           <Plus className="h-4 w-4 mr-2" />
           New certificate
@@ -909,41 +913,32 @@ export default function CertificatesPage() {
                 transition={{ delay: index * 0.04, duration: 0.2 }}
               >
                 <div
-                  className="group relative flex flex-col bg-white rounded-xl border border-[#E5E5E5] hover:border-[#D4D4D4] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all duration-300 cursor-pointer overflow-hidden h-auto hover:-translate-y-0.5"
+                  className="group relative flex flex-col bg-white rounded-xl border border-neutral-200 hover:border-neutral-400 hover:shadow-[0_6px_20px_-12px_rgba(0,0,0,0.25)] transition-all cursor-pointer overflow-hidden"
                   onClick={() => setSelectedTypeId(certType.id)}
                 >
-                  {/* Thumbnail Section - 16:10 Aspect Ratio */}
-                  <div className="aspect-[16/10] bg-[#F9F9FA] relative border-b border-[#F0F0F0] overflow-hidden group-hover:bg-[#F5F5F7] transition-colors">
+                  {/* Thumbnail */}
+                  <div className="aspect-[16/10] bg-neutral-50 relative border-b border-neutral-100 overflow-hidden">
                     {certType.template ? (
                       <div className="w-full h-full p-4 flex items-center justify-center">
                         <img
                           src={certType.template}
                           alt={certType.name}
-                          className="w-full h-full object-contain shadow-sm group-hover:scale-[1.03] transition-transform duration-500 ease-out"
+                          className="w-full h-full object-contain shadow-sm group-hover:scale-[1.02] transition-transform duration-500 ease-out"
                         />
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center h-full gap-3 text-[#A3A3A3]">
-                        <div className="p-3 bg-white rounded-lg border border-[#EBEBEB] shadow-sm">
-                          <Image className="h-5 w-5 opacity-40" />
-                        </div>
-                        <span className="text-[10px] font-semibold uppercase tracking-wider opacity-50">Empty Template</span>
+                      <div className="flex flex-col items-center justify-center h-full gap-2 text-neutral-400">
+                        <Image className="h-5 w-5" strokeWidth={1.5} />
+                        <span className="text-[12px]">No design yet</span>
                       </div>
                     )}
 
-                    {/* Status Indicator (Top Left) */}
+                    {/* Status */}
                     <div className="absolute top-3 left-3">
-                      {certType.template ? (
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/90 backdrop-blur shadow-sm border border-black/5">
-                          <div className="w-1.5 h-1.5 rounded-full bg-neutral-500"></div>
-                          <span className="text-[9px] font-bold text-[#444] tracking-wide uppercase">Active</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/90 backdrop-blur shadow-sm border border-black/5">
-                          <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
-                          <span className="text-[9px] font-bold text-[#444] tracking-wide uppercase">Draft</span>
-                        </div>
-                      )}
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/95 border border-neutral-200 text-[11px] font-medium text-neutral-700">
+                        <span className={cn("h-1.5 w-1.5 rounded-full", certType.template ? "bg-emerald-500" : "bg-amber-500")} />
+                        {certType.template ? "Live" : "Needs design"}
+                      </span>
                     </div>
 
                     {/* Context Menu (Top Right) */}
@@ -986,39 +981,19 @@ export default function CertificatesPage() {
                     </div>
                   </div>
 
-                  {/* Content Section */}
-                  <div className="p-4 flex flex-col gap-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="text-[14px] font-semibold text-[#0F0F0F] leading-snug group-hover:text-black transition-colors">{certType.name}</h3>
-                        <p className="text-[11px] text-[#666] mt-0.5 line-clamp-1">Created {new Date(certType.createdAt || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
-                      </div>
-                    </div>
-
-                    {/* Stats Grid */}
-                    <div className="flex items-center gap-4 py-2 border-t border-dashed border-[#F0F0F0]">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-medium text-[#888] uppercase tracking-wide">Recipients</span>
-                        <div className="flex items-center gap-1.5">
-                          <Users className="h-3.5 w-3.5 text-[#444]" />
-                          <span className="text-[13px] font-semibold text-[#171717]">{certType.stats.total}</span>
-                        </div>
-                      </div>
-                      <div className="w-px h-6 bg-[#F0F0F0]"></div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-medium text-[#888] uppercase tracking-wide">Downloads</span>
-                        <div className="flex items-center gap-1.5">
-                          <Download className="h-3.5 w-3.5 text-[#444]" />
-                          <span className="text-[13px] font-semibold text-[#171717]">{certType.stats.downloaded}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Hover Action */}
-                    <div className="absolute bottom-4 right-4 translate-x-3 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                      <div className="h-8 px-3 flex items-center gap-2 bg-black text-white text-[11px] font-medium rounded-md shadow-sm">
-                        Manage <ArrowLeft className="h-3 w-3 rotate-180" />
-                      </div>
+                  {/* Body */}
+                  <div className="p-4">
+                    <h3 className="text-[15px] font-semibold text-neutral-900 leading-snug truncate">{certType.name}</h3>
+                    <p className="text-[12px] text-neutral-500 mt-0.5">Created {new Date(certType.createdAt || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                    <div className="flex items-center justify-between mt-4">
+                      <p className="text-[13px] text-neutral-600">
+                        <span className="font-medium text-neutral-900">{certType.stats.total.toLocaleString("en-IN")}</span> recipients
+                        <span className="mx-1.5 text-neutral-300">·</span>
+                        <span className="font-medium text-neutral-900">{certType.stats.downloaded.toLocaleString("en-IN")}</span> downloaded
+                      </p>
+                      <span className="inline-flex items-center gap-1 text-[12px] font-medium text-neutral-500 group-hover:text-neutral-900 transition-colors">
+                        Open <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1034,10 +1009,10 @@ export default function CertificatesPage() {
               >
                 <button
                   onClick={() => setShowAddDialog(true)}
-                  className="group w-full h-full min-h-[290px] rounded-xl border border-dashed border-[#D4D4D4] bg-[#FAFAFA]/50 hover:bg-[#FAFAFA] hover:border-[#999] transition-all duration-300 flex flex-col items-center justify-center gap-4 box-border outline-none focus:ring-2 focus:ring-black/5"
+                  className="group w-full h-full min-h-[260px] rounded-xl border border-dashed border-neutral-300 bg-white hover:border-neutral-500 transition-colors flex flex-col items-center justify-center gap-3 outline-none focus:ring-2 focus:ring-neutral-900/10"
                 >
-                  <div className="h-10 w-10 rounded-full bg-white border border-[#E5E5E5] flex items-center justify-center shadow-sm group-hover:scale-115 transition-transform duration-300 group-hover:border-[#999]">
-                    <Plus className="h-5 w-5 text-[#666] group-hover:text-black transition-colors" />
+                  <div className="h-10 w-10 rounded-full border border-neutral-200 flex items-center justify-center group-hover:border-neutral-500 transition-colors">
+                    <Plus className="h-5 w-5 text-neutral-500 group-hover:text-neutral-900 transition-colors" />
                   </div>
                   <div className="text-center">
                     <span className="block text-[13px] font-semibold text-[#444] group-hover:text-black transition-colors">New certificate</span>
@@ -1130,6 +1105,9 @@ function TemplateEditor({
   onRestoreNameField: () => void
   onSearchFieldsChange: (searchFields: { name: boolean; email: boolean; mobile: boolean; regNo: boolean }) => void
 }) {
+  // Scale stored font sizes (PDF points) to the on-screen image so the canvas matches the PDF
+  const { ref: templateImgRef, scale: textScale } = useTemplateTextScale()
+
   if (!certType.template) {
     return (
       <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-[#E5E5E5] rounded-xl bg-[#FAFAFA] min-h-[400px]">
@@ -1161,8 +1139,9 @@ function TemplateEditor({
       <div className="flex-1 bg-[#F5F5F7] rounded-xl border border-[#E5E5E5] relative overflow-hidden flex flex-col">
         {/* Canvas Toolbar */}
         <div className="h-12 border-b border-[#E5E5E5] bg-white flex items-center justify-between px-4 z-10 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-[#444] uppercase tracking-wider">Editor Canvas</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[13px] font-medium text-neutral-900">Design</span>
+            <span className="hidden sm:inline text-[12px] text-neutral-500 truncate">{showPreview ? "Preview with a sample name" : "Drag a field to move it. Text size matches the PDF."}</span>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="h-8 text-xs font-medium text-[#666]" onClick={onTogglePreview}>
@@ -1188,6 +1167,7 @@ function TemplateEditor({
               }}
             >
               <img
+                ref={templateImgRef}
                 id="certificate-template-image"
                 src={certType.template}
                 alt="Template"
@@ -1235,7 +1215,7 @@ function TemplateEditor({
                         <span
                           className="whitespace-nowrap leading-none select-none text-blue-800 font-bold"
                           style={{
-                            fontSize: `${certType.fontSize || 24}px`,
+                            fontSize: `${(certType.fontSize || 24) * textScale}px`,
                             fontFamily: certType.fontFamily || 'Arial',
                             fontWeight: certType.fontBold ? 'bold' : 'normal',
                             fontStyle: certType.fontItalic ? 'italic' : 'normal',
@@ -1260,7 +1240,7 @@ function TemplateEditor({
                     <span
                       className="text-black whitespace-nowrap leading-none select-none"
                       style={{
-                        fontSize: `${certType.fontSize || 24}px`,
+                        fontSize: `${(certType.fontSize || 24) * textScale}px`,
                         fontFamily: certType.fontFamily || 'Arial',
                         fontWeight: certType.fontBold ? 'bold' : 'normal',
                         fontStyle: certType.fontItalic ? 'italic' : 'normal',
@@ -1307,7 +1287,7 @@ function TemplateEditor({
                           <span
                             className="whitespace-nowrap leading-none select-none text-amber-800 font-bold"
                             style={{
-                              fontSize: `${field.fontSize || 24}px`,
+                              fontSize: `${(field.fontSize || 24) * textScale}px`,
                               fontFamily: field.fontFamily || 'Arial',
                               fontWeight: field.fontBold ? 'bold' : 'normal',
                               fontStyle: field.fontItalic ? 'italic' : 'normal',
@@ -1329,7 +1309,7 @@ function TemplateEditor({
                       <span
                         className="text-black whitespace-nowrap leading-none select-none"
                         style={{
-                          fontSize: `${field.fontSize || 24}px`,
+                          fontSize: `${(field.fontSize || 24) * textScale}px`,
                           fontFamily: field.fontFamily || 'Arial',
                           fontWeight: field.fontBold ? 'bold' : 'normal',
                           fontStyle: field.fontItalic ? 'italic' : 'normal',
@@ -1408,7 +1388,7 @@ function TemplateEditor({
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <Label className="text-[11px] font-medium text-[#444]">Size</Label>
-                            <span className="text-[10px] font-mono text-[#666] bg-[#F5F5F7] px-1.5 py-0.5 rounded">{selectedField.fontSize || 24}px</span>
+                            <span className="text-[10px] font-mono text-[#666] bg-[#F5F5F7] px-1.5 py-0.5 rounded">{selectedField.fontSize || 24}pt</span>
                           </div>
                           <Slider
                             value={[selectedField.fontSize || 24]}

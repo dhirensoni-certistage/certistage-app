@@ -24,7 +24,7 @@ import {
 import { getClientSession, getTrialStatus, getCurrentPlanFeatures } from "@/lib/auth"
 import {
   Users, FileSpreadsheet, Search, Trash2, Download, Plus, Lock,
-  UserPlus, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Pencil, MoreHorizontal, Award
+  UserPlus, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Pencil, MoreHorizontal, Award, Eye
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -37,6 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { getDownloadLink } from "@/lib/events"
 import { useRefreshOnFocus } from "@/hooks/use-refresh-on-focus"
+import { cn } from "@/lib/utils"
 
 // Types for API response
 interface EventRecipient {
@@ -671,14 +672,46 @@ export default function RecipientsPage() {
   // Show skeleton table while loading, not full page loading
   const showTableSkeleton = isLoading || !event
 
+  const allRecipientsCount = event ? event.certificateTypes.reduce((n, ct) => n + ct.recipients.length, 0) : 0
+  const downloadedCount = event ? event.certificateTypes.reduce((n, ct) => n + ct.recipients.filter((r) => r.downloadCount > 0).length, 0) : 0
+
   return (
     <div className="p-4 md:p-6 flex flex-col h-full overflow-hidden bg-[#FDFDFD]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 flex-shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5 flex-shrink-0">
         <div>
           <h1 className="text-[24px] font-semibold text-neutral-900 tracking-tight leading-none">Recipients</h1>
-          <p className="text-[13px] text-neutral-500 mt-1.5">Everyone who can download a certificate for this event.</p>
+          <p className="text-[13px] text-neutral-500 mt-1.5">
+            {event ? <><span className="font-medium text-neutral-900">{allRecipientsCount.toLocaleString("en-IN")}</span> recipients · <span className="font-medium text-neutral-900">{downloadedCount.toLocaleString("en-IN")}</span> downloaded</> : "Everyone who can download a certificate for this event."}
+          </p>
         </div>
+        {event && event.certificateTypes.length > 0 && (
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 px-3 text-[13px] border-neutral-200 bg-white hover:bg-neutral-50">
+                  <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" /> Import <ChevronDown className="h-3.5 w-3.5 ml-1.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={downloadSampleExcel}><Download className="h-4 w-4 mr-2" /> Download sample Excel</DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (!canImportData) { toast.error("Excel import is not available on your plan. Please upgrade."); return }
+                    if (selectedTypeId === "all") { toast.error("Choose a certificate in the filter first, then import."); return }
+                    fileInputRef.current?.click()
+                  }}
+                  className={!canImportData ? "opacity-50" : ""}
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" /> Import Excel {!canImportData && <Lock className="h-3 w-3 ml-1 inline" />}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button size="sm" onClick={openAddDialog} disabled={showTableSkeleton} className="h-9 px-3.5 text-[13px] bg-neutral-900 text-white hover:bg-black">
+              <UserPlus className="h-3.5 w-3.5 mr-1.5" /> Add recipient
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Recipients Table with Filters */}
@@ -694,17 +727,17 @@ export default function RecipientsPage() {
           </Button>
         </div>
       ) : (
-        <div className="rounded-md border border-[#E5E5E5] bg-white overflow-hidden flex flex-col flex-1 min-h-0 shadow-sm">
+        <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden flex flex-col flex-1 min-h-0">
           {/* Filters in table header */}
-          <div className="bg-[#FAFAFA] border-b border-[#E5E5E5] px-4 py-3 flex-shrink-0">
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="bg-white border-b border-neutral-200 px-4 py-3 flex-shrink-0">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2.5">
               {/* Certificate Type Filter */}
               <Select value={selectedTypeId} onValueChange={setSelectedTypeId} disabled={showTableSkeleton}>
-                <SelectTrigger className="w-[180px] h-8 text-xs border-[#E5E5E5] bg-white rounded-sm">
-                  <SelectValue placeholder="All Certificate" />
+                <SelectTrigger className="w-full sm:w-[190px] h-9 text-[13px] border-neutral-200 bg-white rounded-md">
+                  <SelectValue placeholder="All certificates" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Certificate</SelectItem>
+                  <SelectItem value="all">All certificates</SelectItem>
                   {event?.certificateTypes.map((type) => (
                     <SelectItem key={type.id} value={type.id}>
                       {type.name} ({type.recipients.length})
@@ -715,30 +748,30 @@ export default function RecipientsPage() {
 
               {/* Status Filter */}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[130px] h-8 text-xs border-[#E5E5E5] bg-white rounded-sm">
-                  <SelectValue placeholder="All Status" />
+                <SelectTrigger className="w-full sm:w-[140px] h-9 text-[13px] border-neutral-200 bg-white rounded-md">
+                  <SelectValue placeholder="Any status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="all">Any status</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="downloaded">Downloaded</SelectItem>
                 </SelectContent>
               </Select>
 
               {/* Search */}
-              <div className="flex-1 min-w-[200px]">
+              <div className="col-span-2 sm:col-span-1 flex-1 min-w-[200px]">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#999]" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
                   <Input
-                    placeholder="Search by name, email, mobile, reg no..."
+                    placeholder="Search name, email, mobile or reg. no."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 h-8 text-xs border-[#E5E5E5] bg-white rounded-sm placeholder:text-[#BBB]"
+                    className="pl-9 h-9 text-[13px] border-neutral-200 bg-white rounded-md placeholder:text-neutral-400"
                   />
                 </div>
               </div>
 
-              {/* Import Dropdown */}
+              {/* Hidden file input for Excel import */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -746,73 +779,30 @@ export default function RecipientsPage() {
                 className="hidden"
                 onChange={handleExcelUpload}
               />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-[#E5E5E5] rounded-sm">
-                    <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
-                    Import
-                    <ChevronDown className="h-3.5 w-3.5 ml-1.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={downloadSampleExcel}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Sample Excel
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      if (!canImportData) {
-                        toast.error("Data import is not available in your plan. Please upgrade.")
-                        return
-                      }
-                      if (selectedTypeId === "all") {
-                        toast.error("Please select a certificate type first")
-                        return
-                      }
-                      fileInputRef.current?.click()
-                    }}
-                    className={!canImportData ? "opacity-50" : ""}
-                  >
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Import Excel {!canImportData && <Lock className="h-3 w-3 ml-1 inline" />}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Add Recipient Button */}
-              <Button
-                size="sm"
-                onClick={openAddDialog}
-                disabled={showTableSkeleton || !event || event.certificateTypes.length === 0}
-                className="h-8 px-3 text-xs bg-black text-white hover:bg-[#222] rounded-sm"
-              >
-                <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-                Add Recipient
-              </Button>
             </div>
           </div>
 
           {/* Table with sticky header */}
           <div className="flex-1 overflow-auto min-h-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <table className="w-full min-w-[960px] text-xs table-fixed">
-              <thead className="sticky top-0 bg-[#FAFAFA] z-10 border-b border-[#E5E5E5]">
+            <table className="w-full min-w-[960px] text-[12.5px] table-fixed">
+              <thead className="sticky top-0 bg-neutral-50 z-10 border-b border-neutral-200">
                 <tr>
-                  <th className="text-center px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[40px]">
+                  <th className="text-center px-3 py-2.5 font-medium text-neutral-500 text-[11px] uppercase tracking-wider w-[40px]">
                     <Checkbox
                       checked={paginatedRecipients.length > 0 && selectedIds.size === paginatedRecipients.length}
                       onCheckedChange={toggleSelectAll}
                     />
                   </th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[40px]">#</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[140px]">Name</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[180px]">Email</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[120px]">Mobile</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[150px]">Reg No</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[120px]">Certificate</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[70px]">Preview</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[90px]">Status</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[70px]">Downloads</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-[#666] text-[11px] uppercase tracking-wider w-[50px]"></th>
+                  <th className="text-left px-3 py-2.5 font-medium text-neutral-500 text-[11px] uppercase tracking-wider w-[40px]">#</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-neutral-500 text-[11px] uppercase tracking-wider w-[140px]">Name</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-neutral-500 text-[11px] uppercase tracking-wider w-[180px]">Email</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-neutral-500 text-[11px] uppercase tracking-wider w-[120px]">Mobile</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-neutral-500 text-[11px] uppercase tracking-wider w-[150px]">Reg No</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-neutral-500 text-[11px] uppercase tracking-wider w-[120px]">Certificate</th>
+                  <th className="text-center px-3 py-2.5 font-medium text-neutral-500 text-[11px] uppercase tracking-wider w-[70px]">Preview</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-neutral-500 text-[11px] uppercase tracking-wider w-[90px]">Status</th>
+                  <th className="text-center px-3 py-2.5 font-medium text-neutral-500 text-[11px] uppercase tracking-wider w-[70px]">Downloads</th>
+                  <th className="text-center px-3 py-2.5 font-medium text-neutral-500 text-[11px] uppercase tracking-wider w-[50px]"></th>
                 </tr>
               </thead>
               <tbody className="bg-white">
@@ -836,41 +826,31 @@ export default function RecipientsPage() {
                 ) : filteredRecipients.length === 0 ? (
                   <tr>
                     <td colSpan={11} className="p-12 text-center">
-                      <Users className="h-10 w-10 text-[#CCC] mx-auto mb-2" />
-                      <p className="font-medium text-sm text-black">No Recipients Found</p>
-                      <p className="text-xs text-[#666] mt-1">
+                      <p className="font-medium text-[14px] text-neutral-900">{searchQuery || statusFilter !== "all" ? "No recipients match these filters" : "No recipients yet"}</p>
+                      <p className="text-[13px] text-neutral-500 mt-1">
                         {searchQuery || statusFilter !== "all"
-                          ? "Try adjusting your filters"
-                          : "Add recipients to get started"}
+                          ? "Try a different search or clear the filters."
+                          : "Import an Excel file or add recipients one by one."}
                       </p>
                     </td>
                   </tr>
                 ) : (
                   paginatedRecipients.map((r, i) => (
-                    <tr key={r.id} className={`border-b border-[#F0F0F0] hover:bg-[#FAFAFA] transition-colors ${selectedIds.has(r.id) ? 'bg-[#F5F5F5]' : ''}`}>
+                    <tr key={r.id} className={`border-b border-neutral-100 hover:bg-neutral-50/70 transition-colors ${selectedIds.has(r.id) ? 'bg-neutral-50' : ''}`}>
                       <td className="px-3 py-3 text-center">
                         <Checkbox
                           checked={selectedIds.has(r.id)}
                           onCheckedChange={() => toggleSelect(r.id)}
                         />
                       </td>
-                      <td className="px-3 py-3 text-[#999] font-mono">{startIndex + i + 1}</td>
-                      <td className="px-3 py-3 font-medium text-black truncate" title={r.name}>{r.name}</td>
-                      <td className="px-3 py-3 text-[#666] truncate" title={r.email}>{r.email || "-"}</td>
-                      <td className="px-3 py-3 text-[#666] truncate">{r.mobile || "-"}</td>
+                      <td className="px-3 py-3 text-neutral-400 tabular-nums">{startIndex + i + 1}</td>
+                      <td className="px-3 py-3 font-medium text-neutral-900 text-[13px] truncate" title={r.name}>{r.name}</td>
+                      <td className="px-3 py-3 text-neutral-600 truncate" title={r.email}>{r.email || <span className="text-neutral-300">—</span>}</td>
+                      <td className="px-3 py-3 text-neutral-600 truncate tabular-nums">{r.mobile || <span className="text-neutral-300">—</span>}</td>
                       <td className="px-3 py-3">
-                        <code
-                          className="text-[11px] bg-[#F5F5F5] border border-[#E5E5E5] px-2 py-0.5 rounded-sm font-mono text-[#666] truncate inline-block max-w-[140px] whitespace-nowrap"
-                          title={r.certificateId}
-                        >
-                          {r.certificateId}
-                        </code>
+                        <span className="font-mono text-[11.5px] text-neutral-600 truncate inline-block max-w-[140px] whitespace-nowrap" title={r.certificateId}>{r.certificateId}</span>
                       </td>
-                      <td className="px-3 py-3">
-                        <Badge variant="outline" className="text-[10px] font-medium border-[#E5E5E5] text-[#666]">
-                          {r.certTypeName}
-                        </Badge>
-                      </td>
+                      <td className="px-3 py-3 text-neutral-600 truncate" title={r.certTypeName}>{r.certTypeName}</td>
                       <td className="px-3 py-3 text-center">
                         <Button
                           variant="ghost"
@@ -880,18 +860,19 @@ export default function RecipientsPage() {
                           disabled={!eventId}
                           title="View certificate preview"
                         >
-                          <Award className="h-4 w-4 text-[#666]" />
+                          <Eye className="h-4 w-4 text-neutral-500" />
                         </Button>
                       </td>
                       <td className="px-3 py-3">
-                        <Badge
-                          variant={r.status === "downloaded" ? "default" : "outline"}
-                          className={r.status === "downloaded" ? "bg-black text-white text-[10px]" : "text-[10px] border-[#E5E5E5] text-[#888]"}
-                        >
+                        <span className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium border",
+                          r.status === "downloaded" ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-neutral-50 text-neutral-600 border-neutral-200"
+                        )}>
+                          <span className={cn("h-1.5 w-1.5 rounded-full", r.status === "downloaded" ? "bg-emerald-500" : "bg-neutral-400")} />
                           {r.status === "downloaded" ? "Downloaded" : "Pending"}
-                        </Badge>
+                        </span>
                       </td>
-                      <td className="px-3 py-3 text-center font-mono text-[#666]">{r.downloadCount}</td>
+                      <td className="px-3 py-3 text-center tabular-nums text-neutral-600">{r.downloadCount}</td>
                       <td className="px-3 py-3 text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -922,7 +903,7 @@ export default function RecipientsPage() {
           </div>
 
           {/* Footer with pagination - always at bottom */}
-          <div className="mt-auto flex-shrink-0 bg-background border-t px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="mt-auto flex-shrink-0 bg-white border-t border-neutral-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4">
               <div className="text-sm text-muted-foreground whitespace-nowrap">
                 {filteredRecipients.length > 0 ? startIndex + 1 : 0}–{Math.min(endIndex, filteredRecipients.length)} of {filteredRecipients.length}
