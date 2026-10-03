@@ -42,32 +42,6 @@ export async function trashRecipients(opts: {
   return { batchId, count: docs.length }
 }
 
-/** Move a certificate type and all of its recipients to the trash. */
-export async function trashCertificateType(certType: any, ownerId: string): Promise<{ batchId: string; recipients: number }> {
-  const batchId = newBatchId()
-  const { count } = await trashRecipients({
-    filter: { certificateTypeId: certType._id },
-    ownerId,
-    batchId,
-    certTypeName: certType.name
-  })
-  const now = new Date()
-  await TrashItem.create({
-    ownerId,
-    eventId: certType.eventId,
-    kind: "certificateType",
-    batchId,
-    originalId: certType._id,
-    doc: certType,
-    label: certType.name,
-    context: `${count} recipient${count === 1 ? "" : "s"}`,
-    deletedAt: now,
-    expiresAt: expiry(now)
-  })
-  await CertificateType.deleteOne({ _id: certType._id })
-  return { batchId, recipients: count }
-}
-
 export interface TrashBatch {
   batchId: string
   kind: "recipient" | "certificateType"

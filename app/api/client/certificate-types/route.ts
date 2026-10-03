@@ -5,8 +5,6 @@ import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 import { canUserCreateCertificateType, verifyEventOwnership } from "@/lib/plan-limits"
 import { requireClientUser } from "@/lib/client-auth.server"
-import { trashCertificateType } from "@/lib/trash.server"
-import { logAudit } from "@/lib/audit-logger"
 
 function generateShortCode(length = 6): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
@@ -304,44 +302,13 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - Delete certificate type
+// DELETE - Not offered. Certificate types count towards the plan limit and are
+// never removed from the client portal; the limit cannot be reused by deleting.
 export async function DELETE(request: NextRequest) {
-  try {
-    await connectDB()
-
-    const { searchParams } = new URL(request.url)
-    const typeId = searchParams.get("typeId")
-    const auth = await requireClientUser(request)
-    if (auth.response) return auth.response
-    const userId = auth.userId
-
-    if (!typeId) {
-      return NextResponse.json({ error: "Type ID required" }, { status: 400 })
-    }
-
-    // Get certificate type and verify ownership
-    const certType = await CertificateType.findById(typeId)
-    if (!certType) {
-      return NextResponse.json({ error: "Certificate type not found" }, { status: 404 })
-    }
-
-    const event = await Event.findById(certType.eventId)
-    if (!event || event.ownerId.toString() !== userId) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
-    }
-
-    // Both "soft" and "permanent" deletes go to Recently deleted; the organiser can restore for 30 days
-    const { batchId, recipients } = await trashCertificateType(certType.toObject(), userId)
-    await logAudit({ userId, action: "DELETE_CERTIFICATE_TYPE", resourceId: typeId, details: { name: certType.name, recipients, batchId } })
-
-    return NextResponse.json({
-      success: true,
-      batchId,
-      recipientsDeleted: recipients,
-      message: "Certificate type moved to Recently deleted"
-    })
-  } catch (error) {
-    console.error("Certificate types DELETE error:", error)
-    return NextResponse.json({ error: "Failed to delete certificate type" }, { status: 500 })
-  }
+  const auth = await requireClientUser(request)
+  if (auth.response) return auth.response
+  return NextResponse.json(
+    { error: "Certificates cannot be deleted. Write to support if you need a certificate removed." },
+    { status: 403 }
+  )
 }

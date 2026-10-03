@@ -102,7 +102,7 @@ export default function TrashPage() {
       <div className="mb-6">
         <h1 className="text-[22px] md:text-[26px] font-semibold text-neutral-900 tracking-tight">Recently deleted</h1>
         <p className="text-[13px] text-neutral-500 mt-1.5">
-          Deleted recipients and certificates stay here for {retentionDays} days, then they are removed for good.
+          Deleted recipients stay here for {retentionDays} days, then they are removed for good.
         </p>
       </div>
 
@@ -116,7 +116,7 @@ export default function TrashPage() {
             <ArchiveRestore className="h-5 w-5 text-neutral-500" />
           </div>
           <p className="text-[14px] font-medium text-neutral-900">Nothing deleted recently</p>
-          <p className="text-[13px] text-neutral-500 mt-1">Anything you delete from Recipients or Certificates will show up here.</p>
+          <p className="text-[13px] text-neutral-500 mt-1">Recipients you delete will show up here.</p>
         </div>
       ) : (
         <div className="rounded-xl border border-neutral-200 bg-white divide-y divide-neutral-100">

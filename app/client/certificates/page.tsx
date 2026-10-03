@@ -19,21 +19,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { getClientSession, getCurrentPlanFeatures, getTrialStatus } from "@/lib/auth"
@@ -45,7 +34,6 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 import { TextColorPicker } from "@/components/client/text-color-picker"
 import { useTemplateTextScale } from "@/lib/certificate-text"
-import { toastDeleted } from "@/lib/client-trash"
 import { usePlanConfig } from "@/hooks/use-plan-config"
 import { formatInr, getStartingPaidPlan } from "@/lib/plan-config"
 
@@ -81,7 +69,6 @@ export default function CertificatesPage() {
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [newTypeName, setNewTypeName] = useState("")
-  const [deleteType, setDeleteType] = useState<CertificateType | null>(null)
   const [activeTab, setActiveTab] = useState("template")
   const [isUserLogin, setIsUserLogin] = useState(false)
   const [isTrialExpired, setIsTrialExpired] = useState(false)
@@ -360,37 +347,6 @@ export default function CertificatesPage() {
       }
     } catch (error) {
       toast.error("Failed to create certificate type")
-    }
-  }
-
-  const handleDeleteType = async () => {
-    if (!eventId || !deleteType) return
-
-    const session = getClientSession()
-    if (!session?.userId) {
-      toast.error("Session expired")
-      return
-    }
-
-    try {
-      const res = await fetch(`/api/client/certificate-types?typeId=${deleteType.id}`, {
-        method: 'DELETE'
-      })
-
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setDeleteType(null)
-        if (selectedTypeId === deleteType.id) {
-          setSelectedTypeId(null)
-        }
-        fetchEventData(eventId)
-        toastDeleted(`"${deleteType.name}" deleted`, data.batchId, () => fetchEventData(eventId))
-      } else {
-        const data = await res.json()
-        toast.error(data.error || "Failed to delete")
-      }
-    } catch (error) {
-      toast.error("Failed to delete certificate type")
     }
   }
 
@@ -817,23 +773,6 @@ export default function CertificatesPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Delete Dialog */}
-        <AlertDialog open={!!deleteType} onOpenChange={(open) => !open && setDeleteType(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Certificate Type?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This deletes "{deleteType?.name}" and its {deleteType?.stats.total || 0} recipients. Download links stop working right away. You can restore everything from Recently deleted for 30 days.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteType} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     )
   }
@@ -973,11 +912,6 @@ export default function CertificatesPage() {
                             <ExternalLink className="h-3.5 w-3.5 mr-2" />
                             Preview Page
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={(e) => { e.stopPropagation(); setDeleteType(certType) }}>
-                            <Trash2 className="h-3.5 w-3.5 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -1052,23 +986,6 @@ export default function CertificatesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Dialog */}
-      <AlertDialog open={!!deleteType} onOpenChange={(open) => !open && setDeleteType(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Certificate Type?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This deletes "{deleteType?.name}" and its {deleteType?.stats.total || 0} recipients. Download links stop working right away. You can restore everything from Recently deleted for 30 days.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteType} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
