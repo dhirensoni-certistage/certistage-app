@@ -10,6 +10,15 @@ export interface IUser extends Document {
   pendingPlan?: string | null
   planStartDate?: Date
   planExpiresAt?: Date
+  /**
+   * Certificates issued in the current plan period. `key` identifies the
+   * period (plan + expiry); when it changes the counter starts again. Deleting
+   * recipients never lowers it: issued certificates are consumed quota.
+   */
+  usage?: {
+    key: string
+    certificatesIssued: number
+  }
   isActive: boolean
   isEmailVerified: boolean
   createdAt: Date
@@ -30,6 +39,10 @@ const UserSchema = new Schema<IUser>(
     },
     planStartDate: { type: Date },
     planExpiresAt: { type: Date },
+    usage: {
+      key: { type: String },
+      certificatesIssued: { type: Number, default: 0 }
+    },
     isActive: { type: Boolean, default: true },
     isEmailVerified: { type: Boolean, default: false }
   },

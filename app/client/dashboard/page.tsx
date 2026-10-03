@@ -44,6 +44,7 @@ interface DashboardEvent {
 
 export default function ClientDashboard() {
   const [event, setEvent] = useState<DashboardEvent | null>(null)
+  const [issued, setIssued] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [session, setSession] = useState<ReturnType<typeof getClientSession>>(null)
   const [showUpgradeBanner, setShowUpgradeBanner] = useState(false)
@@ -52,10 +53,17 @@ export default function ClientDashboard() {
 
   const fetchEventData = async (eventId: string) => {
     try {
-      const res = await fetch(`/api/client/dashboard?eventId=${eventId}`)
+      const [res, usageRes] = await Promise.all([
+        fetch(`/api/client/dashboard?eventId=${eventId}`),
+        fetch("/api/client/usage")
+      ])
       if (res.ok) {
         const data = await res.json()
         setEvent(data.event)
+      }
+      if (usageRes.ok) {
+        const usage = await usageRes.json()
+        if (typeof usage.usage?.certificates === "number") setIssued(usage.usage.certificates)
       }
     } catch (error) { }
     setIsLoading(false)
@@ -126,7 +134,7 @@ export default function ClientDashboard() {
   const planFeatures = planFeaturesMap[planId]
   const hasCertificateLimit = planFeatures.maxCertificates > 0
   const certLimit = planFeatures.maxCertificates
-  const certUsed = event.stats.total
+  const certUsed = issued ?? event.stats.total
   const usagePercent = hasCertificateLimit ? Math.min(100, Math.round((certUsed / certLimit) * 100)) : 0
   const completionRate = event.stats.total > 0 ? Math.round((event.stats.downloaded / event.stats.total) * 100) : 0
 
@@ -254,7 +262,7 @@ export default function ClientDashboard() {
         <motion.div {...fade(0.3)} className="rounded-xl border border-neutral-200 bg-white px-5 py-4">
           <div className="flex items-center justify-between gap-4 text-[13px]">
             <p className="text-neutral-600">
-              <span className="font-medium text-neutral-900">{certUsed.toLocaleString("en-IN")}</span> of {certLimit.toLocaleString("en-IN")} certificates used on the {planFeatures.displayName} plan
+              <span className="font-medium text-neutral-900">{certUsed.toLocaleString("en-IN")}</span> of {certLimit.toLocaleString("en-IN")} certificates issued on the {planFeatures.displayName} plan
             </p>
             {(usagePercent >= 80 || planId === "free") && (
               <Link href="/client/upgrade" className="font-medium text-neutral-900 underline underline-offset-4 hover:text-gold-deep whitespace-nowrap">Upgrade</Link>

@@ -151,6 +151,46 @@ export async function canUserCreateCertificateType(userId: string, eventId: stri
   return { allowed: true, currentCount, maxAllowed: limits.maxCertificateTypes }
 }
 
+/**
+ * Certificates issued are consumed quota: the count only goes up when
+ * recipients are added and does not come down when they are deleted.
+ * The counter belongs to a plan period, identified by plan + expiry, so a
+ * renewal or a plan change starts a fresh count. Free has no expiry, so its
+ * count is for the life of the account.
+ */
+export function usagePeriodKey(user: { plan?: string; planExpiresAt?: Date | null }): string {
+  const plan = user.plan || "free"
+  const expires = user.planExpiresAt ? new Date(user.planExpiresAt).toISOString() : "lifetime"
+  return `${plan}:${expires}`
+}
+
+async function countCurrentRecipients(userId: string): Promise<number> {
+  const userEvents = await Event.find({ ownerId: userId }).select("_id")
+  return Recipient.countDocuments({ eventId: { $in: userEvents.map((e) => e._id) } })
+}
+
+/** Certificates issued in the user's current plan period, initialising the counter when needed. */
+export async function getIssuedCertificates(user: any): Promise<number> {
+  const key = usagePeriodKey(user)
+  if (user.usage?.key === key) return user.usage.certificatesIssued || 0
+
+  // First time for this account: start from what exists today so nobody
+  // loses quota in the migration. A new period after that starts at zero.
+  const issued = user.usage?.key ? 0 : await countCurrentRecipients(String(user._id))
+  await User.updateOne({ _id: user._id }, { $set: { usage: { key, certificatesIssued: issued } } })
+  user.usage = { key, certificatesIssued: issued }
+  return issued
+}
+
+/** Record newly issued certificates against the user's current plan period. */
+export async function recordCertificatesIssued(userId: string, count: number): Promise<void> {
+  if (count <= 0) return
+  const user = await User.findById(userId)
+  if (!user) return
+  await getIssuedCertificates(user)
+  await User.updateOne({ _id: user._id, "usage.key": usagePeriodKey(user) }, { $inc: { "usage.certificatesIssued": count } })
+}
+
 // Check if user can add more recipients/certificates
 export async function canUserAddRecipients(userId: string, countToAdd: number = 1): Promise<{
   allowed: boolean
@@ -165,27 +205,27 @@ export async function canUserAddRecipients(userId: string, countToAdd: number = 
   }
 
   const limits = await getPlanLimits(user.plan)
-  
-  // Count recipients across all user's events
-  const userEvents = await Event.find({ ownerId: userId }).select("_id")
-  const eventIds = userEvents.map(e => e._id)
-  const currentCount = await Recipient.countDocuments({ eventId: { $in: eventIds } })
-  
+  const currentCount = await getIssuedCertificates(user)
+
+  if (limits.maxCertificates === -1) {
+    return { allowed: true, currentCount, maxAllowed: -1, availableSlots: -1 }
+  }
+
   const availableSlots = limits.maxCertificates - currentCount
-  
+
   if (currentCount + countToAdd > limits.maxCertificates) {
     return {
       allowed: false,
       currentCount,
       maxAllowed: limits.maxCertificates,
       availableSlots: Math.max(0, availableSlots),
-      reason: `Certificate limit reached (${currentCount}/${limits.maxCertificates}). Upgrade for more.`
+      reason: `Certificate limit reached (${currentCount}/${limits.maxCertificates} issued on your plan). Upgrade for more.`
     }
   }
 
-  return { 
-    allowed: true, 
-    currentCount, 
+  return {
+    allowed: true,
+    currentCount,
     maxAllowed: limits.maxCertificates,
     availableSlots
   }
@@ -194,11 +234,13 @@ export async function canUserAddRecipients(userId: string, countToAdd: number = 
 // Get user's current usage stats
 export async function getUserUsageStats(userId: string): Promise<{
   plan: string
+  planExpiresAt: string | null
   limits: PlanLimits
   usage: {
     events: number
     certificateTypes: number
     certificates: number
+    recipients: number
   }
   remaining: {
     events: number
@@ -212,28 +254,34 @@ export async function getUserUsageStats(userId: string): Promise<{
   }
 
   const limits = await getPlanLimits(user.plan)
-  
+
   // Get all user's events
   const userEvents = await Event.find({ ownerId: userId }).select("_id")
   const eventIds = userEvents.map(e => e._id)
-  
+
   // Count usage
   const eventsCount = userEvents.length
-  const certTypesCount = await CertificateType.countDocuments({ eventId: { $in: eventIds } })
-  const recipientsCount = await Recipient.countDocuments({ eventId: { $in: eventIds } })
+  const [certTypesCount, recipientsCount, issued] = await Promise.all([
+    CertificateType.countDocuments({ eventId: { $in: eventIds } }),
+    Recipient.countDocuments({ eventId: { $in: eventIds } }),
+    getIssuedCertificates(user)
+  ])
+  const remainingFor = (limit: number, used: number) => (limit === -1 ? -1 : Math.max(0, limit - used))
 
   return {
     plan: user.plan,
+    planExpiresAt: user.planExpiresAt ? new Date(user.planExpiresAt).toISOString() : null,
     limits,
     usage: {
       events: eventsCount,
       certificateTypes: certTypesCount,
-      certificates: recipientsCount
+      certificates: issued,
+      recipients: recipientsCount
     },
     remaining: {
-      events: Math.max(0, limits.maxEvents - eventsCount),
-      certificateTypes: Math.max(0, limits.maxCertificateTypes - certTypesCount),
-      certificates: Math.max(0, limits.maxCertificates - recipientsCount)
+      events: remainingFor(limits.maxEvents, eventsCount),
+      certificateTypes: remainingFor(limits.maxCertificateTypes, certTypesCount),
+      certificates: remainingFor(limits.maxCertificates, issued)
     }
   }
 }

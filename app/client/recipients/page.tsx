@@ -99,6 +99,18 @@ export default function RecipientsPage() {
   const [isTrialExpired, setIsTrialExpired] = useState(false)
   const [canImportData, setCanImportData] = useState(true)
   const [maxCertificates, setMaxCertificates] = useState<number>(-1) // -1 = unlimited
+  // Certificates issued in this plan period (server count; deletes do not reduce it)
+  const [issuedCount, setIssuedCount] = useState<number | null>(null)
+  const fetchUsage = async () => {
+    try {
+      const res = await fetch("/api/client/usage")
+      if (res.ok) {
+        const data = await res.json()
+        if (typeof data.usage?.certificates === "number") setIssuedCount(data.usage.certificates)
+        if (typeof data.limits?.maxCertificates === "number") setMaxCertificates(data.limits.maxCertificates)
+      }
+    } catch { }
+  }
 
   // Form fields
   const [formPrefix, setFormPrefix] = useState("")
@@ -110,6 +122,7 @@ export default function RecipientsPage() {
 
   // Fetch event data from API
   const fetchEventData = async (evtId: string) => {
+    fetchUsage()
     try {
       const res = await fetch(`/api/client/dashboard?eventId=${evtId}`)
       if (res.ok) {
@@ -390,7 +403,9 @@ export default function RecipientsPage() {
   }
 
   // Get total recipients count across all certificate types
+  // Issued count from the server when we have it; this event's recipients as a fallback
   const getTotalRecipientsCount = () => {
+    if (issuedCount !== null) return issuedCount
     if (!event) return 0
     return event.certificateTypes.reduce((sum, ct) => sum + ct.recipients.length, 0)
   }
@@ -415,7 +430,7 @@ export default function RecipientsPage() {
     if (maxCertificates !== -1 && currentTotal >= maxCertificates) {
       const planFeatures = getCurrentPlanFeatures()
       toast.error(`Certificate limit reached (${maxCertificates})`, {
-        description: `Your ${planFeatures.displayName} plan allows ${maxCertificates} certificates. Upgrade to add more.`,
+        description: `Your ${planFeatures.displayName} plan includes ${maxCertificates} certificates. Issued certificates count even after they are deleted. Upgrade to add more.`,
         action: {
           label: "Upgrade",
           onClick: () => window.location.href = "/client/upgrade"
@@ -512,7 +527,7 @@ export default function RecipientsPage() {
             if (availableSlots <= 0) {
               const planFeatures = getCurrentPlanFeatures()
               toast.error(`Certificate limit reached (${maxCertificates})`, {
-                description: `Your ${planFeatures.displayName} plan allows ${maxCertificates} certificates. Upgrade to add more.`
+                description: `Your ${planFeatures.displayName} plan includes ${maxCertificates} certificates. Issued certificates count even after they are deleted. Upgrade to add more.`
               })
               return
             }
@@ -534,7 +549,7 @@ export default function RecipientsPage() {
               })
               const planFeatures = getCurrentPlanFeatures()
               toast.warning(`Only ${limitedRecipients.length} of ${recipients.length} imported`, {
-                description: `${planFeatures.displayName} plan limit: ${maxCertificates} certificates. Upgrade to add more.`
+                description: `${planFeatures.displayName} plan includes ${maxCertificates} certificates. Upgrade to add more.`
               })
               return
             }
