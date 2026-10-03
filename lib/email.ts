@@ -323,19 +323,6 @@ export const emailTemplates = {
       note: 'If you did not sign up for CertiStage, ignore this email and no account will be created.'
     }),
 
-  passwordReset: (name: string, resetUrl: string) => ({
-    subject: 'Reset your CertiStage password',
-    html: emailLayout({
-      preheader: 'Use this link to choose a new password. It expires in 1 hour.',
-      body: `
-        ${h1('Reset your password')}
-        ${para(`Hi ${esc(name)}, use the button below to choose a new password. The link expires in 1 hour.`)}
-        ${button(resetUrl, 'Choose a new password')}
-        ${small('If you did not ask for this, ignore this email. Your password stays the same.')}
-      `
-    })
-  }),
-
   adminNotification: (type: 'signup' | 'payment', data: any) => {
     const title = type === 'signup' ? 'New signup' : 'New payment'
     const rows: Array<[string, unknown]> = type === 'signup'

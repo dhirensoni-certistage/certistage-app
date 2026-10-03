@@ -172,13 +172,6 @@ export async function DELETE(
       // Token model might not exist, ignore
     }
 
-    // Delete password reset tokens if any
-    try {
-      const PasswordResetToken = (await import("@/models/PasswordResetToken")).default
-      await PasswordResetToken.deleteMany({ userId })
-    } catch (e) {
-      // Token model might not exist, ignore
-    }
 
     // Finally delete the user
     await User.findByIdAndDelete(userId)

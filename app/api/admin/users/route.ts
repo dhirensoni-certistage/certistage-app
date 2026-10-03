@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
     // Send welcome email
     try {
       const { sendEmail, emailTemplates } = await import("@/lib/email")
-      const welcomeEmail = emailTemplates.welcome(user.name, user.email)
+      const welcomeEmail = emailTemplates.welcome(user.name)
       await sendEmail({
         to: user.email,
         subject: welcomeEmail.subject,
