@@ -1,9 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
-import { motion, useReducedMotion } from "framer-motion"
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -86,18 +85,13 @@ const transformText = (text: string, textCase?: string): string => {
   }
 }
 
-// Enter-only fade: steps swap at once instead of fading the old one out first,
-// which left the card empty for a moment
-const fade = {
-  initial: { opacity: 0.4 },
-  animate: { opacity: 1 }
-}
+// Wait at most this long for the design before showing the preview anyway (slow networks)
+const TEMPLATE_WAIT_MS = 4000
 
 export default function CertTypeDownloadPage() {
   const params = useParams()
   const eventId = params.eventId as string
   const typeId = params.typeId as string
-  const reduceMotion = useReducedMotion()
 
   const [loading, setLoading] = useState(true)
   const [event, setEvent] = useState<EventData | null>(null)
@@ -126,16 +120,26 @@ export default function CertTypeDownloadPage() {
     setTemplateShown(!!el && el.complete && el.naturalWidth > 0)
   }, [measureImgRef])
 
-  // Start loading the design (and signatures) while the recipient is still typing,
-  // so the preview opens with the image already in the browser cache
+  // Start loading and decoding the design (and signatures) while the recipient is still
+  // typing. The preview waits for this, so it opens in one go with the image already there.
+  const templateReady = useRef<Promise<void>>(Promise.resolve())
   useEffect(() => {
     const src = certType?.templateImage
     if (!src) return
     const img = new window.Image()
-    img.onload = () => setTemplateSize({ w: img.naturalWidth, h: img.naturalHeight })
     img.src = src
+    templateReady.current = img.decode()
+      .then(() => setTemplateSize({ w: img.naturalWidth, h: img.naturalHeight }))
+      .catch(() => {})
     certType?.signatures?.forEach((sig) => { if (sig.image) new window.Image().src = sig.image })
   }, [certType?.templateImage, certType?.signatures])
+
+  const openPreview = async (recipient: Recipient) => {
+    await Promise.race([templateReady.current, new Promise((r) => setTimeout(r, TEMPLATE_WAIT_MS))])
+    setSelectedRecipient(recipient)
+    setDownloaded(false)
+    setStep("preview")
+  }
 
   useEffect(() => {
     const loadData = async () => {
@@ -206,8 +210,8 @@ export default function CertTypeDownloadPage() {
       setMatchedRecipients(list)
       setDownloaded(false)
       if (list.length === 1) {
-        setSelectedRecipient(list[0])
-        setStep("preview")
+        // The button keeps its spinner until the design is ready
+        await openPreview(list[0])
       } else {
         setStep("select")
       }
@@ -219,9 +223,7 @@ export default function CertTypeDownloadPage() {
   }
 
   const handleSelectRecipient = (recipient: Recipient) => {
-    setSelectedRecipient(recipient)
-    setDownloaded(false)
-    setStep("preview")
+    void openPreview(recipient)
   }
 
   const handleBack = () => {
@@ -321,13 +323,13 @@ export default function CertTypeDownloadPage() {
   }
 
   const Field = FIELD_META[searchField]
-  const motionProps = reduceMotion ? {} : { variants: fade, initial: "initial", animate: "animate", transition: { duration: 0.15 } }
+  const showPreview = step === "preview" && !!selectedRecipient
 
   return (
     <Shell>
       <div className="w-full max-w-md mx-auto rounded-lg border border-neutral-200 bg-white p-6 sm:p-8">
           {step === "search" && (
-            <motion.form key="search" {...motionProps} onSubmit={handleSearch} noValidate>
+            <form onSubmit={handleSearch} noValidate>
               <p className="text-sm text-neutral-500">{event?.name}</p>
               <h1 className="text-xl font-semibold text-neutral-900 mt-1">{certType.name} certificate</h1>
               <p className="text-sm text-neutral-600 mt-3">Enter the details you registered with to download your certificate.</p>
@@ -380,15 +382,15 @@ export default function CertTypeDownloadPage() {
                   {searchError && <p id="search-error" className="text-[13px] text-red-600 mt-1.5">{searchError}</p>}
                 </div>
 
-                <Button type="submit" className="w-full h-10 rounded-md text-sm bg-neutral-900 hover:bg-black" disabled={isSearching}>
+                <Button type="submit" className="w-full h-10 rounded-md text-sm bg-neutral-900 hover:bg-black disabled:opacity-100" disabled={isSearching}>
                   {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Find certificate"}
                 </Button>
               </div>
-            </motion.form>
+            </form>
           )}
 
           {step === "select" && (
-            <motion.div key="select" {...motionProps}>
+            <div>
               <button type="button" onClick={handleBack} className="inline-flex items-center gap-0.5 text-[13px] text-neutral-500 hover:text-neutral-900 -ml-1">
                 <ChevronLeft className="h-4 w-4" /> Back
               </button>
@@ -413,17 +415,22 @@ export default function CertTypeDownloadPage() {
                   </li>
                 ))}
               </ul>
-            </motion.div>
+            </div>
           )}
 
-          {step === "preview" && selectedRecipient && (
-            <motion.div key="preview" {...motionProps}>
+          {/* The preview is mounted (hidden) from the start, so its design image has already
+              loaded and decoded by the time it opens; nothing pops in after the switch */}
+          {/* Hidden with zero height rather than display:none: it keeps the card's width, so the
+              name is already measured at the right size when the preview opens */}
+          <div className={showPreview ? undefined : "h-0 overflow-hidden"} aria-hidden={!showPreview} inert={!showPreview}>
+            {selectedRecipient && (<>
               <button type="button" onClick={handleBack} className="inline-flex items-center gap-0.5 text-[13px] text-neutral-500 hover:text-neutral-900 -ml-1">
                 <ChevronLeft className="h-4 w-4" /> Back
               </button>
               <h1 className="text-xl font-semibold text-neutral-900 mt-3 truncate">{selectedRecipient.name}</h1>
               <p className="text-sm text-neutral-600 mt-1">{certType.name} certificate · {event?.name}</p>
               {selectedRecipient.regNo && <p className="text-xs font-mono text-neutral-500 mt-0.5">{selectedRecipient.regNo}</p>}
+            </>)}
 
               <div className="mt-5">
                 {!certType.templateImage ? (
@@ -450,7 +457,7 @@ export default function CertTypeDownloadPage() {
                         onLoad={() => setTemplateShown(true)}
                         onError={() => toast.error("Could not load the certificate design")}
                       />
-                      <div className={cn("absolute inset-0 transition-opacity duration-150", templateShown ? "opacity-100" : "opacity-0")}>
+                      <div className={cn("absolute inset-0", !templateShown && "invisible")}>
                       <div className="absolute pointer-events-none" style={{ left: `${certType.textPosition.x}%`, top: `${certType.textPosition.y}%`, transform: "translate(-50%, -50%)" }}>
                         <span
                           className="whitespace-nowrap leading-none select-none"
@@ -462,11 +469,11 @@ export default function CertTypeDownloadPage() {
                             color: certType.fontColor || "#000"
                           }}
                         >
-                          {transformText(selectedRecipient.name, certType.textCase)}
+                          {transformText(selectedRecipient?.name || "", certType.textCase)}
                         </span>
                       </div>
                       {certType.customFields?.map((field, i) => {
-                        const value = field.variable === "EMAIL" ? selectedRecipient.email : field.variable === "MOBILE" ? selectedRecipient.mobile : field.variable === "REG_NO" ? selectedRecipient.certificateId : ""
+                        const value = field.variable === "EMAIL" ? selectedRecipient?.email : field.variable === "MOBILE" ? selectedRecipient?.mobile : field.variable === "REG_NO" ? selectedRecipient?.certificateId : ""
                         if (!value) return null
                         return (
                           <div key={i} className="absolute pointer-events-none" style={{ left: `${field.position.x}%`, top: `${field.position.y}%`, transform: "translate(-50%, -50%)" }}>
@@ -505,12 +512,12 @@ export default function CertTypeDownloadPage() {
               </div>
 
               <div className="mt-5">
-                <Button type="button" onClick={handleDownload} disabled={isDownloading} className="w-full h-10 rounded-md text-sm bg-neutral-900 hover:bg-black">
+                <Button type="button" onClick={handleDownload} disabled={isDownloading} className="w-full h-10 rounded-md text-sm bg-neutral-900 hover:bg-black disabled:opacity-100">
                   {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : downloaded ? "Download again" : "Download PDF"}
                 </Button>
                 {/* Shown next to Download, not only after it: on phones the PDF opens in a new tab
                     and many recipients never come back to this one */}
-                <LinkedInAddButton
+                {selectedRecipient && <LinkedInAddButton
                   className="mt-2.5"
                   variant={downloaded ? "solid" : "outline"}
                   recipientId={selectedRecipient.id}
@@ -519,7 +526,7 @@ export default function CertTypeDownloadPage() {
                   issuedAt={selectedRecipient.issuedAt}
                   certUrl={selectedRecipient.regNo ? individualCertificateUrl(window.location.origin, eventId, selectedRecipient.regNo) : pageUrl}
                   certId={selectedRecipient.regNo}
-                />
+                />}
                 {downloaded ? (
                   <p className="text-[13px] text-neutral-600 mt-3">
                     Downloaded. Add it to your LinkedIn profile too; it takes 30 seconds. On a phone the PDF may open in a new tab; use the save or share option there.{" "}
@@ -529,8 +536,7 @@ export default function CertTypeDownloadPage() {
                   <p className="text-[13px] text-neutral-500 mt-3">The downloaded PDF is print quality and has no watermark.</p>
                 )}
               </div>
-            </motion.div>
-          )}
+          </div>
       </div>
     </Shell>
   )
