@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
+import { motion, useReducedMotion } from "framer-motion"
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -86,10 +86,11 @@ const transformText = (text: string, textCase?: string): string => {
   }
 }
 
+// Enter-only fade: steps swap at once instead of fading the old one out first,
+// which left the card empty for a moment
 const fade = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  exit: { opacity: 0 }
+  initial: { opacity: 0.4 },
+  animate: { opacity: 1 }
 }
 
 export default function CertTypeDownloadPage() {
@@ -115,7 +116,26 @@ export default function CertTypeDownloadPage() {
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
   // Preview text uses the same scale rule as the PDF (see lib/certificate-text)
-  const { ref: previewImgRef, scale: textScale } = useTemplateTextScale()
+  const { ref: measureImgRef, scale: textScale } = useTemplateTextScale()
+  // Size of the design, known once the preload below finishes; reserves the preview's space
+  const [templateSize, setTemplateSize] = useState<{ w: number; h: number } | null>(null)
+  // Name and fields are drawn only once the design is on screen, so they never show alone
+  const [templateShown, setTemplateShown] = useState(false)
+  const previewImgRef = useCallback((el: HTMLImageElement | null) => {
+    measureImgRef(el)
+    setTemplateShown(!!el && el.complete && el.naturalWidth > 0)
+  }, [measureImgRef])
+
+  // Start loading the design (and signatures) while the recipient is still typing,
+  // so the preview opens with the image already in the browser cache
+  useEffect(() => {
+    const src = certType?.templateImage
+    if (!src) return
+    const img = new window.Image()
+    img.onload = () => setTemplateSize({ w: img.naturalWidth, h: img.naturalHeight })
+    img.src = src
+    certType?.signatures?.forEach((sig) => { if (sig.image) new window.Image().src = sig.image })
+  }, [certType?.templateImage, certType?.signatures])
 
   useEffect(() => {
     const loadData = async () => {
@@ -301,12 +321,11 @@ export default function CertTypeDownloadPage() {
   }
 
   const Field = FIELD_META[searchField]
-  const motionProps = reduceMotion ? {} : { variants: fade, initial: "initial", animate: "animate", exit: "exit", transition: { duration: 0.18 } }
+  const motionProps = reduceMotion ? {} : { variants: fade, initial: "initial", animate: "animate", transition: { duration: 0.15 } }
 
   return (
     <Shell>
       <div className="w-full max-w-md mx-auto rounded-lg border border-neutral-200 bg-white p-6 sm:p-8">
-        <AnimatePresence mode="wait" initial={false}>
           {step === "search" && (
             <motion.form key="search" {...motionProps} onSubmit={handleSearch} noValidate>
               <p className="text-sm text-neutral-500">{event?.name}</p>
@@ -412,8 +431,15 @@ export default function CertTypeDownloadPage() {
                     <p className="text-sm text-neutral-600">The certificate design is not available yet. Please check back later.</p>
                   </div>
                 ) : (
-                  <div className="w-full flex justify-center">
-                    <div className="relative inline-block max-w-full border border-neutral-200 bg-white select-none">
+                  <div className="relative w-full flex justify-center overflow-hidden">
+                    {/* Placeholder in the design's proportions until it is on screen, so the card does not jump */}
+                    {!templateShown && (
+                      <div
+                        className="w-full rounded-sm border border-neutral-200 bg-neutral-100 animate-pulse"
+                        style={{ aspectRatio: templateSize ? `${templateSize.w} / ${templateSize.h}` : "1.414 / 1", maxHeight: "60vh" }}
+                      />
+                    )}
+                    <div className={cn("relative inline-block max-w-full border border-neutral-200 bg-white select-none", !templateShown && "absolute top-0 opacity-0")}>
                       <img
                         ref={previewImgRef}
                         src={certType.templateImage}
@@ -421,8 +447,10 @@ export default function CertTypeDownloadPage() {
                         className="block w-auto max-w-full h-auto pointer-events-none"
                         draggable={false}
                         style={{ maxHeight: "60vh" }}
+                        onLoad={() => setTemplateShown(true)}
                         onError={() => toast.error("Could not load the certificate design")}
                       />
+                      <div className={cn("absolute inset-0 transition-opacity duration-150", templateShown ? "opacity-100" : "opacity-0")}>
                       <div className="absolute pointer-events-none" style={{ left: `${certType.textPosition.x}%`, top: `${certType.textPosition.y}%`, transform: "translate(-50%, -50%)" }}>
                         <span
                           className="whitespace-nowrap leading-none select-none"
@@ -470,6 +498,7 @@ export default function CertTypeDownloadPage() {
                           <span className="text-4xl md:text-6xl font-bold text-neutral-900/[0.05] rotate-[-30deg] select-none tracking-widest">PREVIEW</span>
                         </div>
                       )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -502,7 +531,6 @@ export default function CertTypeDownloadPage() {
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
       </div>
     </Shell>
   )

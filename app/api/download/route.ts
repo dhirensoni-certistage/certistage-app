@@ -145,11 +145,9 @@ export async function GET(request: NextRequest) {
 
     // Get certificate type for download page (without leaking attendee PII)
     if (eventId && typeId) {
-      const [event, certType, totalCount, downloadedCount] = await Promise.all([
+      const [event, certType] = await Promise.all([
         Event.findById(eventId).lean(),
-        CertificateType.findById(typeId).lean(),
-        Recipient.countDocuments({ eventId, certificateTypeId: typeId }),
-        Recipient.countDocuments({ eventId, certificateTypeId: typeId, downloadCount: { $gt: 0 } })
+        CertificateType.findById(typeId).lean()
       ])
 
       if (!event || !event.isActive) {
@@ -187,11 +185,6 @@ export async function GET(request: NextRequest) {
             return sig
           }),
           searchFields: certType.searchFields || { name: true, email: false, mobile: false, regNo: false },
-          stats: {
-            total: totalCount,
-            downloaded: downloadedCount,
-            pending: totalCount - downloadedCount
-          },
           createdAt: certType.createdAt
         },
         recipients: [],
@@ -275,9 +268,6 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Get certificate type for template
-    const certType = await CertificateType.findById(typeId).lean()
-
     return NextResponse.json({
       found: true,
       // Contact details are masked: this is a public page and a common first name can match several people
@@ -289,18 +279,7 @@ export async function POST(request: NextRequest) {
         regNo: r.regNo,
         downloadCount: r.downloadCount,
         issuedAt: r.createdAt
-      })),
-      certificateType: certType ? {
-        name: certType.name,
-        templateImage: certType.templateImage,
-        textFields: certType.textFields,
-        signatures: (certType.signatures || []).map((sig: any) => {
-          if (!sig.position && (sig.x !== undefined || sig.y !== undefined)) {
-            return { ...sig, position: { x: sig.x ?? 80, y: sig.y ?? 80 } }
-          }
-          return sig
-        })
-      } : null
+      }))
     })
   } catch (error) {
     console.error("Download POST error:", error)
