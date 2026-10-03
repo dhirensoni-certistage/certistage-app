@@ -1,14 +1,64 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
+import { jwtVerify } from 'jose'
 
-// Next.js 16 proxy (formerly middleware): gate /client pages behind a session
-// Protected routes pattern
+// Next.js 16 proxy (formerly middleware).
+// - /client pages need an organiser session (NextAuth token or clientSession cookie).
+// - /admin pages and every /api/admin route need a valid admin_token cookie,
+//   except the few routes used to obtain one.
 const protectedRoutes = ['/client']
 const publicRoutes = ['/client/login', '/client/register']
 
+const adminPublicApi = ['/api/admin/login', '/api/admin/setup', '/api/admin/logout', '/api/admin/verify']
+const adminPublicPages = ['/admin/login']
+
+// Same secret and algorithm the admin login route signs with (jsonwebtoken, HS256)
+const adminSecret = () => new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret-key')
+
+async function hasValidAdminSession(request: NextRequest): Promise<boolean> {
+    const token = request.cookies.get('admin_token')?.value
+    if (!token) return false
+    try {
+        const { payload } = await jwtVerify(token, adminSecret(), { algorithms: ['HS256'] })
+        return payload.type === 'admin' && typeof payload.id === 'string'
+    } catch {
+        return false
+    }
+}
+
+function withSecurityHeaders(response: NextResponse): NextResponse {
+    response.headers.set('X-Frame-Options', 'DENY')
+    response.headers.set('X-Content-Type-Options', 'nosniff')
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+    return response
+}
+
 export async function proxy(request: NextRequest) {
     const path = request.nextUrl.pathname
+
+    // Admin API: refuse without a valid admin session
+    if (path.startsWith('/api/admin')) {
+        if (adminPublicApi.some(route => path === route || path.startsWith(route + '/'))) {
+            return NextResponse.next()
+        }
+        if (!(await hasValidAdminSession(request))) {
+            return NextResponse.json({ error: 'Admin authentication required' }, { status: 401 })
+        }
+        return withSecurityHeaders(NextResponse.next())
+    }
+
+    // Admin pages: send to the admin login without a valid session
+    if (path.startsWith('/admin')) {
+        if (adminPublicPages.some(route => path === route || path.startsWith(route + '/'))) {
+            return NextResponse.next()
+        }
+        if (!(await hasValidAdminSession(request))) {
+            return NextResponse.redirect(new URL('/admin/login', request.url))
+        }
+        return withSecurityHeaders(NextResponse.next())
+    }
 
     // Check if it's a protected route
     const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route))
@@ -31,14 +81,7 @@ export async function proxy(request: NextRequest) {
             return NextResponse.redirect(url)
         }
 
-        // Enterprise Security: Add security headers
-        const response = NextResponse.next()
-        response.headers.set('X-Frame-Options', 'DENY')
-        response.headers.set('X-Content-Type-Options', 'nosniff')
-        response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-        response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
-
-        return response
+        return withSecurityHeaders(NextResponse.next())
     }
 
     return NextResponse.next()
@@ -47,6 +90,8 @@ export async function proxy(request: NextRequest) {
 export const config = {
     matcher: [
         '/client/:path*',
+        '/admin/:path*',
+        '/api/admin/:path*',
     ],
 }
 
