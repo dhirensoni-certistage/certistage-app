@@ -107,8 +107,9 @@ export async function GET(request: NextRequest) {
       const x = (xPercent / 100) * pdfWidth
       const y = (yPercent / 100) * pdfHeight
 
-      // Use the exact font size from editor canvas (no conversion)
-      // This ensures PDF matches exactly what user sees in editor
+      // fontSize is stored in PDF points and drawn 1:1 on the A4 page. Every
+      // on-screen preview scales the same number by (image width / page width),
+      // see lib/certificate-text.ts, so the editor and the PDF agree.
       const fontSizePt = fontSizePx
 
       pdf.setFontSize(fontSizePt)

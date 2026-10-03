@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { textScaleFor } from "@/lib/certificate-text"
 import { useSearchParams } from "next/navigation"
 
 interface Recipient {
@@ -37,6 +38,8 @@ export default function EmbeddedPreviewPage() {
   const [certType, setCertType] = useState<CertificateType | null>(null)
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
   const [scale, setScale] = useState(1)
+  // Image renders at its natural size here, so text scales by natural width vs the PDF page width
+  const textScale = imageSize ? textScaleFor(imageSize.width, imageSize.width, imageSize.height) : 1
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Transform text based on textCase setting
@@ -189,7 +192,7 @@ export default function EmbeddedPreviewPage() {
                   <span
                     className="whitespace-nowrap leading-none select-none"
                     style={{
-                      fontSize: `${Math.max(8, certType.fontSize || 24)}px`,
+                      fontSize: `${(certType.fontSize || 24) * textScale}px`,
                       fontFamily: `"${certType.fontFamily || "Arial"}", sans-serif`,
                       fontWeight: certType.fontBold ? "bold" : "normal",
                       fontStyle: certType.fontItalic ? "italic" : "normal",
@@ -232,7 +235,7 @@ export default function EmbeddedPreviewPage() {
                     <span
                       className="whitespace-nowrap leading-none select-none"
                       style={{
-                        fontSize: `${Math.max(8, field.fontSize || 24)}px`,
+                        fontSize: `${(field.fontSize || 24) * textScale}px`,
                         fontFamily: `"${field.fontFamily || "Arial"}", sans-serif`,
                         fontWeight: field.fontBold ? "bold" : "normal",
                         fontStyle: field.fontItalic ? "italic" : "normal",
