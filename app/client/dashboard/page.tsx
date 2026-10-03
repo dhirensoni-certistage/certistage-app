@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { ArrowRight, ChevronRight, Users, Download, Clock, Award, CalendarDays } from "lucide-react"
+import { ArrowRight, ChevronRight, Users, Download, Clock, Award, CalendarDays, Linkedin } from "lucide-react"
 import { BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts"
 import { Button } from "@/components/ui/button"
 import { getClientSession, getPlanFeaturesMap, normalizePlanId } from "@/lib/auth"
@@ -32,12 +32,14 @@ interface DashboardEvent {
       total: number
       downloaded: number
       pending: number
+      linkedin?: number
     }
   }[]
   stats: {
     total: number
     downloaded: number
     pending: number
+    linkedin?: number
     certificateTypesCount: number
   }
 }
@@ -107,8 +109,8 @@ export default function ClientDashboard() {
           <div className="h-3 w-16 rounded bg-neutral-100 animate-pulse" />
           <div className="h-8 w-72 rounded bg-neutral-200 animate-pulse" />
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-[104px] rounded-xl border border-neutral-200 bg-white animate-pulse" />)}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => <div key={i} className={cn("h-[104px] rounded-xl border border-neutral-200 bg-white animate-pulse", i === 4 && "col-span-2 lg:col-span-1")} />)}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {Array.from({ length: 2 }).map((_, i) => <div key={i} className="h-[300px] rounded-xl border border-neutral-200 bg-white animate-pulse" />)}
@@ -137,6 +139,8 @@ export default function ClientDashboard() {
   const certUsed = issued ?? event.stats.total
   const usagePercent = hasCertificateLimit ? Math.min(100, Math.round((certUsed / certLimit) * 100)) : 0
   const completionRate = event.stats.total > 0 ? Math.round((event.stats.downloaded / event.stats.total) * 100) : 0
+  const linkedinCount = event.stats.linkedin ?? 0
+  const linkedinRate = event.stats.downloaded > 0 ? Math.round((linkedinCount / event.stats.downloaded) * 100) : 0
 
   const byCertificate = event.certificateTypes.map((ct) => ({
     id: ct.id,
@@ -144,6 +148,7 @@ export default function ClientDashboard() {
     total: ct.stats.total,
     downloaded: ct.stats.downloaded,
     pending: ct.stats.pending,
+    linkedin: ct.stats.linkedin ?? 0,
     completion: ct.stats.total > 0 ? Math.round((ct.stats.downloaded / ct.stats.total) * 100) : 0
   }))
 
@@ -171,7 +176,9 @@ export default function ClientDashboard() {
     { label: "Recipients", value: event.stats.total.toLocaleString("en-IN"), sub: `${event.stats.certificateTypesCount} certificate${event.stats.certificateTypesCount === 1 ? "" : "s"}`, icon: Users, tile: "bg-sky-50 text-sky-600" },
     { label: "Downloaded", value: event.stats.downloaded.toLocaleString("en-IN"), sub: `${recentDownloads} in the last 14 days`, icon: Download, tile: "bg-emerald-50 text-emerald-600", spark: true },
     { label: "Pending", value: event.stats.pending.toLocaleString("en-IN"), sub: "not downloaded yet", icon: Clock, tile: "bg-amber-50 text-amber-600" },
-    { label: "Completion", value: `${completionRate}%`, sub: "of recipients downloaded", icon: Award, tile: "bg-gold-soft text-gold-deep", bar: completionRate }
+    { label: "Completion", value: `${completionRate}%`, sub: "of recipients downloaded", icon: Award, tile: "bg-gold-soft text-gold-deep", bar: completionRate },
+    // Recipients who opened "Add to LinkedIn profile" (LinkedIn does not report whether they saved it)
+    { label: "To LinkedIn", value: linkedinCount.toLocaleString("en-IN"), sub: event.stats.downloaded > 0 ? `${linkedinRate}% of downloads` : "opened Add to profile", icon: Linkedin, tile: "bg-[#0A66C2]/10 text-[#0A66C2]" }
   ]
 
   const hour = new Date().getHours()
@@ -221,9 +228,9 @@ export default function ClientDashboard() {
       </motion.div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {stats.map((s, i) => (
-          <motion.div key={s.label} {...fade(0.1 + i * 0.05)} className="relative overflow-hidden rounded-xl border border-neutral-200 bg-white p-5">
+          <motion.div key={s.label} {...fade(0.1 + i * 0.05)} className={cn("relative overflow-hidden rounded-xl border border-neutral-200 bg-white p-5", i === stats.length - 1 && "col-span-2 lg:col-span-1")}>
             <div className="flex items-center gap-3">
               <span className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", s.tile)}>
                 <s.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
@@ -327,19 +334,20 @@ export default function ClientDashboard() {
           <Link href="/client/certificates" className="text-[13px] font-medium text-neutral-600 hover:text-neutral-900 inline-flex items-center gap-1">Manage <ArrowRight className="h-3.5 w-3.5" /></Link>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-[13px]">
+          <table className="w-full min-w-[720px] text-left text-[13px]">
             <thead>
               <tr className="text-[11px] uppercase tracking-wider text-neutral-500 border-b border-neutral-100">
                 <th className="px-5 py-3 font-medium">Certificate</th>
                 <th className="px-5 py-3 font-medium text-right">Recipients</th>
                 <th className="px-5 py-3 font-medium text-right">Downloaded</th>
                 <th className="px-5 py-3 font-medium text-right">Pending</th>
+                <th className="px-5 py-3 font-medium text-right">To LinkedIn</th>
                 <th className="px-5 py-3 font-medium w-[200px]">Completion</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {byCertificate.length === 0 && (
-                <tr><td colSpan={5} className="px-5 py-8 text-center text-neutral-400">No certificates yet. <Link href="/client/certificates" className="text-neutral-900 underline underline-offset-4">Create one</Link>.</td></tr>
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-neutral-400">No certificates yet. <Link href="/client/certificates" className="text-neutral-900 underline underline-offset-4">Create one</Link>.</td></tr>
               )}
               {byCertificate.map((ct) => (
                 <tr key={ct.id} className="hover:bg-neutral-50/60 transition-colors">
@@ -349,6 +357,7 @@ export default function ClientDashboard() {
                   <td className="px-5 py-3.5 text-right text-neutral-700">{ct.total.toLocaleString("en-IN")}</td>
                   <td className="px-5 py-3.5 text-right text-neutral-700">{ct.downloaded.toLocaleString("en-IN")}</td>
                   <td className="px-5 py-3.5 text-right text-neutral-700">{ct.pending.toLocaleString("en-IN")}</td>
+                  <td className="px-5 py-3.5 text-right text-neutral-700">{ct.linkedin.toLocaleString("en-IN")}</td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
                       <div className="flex-1 h-1.5 bg-neutral-100 rounded-full overflow-hidden">

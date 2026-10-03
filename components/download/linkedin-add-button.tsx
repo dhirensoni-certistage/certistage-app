@@ -1,15 +1,38 @@
+"use client"
+
 import { cn } from "@/lib/utils"
 import { buildLinkedInAddUrl, type LinkedInCertification } from "@/lib/linkedin"
 
+interface LinkedInAddButtonProps extends LinkedInCertification {
+  recipientId?: string           // counts the click for the organiser's dashboard
+  variant?: "solid" | "outline"  // outline next to Download; solid once the PDF is saved
+  className?: string
+}
+
 // "Add to LinkedIn profile" link for the certificate download pages
-export function LinkedInAddButton({ className, ...cert }: LinkedInCertification & { className?: string }) {
+export function LinkedInAddButton({ recipientId, variant = "solid", className, ...cert }: LinkedInAddButtonProps) {
+  const recordClick = () => {
+    if (!recipientId) return
+    // keepalive: the request survives the tab switching to LinkedIn
+    fetch("/api/download/linkedin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recipientId }),
+      keepalive: true
+    }).catch(() => {})
+  }
+
   return (
     <a
       href={buildLinkedInAddUrl(cert)}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={recordClick}
       className={cn(
-        "inline-flex w-full items-center justify-center gap-2 h-10 rounded-md text-sm font-medium text-white bg-[#0A66C2] hover:bg-[#004182] transition-colors",
+        "inline-flex w-full items-center justify-center gap-2 h-10 rounded-md text-sm font-medium transition-colors",
+        variant === "solid"
+          ? "text-white bg-[#0A66C2] hover:bg-[#004182]"
+          : "text-[#0A66C2] bg-white border border-[#0A66C2]/40 hover:bg-[#0A66C2]/5 hover:border-[#0A66C2]",
         className
       )}
     >

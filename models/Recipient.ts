@@ -12,6 +12,8 @@ export interface IRecipient extends Document {
   eventId: mongoose.Types.ObjectId
   downloadCount: number
   lastDownloadAt?: Date
+  linkedinClicks: number // times "Add to LinkedIn profile" was opened
+  lastLinkedinClickAt?: Date
   customFields?: Record<string, string>
   createdAt: Date
   updatedAt: Date
@@ -30,6 +32,8 @@ const RecipientSchema = new Schema<IRecipient>(
     eventId: { type: Schema.Types.ObjectId, ref: "Event", required: true },
     downloadCount: { type: Number, default: 0 },
     lastDownloadAt: { type: Date },
+    linkedinClicks: { type: Number, default: 0 },
+    lastLinkedinClickAt: { type: Date },
     customFields: { type: Map, of: String }
   },
   { timestamps: true }

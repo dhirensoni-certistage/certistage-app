@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
     let certificateTypes
     let totalRecipients = 0
     let downloadedRecipients = 0
+    let linkedinRecipients = 0
 
     if (includeRecipients) {
       // Get recipients grouped by certificate type using aggregation
@@ -96,7 +97,8 @@ export async function GET(request: NextRequest) {
               }
             },
             total: { $sum: 1 },
-            downloaded: { $sum: { $cond: [{ $gt: [{ $ifNull: ["$downloadCount", 0] }, 0] }, 1, 0] } }
+            downloaded: { $sum: { $cond: [{ $gt: [{ $ifNull: ["$downloadCount", 0] }, 0] }, 1, 0] } },
+            linkedin: { $sum: { $cond: [{ $gt: [{ $ifNull: ["$linkedinClicks", 0] }, 0] }, 1, 0] } }
           }
         }
       ])
@@ -106,7 +108,7 @@ export async function GET(request: NextRequest) {
 
       // Build certificate types with recipients
       certificateTypes = certTypes.map(ct => {
-        const typeData = recipientsMap.get(ct._id?.toString()) || { recipients: [], total: 0, downloaded: 0 }
+        const typeData = recipientsMap.get(ct._id?.toString()) || { recipients: [], total: 0, downloaded: 0, linkedin: 0 }
         const ctAny = ct as any
 
         // Handle signature position migration
@@ -144,7 +146,8 @@ export async function GET(request: NextRequest) {
           stats: {
             total: typeData.total,
             downloaded: typeData.downloaded,
-            pending: typeData.total - typeData.downloaded
+            pending: typeData.total - typeData.downloaded,
+            linkedin: typeData.linkedin
           }
         }
       })
@@ -152,6 +155,7 @@ export async function GET(request: NextRequest) {
       // Calculate totals
       totalRecipients = recipientsByType.reduce((sum, r) => sum + r.total, 0)
       downloadedRecipients = recipientsByType.reduce((sum, r) => sum + r.downloaded, 0)
+      linkedinRecipients = recipientsByType.reduce((sum, r) => sum + r.linkedin, 0)
     } else {
       // Stats only mode (faster for dashboard)
       const statsAgg = await Recipient.aggregate([
@@ -160,7 +164,8 @@ export async function GET(request: NextRequest) {
           $group: {
             _id: "$certificateTypeId",
             total: { $sum: 1 },
-            downloaded: { $sum: { $cond: [{ $gt: ["$downloadCount", 0] }, 1, 0] } }
+            downloaded: { $sum: { $cond: [{ $gt: ["$downloadCount", 0] }, 1, 0] } },
+            linkedin: { $sum: { $cond: [{ $gt: [{ $ifNull: ["$linkedinClicks", 0] }, 0] }, 1, 0] } }
           }
         }
       ])
@@ -168,7 +173,7 @@ export async function GET(request: NextRequest) {
       const statsMap = new Map(statsAgg.map(s => [s._id?.toString(), s]))
 
       certificateTypes = certTypes.map(ct => {
-        const stats = statsMap.get(ct._id?.toString()) || { total: 0, downloaded: 0 }
+        const stats = statsMap.get(ct._id?.toString()) || { total: 0, downloaded: 0, linkedin: 0 }
         const ctAny = ct as any
 
         // Handle signature position migration
@@ -203,13 +208,15 @@ export async function GET(request: NextRequest) {
           stats: {
             total: stats.total,
             downloaded: stats.downloaded,
-            pending: stats.total - stats.downloaded
+            pending: stats.total - stats.downloaded,
+            linkedin: stats.linkedin
           }
         }
       })
 
       totalRecipients = statsAgg.reduce((sum, s) => sum + s.total, 0)
       downloadedRecipients = statsAgg.reduce((sum, s) => sum + s.downloaded, 0)
+      linkedinRecipients = statsAgg.reduce((sum, s) => sum + s.linkedin, 0)
     }
 
     const dashboardEvent = {
@@ -222,6 +229,7 @@ export async function GET(request: NextRequest) {
         total: totalRecipients,
         downloaded: downloadedRecipients,
         pending: totalRecipients - downloadedRecipients,
+        linkedin: linkedinRecipients,
         certificateTypesCount: certTypes.length
       }
     }

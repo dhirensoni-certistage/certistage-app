@@ -392,16 +392,22 @@ export default function DownloadPage() {
             )}
           </div>
 
-          {downloaded && recipient && (
-            <div className="max-w-xs mx-auto mt-6">
+          {recipient && (
+            // Shown before download too: on phones the PDF opens in a new tab and many never return
+            <div className="max-w-xs mx-auto mt-4">
               <LinkedInAddButton
                 className="rounded-full h-11"
+                variant={downloaded ? "solid" : "outline"}
+                recipientId={recipient.id}
                 name={`${certType?.name ? `${certType.name} certificate - ` : ""}${event?.name || ""}`}
                 organizationName={event?.organization || event?.name || ""}
                 issuedAt={recipient.issuedAt}
                 certUrl={window.location.href}
                 certId={recipient.certificateId}
               />
+              {downloaded && (
+                <p className="text-center text-[13px] text-neutral-500 mt-3">Add it to your LinkedIn profile too; it takes 30 seconds.</p>
+              )}
             </div>
           )}
 
