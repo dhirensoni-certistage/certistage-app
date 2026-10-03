@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import {
   Dialog,
@@ -21,12 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { getClientSession, getCurrentPlanFeatures } from "@/lib/auth"
-import {
-  Download,
-  FileSpreadsheet,
-  Lock,
-  Loader2,
-  ArrowUpRight, Search } from "lucide-react"
+import { Download, Lock } from "lucide-react"
+import Link from "next/link"
 import * as XLSX from "xlsx"
 import { toast } from "sonner"
 
@@ -103,23 +97,20 @@ export default function ClientReportsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-12 flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-neutral-200" />
-        <p className="text-sm font-medium text-neutral-400">Generting report data...</p>
+      <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-4">
+        <div className="h-8 w-40 rounded bg-neutral-200 animate-pulse" />
+        <div className="h-[140px] rounded-xl border border-neutral-200 bg-white animate-pulse" />
+        <div className="h-[320px] rounded-xl border border-neutral-200 bg-white animate-pulse" />
       </div>
     )
   }
 
   if (!event) {
     return (
-      <div className="p-12 text-center py-24">
-        <div className="h-16 w-16 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center mx-auto mb-6">
-          <Search className="h-8 w-8 text-neutral-300" />
-        </div>
-        <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-2 tracking-tight">No report data</h3>
-        <p className="text-[15px] text-neutral-500 max-w-[400px] mx-auto mb-10 leading-relaxed font-normal">
-          Select an event to view detailed certificate reports and performance analytics.
-        </p>
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-8 text-center">
+        <h1 className="text-2xl font-semibold text-neutral-900 tracking-tight mb-2">No event selected</h1>
+        <p className="text-[15px] text-neutral-500 max-w-[380px] mb-6">Pick an event to export its recipients and download activity.</p>
+        <Button asChild className="h-10 px-5 bg-neutral-900 hover:bg-black"><Link href="/client/events">Go to events</Link></Button>
       </div>
     )
   }
@@ -211,158 +202,118 @@ export default function ClientReportsPage() {
     exportData(items, `${event.name}-${ct.name}`)
   }
 
-  return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto flex flex-col animate-in fade-in duration-500 pb-12">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-[24px] font-semibold text-neutral-900 tracking-tight leading-none">Reports</h1>
-            {!canExport && (
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-amber-200 bg-amber-50 text-amber-700 text-[10px] font-semibold uppercase tracking-wider">
-                <Lock className="h-3 w-3" /> Locked
-              </div>
-            )}
-          </div>
-        </div>
+  const quickExports = [
+    { title: "All recipients", desc: "Every recipient across all certificates.", run: exportAll },
+    { title: "Downloaded only", desc: "Recipients who have downloaded their certificate.", run: exportDownloaded },
+    { title: "Pending only", desc: "Recipients who have not downloaded yet.", run: exportPending },
+    { title: "By certificate", desc: "Recipients of one certificate.", run: () => setIsTemplateExportOpen(true) },
+    { title: "Summary", desc: "Totals and completion rate per certificate.", run: exportSummary },
+    { title: "Missing contacts", desc: "Recipients with no email or mobile on file.", run: exportMissingContacts },
+    { title: "Top downloads", desc: "The 100 recipients with the most downloads.", run: exportTopDownloads }
+  ]
+  const selectClass = "h-9 text-[13px] border-neutral-200 bg-white"
 
-        <div />
+  return (
+    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-[24px] font-semibold text-neutral-900 tracking-tight leading-none">Reports</h1>
+        <p className="text-[13px] text-neutral-500 mt-1.5">Export recipients and download activity for <span className="font-medium text-neutral-900">{event.name}</span> as Excel.</p>
       </div>
 
-      {/* Export Center */}
-      <Card className="border-neutral-200 dark:border-neutral-800 shadow-none bg-white dark:bg-neutral-950 overflow-hidden">
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2 p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-sm font-semibold">Custom Report</p>
-                <p className="text-[12px] text-neutral-500">Filter by certificate, status and download date, then export to Excel.</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
-              <div className="md:col-span-5">
-                <Select value={certFilter} onValueChange={setCertFilter}>
-                  <SelectTrigger className="w-full h-10 border-neutral-200 dark:border-neutral-800">
-                    <SelectValue placeholder="All Templates" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Templates</SelectItem>
-                    {event.certificateTypes.map(ct => (
-                      <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-3">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full h-10 border-neutral-200 dark:border-neutral-800">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="downloaded">Downloaded</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-4 grid grid-cols-2 gap-2">
-                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-10 border-neutral-200 dark:border-neutral-800" />
-                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-10 border-neutral-200 dark:border-neutral-800" />
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] text-neutral-400">Date range applies to download activity timestamps only.</p>
-              <Button onClick={exportCustom} className="h-9 bg-black text-white hover:bg-[#222]">
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Export Custom
-              </Button>
-            </div>
-          </div>
-          <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-semibold">Download All</p>
-              <Badge variant="outline" className="text-[10px]">All Recipients</Badge>
-            </div>
-            <p className="text-[12px] text-neutral-500 mb-4">Full dataset for all templates and statuses.</p>
-            <Button variant="outline" onClick={exportAll} className="h-9">
-              <Download className="h-4 w-4 mr-2" />
-              Download All
-            </Button>
-          </div>
-
-          <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-            <p className="text-sm font-semibold mb-2">Downloaded Only</p>
-            <p className="text-[12px] text-neutral-500 mb-4">Only recipients who downloaded certificates.</p>
-            <Button variant="outline" onClick={exportDownloaded} className="h-9">Export Downloaded</Button>
-          </div>
-
-          <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-            <p className="text-sm font-semibold mb-2">Pending Only</p>
-            <p className="text-[12px] text-neutral-500 mb-4">Recipients who haven’t downloaded yet.</p>
-            <Button variant="outline" onClick={exportPending} className="h-9">Export Pending</Button>
-          </div>
-
-          <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-            <p className="text-sm font-semibold mb-2">By Template</p>
-            <p className="text-[12px] text-neutral-500 mb-4">Export recipients for a selected certificate template.</p>
-            <Button variant="outline" onClick={() => setIsTemplateExportOpen(true)} className="h-9">Choose Template</Button>
-          </div>
-
-          <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-            <p className="text-sm font-semibold mb-2">Summary Report</p>
-            <p className="text-[12px] text-neutral-500 mb-4">High-level totals and completion rate.</p>
-            <Button variant="outline" onClick={exportSummary} className="h-9">Export Summary</Button>
-          </div>
-
-          <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-            <p className="text-sm font-semibold mb-2">Missing Contacts</p>
-            <p className="text-[12px] text-neutral-500 mb-4">Recipients missing email or mobile.</p>
-            <Button variant="outline" onClick={exportMissingContacts} className="h-9">Export Missing</Button>
-          </div>
-
-          <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-            <p className="text-sm font-semibold mb-2">Top Downloads</p>
-            <p className="text-[12px] text-neutral-500 mb-4">Top 100 recipients by download count.</p>
-            <Button variant="outline" onClick={exportTopDownloads} className="h-9">Export Top 100</Button>
-          </div>
-        </div>
-      </Card>
-
       {!canExport && (
-        <div className="mt-6 p-4 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Lock className="h-5 w-5 text-amber-600" />
-            <p className="text-sm text-amber-800 dark:text-amber-400">Export feature is locked for your current plan. Upgrade to unlock full data extraction.</p>
+        <div className="rounded-xl border border-gold/40 bg-gold-soft px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <Lock className="h-4 w-4 mt-0.5 text-gold-deep shrink-0" />
+            <div>
+              <p className="text-[14px] font-semibold text-neutral-900">Exports are part of the paid plans</p>
+              <p className="text-[13px] text-neutral-600 mt-0.5">Your reports are ready; upgrading unlocks the download.</p>
+            </div>
           </div>
-          <Button variant="ghost" className="text-amber-700 hover:text-amber-800 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/50 h-8" onClick={() => router.push("/client/upgrade")}>
-            Upgrade Plan <ArrowUpRight className="h-3 w-3 ml-2" />
-          </Button>
+          <Button asChild size="sm" className="h-9 px-4 bg-neutral-900 hover:bg-black text-white shrink-0"><Link href="/client/upgrade">See plans</Link></Button>
         </div>
       )}
+
+      {/* Custom export */}
+      <div className="rounded-xl border border-neutral-200 bg-white">
+        <div className="px-5 pt-5 pb-3">
+          <h2 className="text-[15px] font-semibold text-neutral-900">Custom export</h2>
+          <p className="text-[12px] text-neutral-500">Filter by certificate, status and download date.</p>
+        </div>
+        <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div className="md:col-span-4">
+            <label className="block text-[12px] font-medium text-neutral-600 mb-1">Certificate</label>
+            <Select value={certFilter} onValueChange={setCertFilter}>
+              <SelectTrigger className={selectClass}><SelectValue placeholder="All certificates" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All certificates</SelectItem>
+                {event.certificateTypes.map((ct) => <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[12px] font-medium text-neutral-600 mb-1">Status</label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className={selectClass}><SelectValue placeholder="Any" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any</SelectItem>
+                <SelectItem value="downloaded">Downloaded</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[12px] font-medium text-neutral-600 mb-1">Downloaded from</label>
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 text-[13px] border-neutral-200" />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[12px] font-medium text-neutral-600 mb-1">To</label>
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 text-[13px] border-neutral-200" />
+          </div>
+          <div className="md:col-span-2">
+            <Button onClick={exportCustom} disabled={!canExport} className="w-full h-9 bg-neutral-900 text-white hover:bg-black text-[13px]">
+              <Download className="h-3.5 w-3.5 mr-1.5" /> Export
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick exports */}
+      <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+        <div className="px-5 py-4 border-b border-neutral-100">
+          <h2 className="text-[15px] font-semibold text-neutral-900">Quick exports</h2>
+        </div>
+        <ul className="divide-y divide-neutral-100">
+          {quickExports.map((q) => (
+            <li key={q.title} className="flex items-center justify-between gap-4 px-5 py-3.5">
+              <div className="min-w-0">
+                <p className="text-[14px] font-medium text-neutral-900">{q.title}</p>
+                <p className="text-[12.5px] text-neutral-500">{q.desc}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={q.run} disabled={!canExport} className="h-8 px-3 text-[13px] border-neutral-200 hover:bg-neutral-50 shrink-0">
+                {canExport ? "Export" : <><Lock className="h-3 w-3 mr-1.5" /> Export</>}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <Dialog open={isTemplateExportOpen} onOpenChange={setIsTemplateExportOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Export by Template</DialogTitle>
-            <DialogDescription>Select a certificate template to export its recipients.</DialogDescription>
+            <DialogTitle>Export by certificate</DialogTitle>
+            <DialogDescription>Choose the certificate whose recipients you want to export.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Select value={templateExportId} onValueChange={setTemplateExportId}>
-              <SelectTrigger className="h-10 border-neutral-200 dark:border-neutral-800">
-                <SelectValue placeholder="Select template" />
-              </SelectTrigger>
+              <SelectTrigger className="h-10 border-neutral-200"><SelectValue placeholder="Select certificate" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Templates</SelectItem>
-                {event.certificateTypes.map(ct => (
-                  <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>
-                ))}
+                <SelectItem value="all">All certificates</SelectItem>
+                {event.certificateTypes.map((ct) => <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <div className="flex items-center justify-end gap-2 pt-2">
               <Button variant="outline" className="h-9" onClick={() => setIsTemplateExportOpen(false)}>Cancel</Button>
-              <Button className="h-9 bg-black text-white hover:bg-[#222]" onClick={() => { exportByTemplate(); setIsTemplateExportOpen(false) }}>
-                Export
-              </Button>
+              <Button className="h-9 bg-neutral-900 text-white hover:bg-black" onClick={() => { exportByTemplate(); setIsTemplateExportOpen(false) }}>Export</Button>
             </div>
           </div>
         </DialogContent>

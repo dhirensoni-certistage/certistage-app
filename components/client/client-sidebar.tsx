@@ -6,12 +6,11 @@ import {
   LayoutDashboard,
   ChartColumnIncreasing,
   LogOut,
+  ChevronRight,
   Award,
   Users,
   LifeBuoy,
   Crown,
-  PanelLeftClose,
-  PanelLeftOpen,
   Settings2,
   CalendarDays
 } from "lucide-react"
@@ -26,7 +25,7 @@ import { Progress } from "@/components/ui/progress"
 import { fetchClientProfile, applyProfileToSession } from "@/lib/client-profile"
  
 
-export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void } = {}) {
+export function ClientSidebar({ mobile = false, onNavigate, collapsed: collapsedProp }: { mobile?: boolean; onNavigate?: () => void; collapsed?: boolean } = {}) {
   const pathname = usePathname()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -39,17 +38,12 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
   const [isOnTrial, setIsOnTrial] = useState(false)
   const [isUserLogin, setIsUserLogin] = useState(false)
   const [hasEventSelected, setHasEventSelected] = useState(false)
-  const [collapsed, setCollapsedState] = useState(false)
-  const setCollapsed = (value: boolean) => {
-    setCollapsedState(value)
-    try { localStorage.setItem("sidebarCollapsed", value ? "1" : "0") } catch {}
-  }
+  const collapsed = !mobile && !!collapsedProp
 
   const normalizePlan = (plan?: string): PlanType => normalizePlanId(plan)
 
   useEffect(() => {
     setMounted(true)
-    try { if (!mobile && localStorage.getItem("sidebarCollapsed") === "1") setCollapsedState(true) } catch {}
     const session = getClientSession()
     if (session) {
       if (session.loginType === "event") {
@@ -99,19 +93,20 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
   }
 
   const navItems = [
-    { href: "/client/events", label: "Events", icon: CalendarDays, requiresEvent: false },
-    { href: "/client/dashboard", label: "Dashboard", icon: LayoutDashboard, requiresEvent: true },
-    { href: "/client/certificates", label: "Certificates", icon: Award, requiresEvent: true },
-    { href: "/client/recipients", label: "Recipients", icon: Users, requiresEvent: true },
-    { href: "/client/reports", label: "Reports", icon: ChartColumnIncreasing, requiresEvent: true },
-    { href: "/client/settings", label: "Settings", icon: Settings2, requiresEvent: false },
-    { href: "/client/support", label: "Support", icon: LifeBuoy, requiresEvent: false },
+    { href: "/client/events", label: "Events", icon: CalendarDays, requiresEvent: false, group: "" },
+    { href: "/client/dashboard", label: "Dashboard", icon: LayoutDashboard, requiresEvent: true, group: "Event" },
+    { href: "/client/certificates", label: "Certificates", icon: Award, requiresEvent: true, group: "Event" },
+    { href: "/client/recipients", label: "Recipients", icon: Users, requiresEvent: true, group: "Event" },
+    { href: "/client/reports", label: "Reports", icon: ChartColumnIncreasing, requiresEvent: true, group: "Event" },
+    { href: "/client/settings", label: "Settings", icon: Settings2, requiresEvent: false, group: "Account" },
+    { href: "/client/support", label: "Support", icon: LifeBuoy, requiresEvent: false, group: "Account" },
   ]
 
   const filteredNavItems = navItems.filter(item => {
     if (isUserLogin && !hasEventSelected && item.requiresEvent) return false
     return true
   })
+  const groups = Array.from(new Set(filteredNavItems.map((i) => i.group)))
 
   const planFeaturesMap = getPlanFeaturesMap()
 
@@ -124,25 +119,10 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
       >
 
 
-        {/* Brand / current event + panel toggle */}
-        {collapsed ? (
-          <div className="flex flex-col items-center gap-2 pt-3 pb-2 border-b border-neutral-200">
-            <Link href="/client/events" title="Events" className="h-10 w-10 flex items-center justify-center">
-              <Image src="/Certistage_icon.svg" alt="CertiStage" width={28} height={28} />
-            </Link>
-            <button
-              type="button"
-              onClick={() => setCollapsed(false)}
-              title="Expand sidebar"
-              aria-label="Expand sidebar"
-              className="h-8 w-8 rounded-md flex items-center justify-center text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
-            >
-              <PanelLeftOpen className="h-4 w-4" />
-            </button>
-          </div>
-        ) : (
-          <div className="h-16 flex items-center gap-2 border-b border-neutral-200 pl-4 pr-2">
-            <Image src="/Certistage_icon.svg" alt="CertiStage" width={28} height={28} className="shrink-0" />
+        {/* Brand / current event */}
+        <div className={cn("h-14 flex items-center border-b border-neutral-200 shrink-0", collapsed ? "justify-center" : "px-4 gap-2.5")}>
+          <Image src="/Certistage_icon.svg" alt="CertiStage" width={28} height={28} className="shrink-0" />
+          {!collapsed && (
             <div className="flex flex-col min-w-0 flex-1">
               <span className="font-semibold text-[14px] text-neutral-900 truncate leading-tight">{eventName || "CertiStage"}</span>
               {hasEventSelected && isUserLogin ? (
@@ -151,94 +131,84 @@ export function ClientSidebar({ mobile = false, onNavigate }: { mobile?: boolean
                 <span className="text-[11px] text-neutral-500 leading-tight">CertiStage</span>
               )}
             </div>
-            {!mobile && (
-              <button
-                type="button"
-                onClick={() => setCollapsed(true)}
-                title="Collapse sidebar"
-                aria-label="Collapse sidebar"
-                className="h-8 w-8 shrink-0 rounded-md flex items-center justify-center text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
-              >
-                <PanelLeftClose className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Dynamic Nav Indicator handled by active classes below */}
 
         {/* Navigation */}
-        <nav className={cn("flex-1 overflow-y-auto scrollbar-minimal", collapsed ? "px-3 py-3 space-y-1.5" : "px-3 py-3 space-y-0.5")}>
-          {filteredNavItems.map((item) => {
-            const isActive = item.href === "/client/certificates"
-              ? pathname.startsWith("/client/certificates")
-              : pathname === item.href
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onNavigate}
-                title={collapsed ? item.label : undefined}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-md text-[13.5px] transition-colors",
-                  collapsed ? "justify-center h-10 w-10 mx-auto" : "h-9 px-2.5",
-                  isActive
-                    ? "bg-neutral-100 text-neutral-900 font-medium"
-                    : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50"
-                )}
-              >
-                <item.icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-neutral-900" : "text-neutral-500")} strokeWidth={isActive ? 2 : 1.75} />
-                {!collapsed && <span className="truncate">{item.label}</span>}
-              </Link>
-            )
-          })}
+        <nav className={cn("flex-1 overflow-y-auto scrollbar-minimal px-3 py-3", collapsed ? "space-y-1.5" : "space-y-5")}>
+          {groups.map((group) => (
+            <div key={group || "top"} className={collapsed ? "space-y-1.5" : "space-y-0.5"}>
+              {group && !collapsed && (
+                <p className="px-2.5 pb-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-400">{group}</p>
+              )}
+              {group && collapsed && <div className="mx-2 my-1 border-t border-neutral-200" />}
+              {filteredNavItems.filter((i) => i.group === group).map((item) => {
+                const isActive = item.href === "/client/certificates"
+                  ? pathname.startsWith("/client/certificates")
+                  : pathname === item.href
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onNavigate}
+                    title={collapsed ? item.label : undefined}
+                    aria-current={isActive ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-md text-[13.5px] transition-colors",
+                      collapsed ? "justify-center h-10 w-10 mx-auto" : "h-9 px-2.5",
+                      isActive
+                        ? "bg-neutral-100 text-neutral-900 font-medium"
+                        : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50"
+                    )}
+                  >
+                    <item.icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-neutral-900" : "text-neutral-500")} strokeWidth={isActive ? 2 : 1.75} />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
         </nav>
 
-        {/* Account + plan */}
+        {/* Account card */}
         {userPlan && !collapsed && (
-          <div className="mx-2 mb-2 p-3.5 rounded-xl border border-neutral-200 bg-white">
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-neutral-900">
-                <span className={cn("h-1.5 w-1.5 rounded-full", userPlan === "free" ? "bg-neutral-400" : "bg-gold")} />
-                {planFeaturesMap[userPlan]?.displayName || "Free"} plan
+          <Link href="/client/settings" onClick={onNavigate} className="mx-3 mb-2 rounded-xl border border-neutral-200 bg-white p-3 flex items-center gap-3 hover:border-neutral-400 transition-colors">
+            <span className="h-9 w-9 rounded-full bg-neutral-900 text-white text-[12px] font-semibold flex items-center justify-center shrink-0">
+              {(userName || userEmail).split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "U"}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-medium text-neutral-900 truncate">{userName || userEmail}</span>
+              <span className="block text-[11.5px] text-neutral-500 truncate">
+                <span className={cn("inline-block h-1.5 w-1.5 rounded-full mr-1.5 align-middle", userPlan === "free" ? "bg-neutral-400" : "bg-gold")} />
+                {planFeaturesMap[userPlan]?.displayName || "Free"} plan{isOnTrial && trialDays >= 0 ? ` · trial, ${trialDays}d left` : ""}
               </span>
-              {userPlan !== "free" && (
-                <Link href="/client/settings" onClick={onNavigate} className="text-[11px] text-neutral-500 hover:text-neutral-900">Manage</Link>
-              )}
-            </div>
-            <p className="text-[12px] text-neutral-500 truncate" title={userEmail}>{userEmail || userName}</p>
-
-            {isOnTrial && trialDays >= 0 ? (
-              <div className="space-y-1.5 mt-3">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-neutral-500">Trial ends in</span>
-                  <span className={cn("font-medium", trialDays <= 2 ? "text-red-600" : "text-neutral-900")}>{trialDays} {trialDays === 1 ? "day" : "days"}</span>
-                </div>
-                <Progress value={Math.max(0, Math.min(100, ((trialTotalDays - trialDays) / trialTotalDays) * 100))} className="h-1 bg-neutral-100" />
-              </div>
-            ) : userPlan === "free" && (
-              <Button asChild size="sm" className="w-full h-8 mt-3 text-xs font-medium bg-neutral-900 text-white hover:bg-black">
-                <Link href="/client/upgrade" onClick={onNavigate}>See plans</Link>
-              </Button>
-            )}
+            </span>
+            <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" />
+          </Link>
+        )}
+        {userPlan && !collapsed && userPlan === "free" && (
+          <div className="mx-3 mb-2">
+            <Button asChild size="sm" className="w-full h-8 text-xs font-medium bg-neutral-900 text-white hover:bg-black">
+              <Link href="/client/upgrade" onClick={onNavigate}>See plans</Link>
+            </Button>
           </div>
         )}
 
         {/* Footer Actions */}
-        <div className="p-2 border-t border-neutral-200 space-y-1">
+        <div className="p-3 border-t border-neutral-200">
           <Button
             variant="ghost"
             className={cn(
-              "w-full h-10 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50",
-              collapsed ? "justify-center p-0" : "justify-start gap-3 px-3"
+              "w-full h-9 text-[13.5px] text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50",
+              collapsed ? "justify-center p-0 w-10 mx-auto" : "justify-start gap-2.5 px-2.5"
             )}
             onClick={handleLogout}
             title={collapsed ? "Log out" : undefined}
           >
-            <LogOut className="h-5 w-5" />
-            {!collapsed && <span className="text-sm font-medium">Log out</span>}
+            <LogOut className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            {!collapsed && <span>Log out</span>}
           </Button>
         </div>
 
