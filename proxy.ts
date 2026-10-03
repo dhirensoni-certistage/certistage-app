@@ -32,6 +32,8 @@ function withSecurityHeaders(response: NextResponse): NextResponse {
     response.headers.set('X-Content-Type-Options', 'nosniff')
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
     response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+    // Dashboards and admin never belong in search results, even if someone links to them
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow')
     return response
 }
 
@@ -52,7 +54,7 @@ export async function proxy(request: NextRequest) {
     // Admin pages: send to the admin login without a valid session
     if (path.startsWith('/admin')) {
         if (adminPublicPages.some(route => path === route || path.startsWith(route + '/'))) {
-            return NextResponse.next()
+            return withSecurityHeaders(NextResponse.next())
         }
         if (!(await hasValidAdminSession(request))) {
             return NextResponse.redirect(new URL('/admin/login', request.url))

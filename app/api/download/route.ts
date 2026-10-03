@@ -3,6 +3,15 @@ import connectDB from "@/lib/mongodb"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
+import User from "@/models/User"
+
+// The organiser's organisation name, shown as the issuer on LinkedIn ("Add to profile").
+// Falls back to null; the page then uses the event name.
+async function getIssuerName(ownerId: unknown): Promise<string | null> {
+  if (!ownerId) return null
+  const owner = await User.findById(ownerId).select("organization").lean<{ organization?: string }>()
+  return owner?.organization?.trim() || null
+}
 
 // GET - Get certificate data for download page
 export async function GET(request: NextRequest) {
@@ -51,7 +60,8 @@ export async function GET(request: NextRequest) {
           email: recipient.email,
           mobile: recipient.mobile,
           certificateId: recipient.regNo,
-          downloadCount: recipient.downloadCount || 0
+          downloadCount: recipient.downloadCount || 0,
+          issuedAt: recipient.createdAt
         },
         certificateType: {
           id: certType._id.toString(),
@@ -76,7 +86,8 @@ export async function GET(request: NextRequest) {
         event: {
           id: event._id.toString(),
           name: event.name,
-          ownerId: event.ownerId?.toString()
+          ownerId: event.ownerId?.toString(),
+          organization: await getIssuerName(event.ownerId)
         }
       })
     }
@@ -153,7 +164,8 @@ export async function GET(request: NextRequest) {
         event: {
           id: event._id,
           name: event.name,
-          ownerId: event.ownerId
+          ownerId: event.ownerId,
+          organization: await getIssuerName(event.ownerId)
         },
         certificateType: {
           id: certType._id,
@@ -275,7 +287,8 @@ export async function POST(request: NextRequest) {
         email: maskEmail(r.email),
         mobile: maskMobile(r.mobile),
         regNo: r.regNo,
-        downloadCount: r.downloadCount
+        downloadCount: r.downloadCount,
+        issuedAt: r.createdAt
       })),
       certificateType: certType ? {
         name: certType.name,
@@ -317,9 +330,6 @@ export async function PUT(request: NextRequest) {
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
-
-    // Import User model and plan limits
-    const User = (await import("@/models/User")).default
 
     const owner = await User.findById(event.ownerId)
     if (!owner) {

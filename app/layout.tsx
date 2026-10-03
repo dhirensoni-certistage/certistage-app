@@ -11,24 +11,54 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
 
+// Prices mirror the default plans in lib/plan-config.ts (admin can override them in the database)
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "CertiStage",
-  "applicationCategory": "BusinessApplication",
-  "operatingSystem": "Web",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "INR"
-  },
-  "description": "Issue certificates to thousands of attendees, students and participants. For events, colleges, institutes and training programs.",
-  "featureList": "Excel import, Visual template editor, Self-service download page, Download tracking",
-  "author": {
-    "@type": "Organization",
-    "name": "CertiStage",
-    "url": "https://www.certistage.com"
-  }
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://www.certistage.com/#organization",
+      "name": "CertiStage",
+      "url": "https://www.certistage.com",
+      "logo": "https://www.certistage.com/Certistage-logo.svg",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Ahmedabad",
+        "addressRegion": "Gujarat",
+        "addressCountry": "IN"
+      }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.certistage.com/#website",
+      "name": "CertiStage",
+      "url": "https://www.certistage.com",
+      "publisher": { "@id": "https://www.certistage.com/#organization" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "CertiStage",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "url": "https://www.certistage.com",
+      "description": "Issue certificates to thousands of attendees, students and participants. For events, colleges, institutes and training programs.",
+      "featureList": "Excel import, Visual template editor, Self-service download page, Download tracking",
+      "publisher": { "@id": "https://www.certistage.com/#organization" },
+      "offers": {
+        "@type": "AggregateOffer",
+        "priceCurrency": "INR",
+        "lowPrice": "0",
+        "highPrice": "19999",
+        "offerCount": 4,
+        "offers": [
+          { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "INR" },
+          { "@type": "Offer", "name": "Professional", "price": "4999", "priceCurrency": "INR" },
+          { "@type": "Offer", "name": "Enterprise", "price": "9999", "priceCurrency": "INR" },
+          { "@type": "Offer", "name": "Premium", "price": "19999", "priceCurrency": "INR" }
+        ]
+      }
+    }
+  ]
 }
 
 export const metadata: Metadata = {
