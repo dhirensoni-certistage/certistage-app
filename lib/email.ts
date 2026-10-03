@@ -93,7 +93,22 @@ async function logEmail(options: {
 }
 
 export async function sendEmail({ to, subject, html, template = "custom", cc, metadata, attachments }: SendEmailOptions): Promise<{ success: boolean; error?: any; data?: any }> {
-  // Try SendGrid first (if configured), fallback to SMTP
+  // Provider order: Brevo (BREVO_API_KEY), then SendGrid, then SMTP
+  if (process.env.BREVO_API_KEY) {
+    const { sendEmailViaBrevo } = await import('./email-brevo')
+    const result = await sendEmailViaBrevo({ to, subject, html, cc, attachments, tags: [template] })
+    await logEmail({
+      to,
+      subject,
+      template,
+      htmlContent: html,
+      status: result.success ? "sent" : "failed",
+      errorMessage: result.success ? undefined : result.error,
+      metadata: { ...metadata, provider: "brevo" }
+    })
+    return result
+  }
+
   if (process.env.SENDGRID_API_KEY) {
     console.log('Using SendGrid for email delivery...')
     const { sendEmailViaSendGrid } = await import('./email-sendgrid')
