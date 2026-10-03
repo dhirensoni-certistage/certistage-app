@@ -297,7 +297,8 @@ export default function ClientDashboard() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} tickFormatter={(v: string) => (v.length > 14 ? v.slice(0, 12) + ".." : v)} dy={8} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} allowDecimals={false} />
-                  <Tooltip cursor={{ fill: "#FAFAFA" }} contentStyle={CHART_TOOLTIP} />
+                  {/* Item text takes the bar colour by default; the light grey Recipients bar made it unreadable */}
+                  <Tooltip cursor={{ fill: "#FAFAFA" }} contentStyle={CHART_TOOLTIP} itemStyle={{ color: INK }} />
                   <Bar dataKey="total" name="Recipients" fill="#E5E5E5" radius={[4, 4, 0, 0]} maxBarSize={36} />
                   <Bar dataKey="downloaded" name="Downloaded" radius={[4, 4, 0, 0]} maxBarSize={36}>
                     {byCertificate.map((_, i) => <Cell key={i} fill={INK} />)}
