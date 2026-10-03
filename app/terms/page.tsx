@@ -3,6 +3,7 @@ import Image from "next/image"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/terms" },
   title: "Terms of Service · CertiStage",
   description: "CertiStage Terms of Service - Read our terms and conditions for using our certificate generation platform and services.",
 }

@@ -4,6 +4,7 @@ import { AlertCircle } from "lucide-react"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/refund" },
   title: "Refund Policy",
   description: "CertiStage Refund Policy - Learn about our refund and cancellation policy for subscription plans and services.",
   openGraph: {

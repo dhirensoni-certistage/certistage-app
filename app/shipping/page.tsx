@@ -1,5 +1,12 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import Image from "next/image"
+
+export const metadata: Metadata = {
+  title: "Shipping and delivery",
+  description: "CertiStage is a digital service. Certificates are delivered online; nothing is shipped.",
+  alternates: { canonical: "/shipping" }
+}
 
 export default function ShippingPage() {
   return (

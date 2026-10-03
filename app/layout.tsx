@@ -91,12 +91,9 @@ export const metadata: Metadata = {
     description: 'Issue certificates to thousands of attendees, students and participants in minutes. For events, colleges, institutes and training programs.',
     images: ['/og-image.png'],
   },
-  verification: {
-    google: 'your-google-verification-code',
-  },
-  alternates: {
-    canonical: 'https://www.certistage.com',
-  },
+  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } }
+    : {}),
 }
 
 

@@ -8,6 +8,7 @@ import { SiteFooter } from "@/components/landing/site-footer"
 import { LiveStatsStrip } from "@/components/landing/live-stats-strip"
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/about" },
   title: "About",
   description: "CertiStage helps events, colleges, institutes and training programs issue certificates to thousands of people in minutes, from Ahmedabad, India."
 }
