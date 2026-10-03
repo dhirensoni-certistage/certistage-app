@@ -8,6 +8,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { toast } from "sonner"
 import { jsPDF } from "jspdf"
+import { LinkedInAddButton } from "@/components/download/linkedin-add-button"
 
 interface Recipient {
   id: string
@@ -19,6 +20,7 @@ interface Recipient {
   mobile?: string
   certificateId: string
   downloadCount: number
+  issuedAt?: string
 }
 
 interface CertificateType {
@@ -40,6 +42,7 @@ interface EventData {
   id: string
   name: string
   ownerId?: string
+  organization?: string | null
 }
 
 export default function DownloadPage() {
@@ -388,6 +391,19 @@ export default function DownloadPage() {
               </Button>
             )}
           </div>
+
+          {downloaded && recipient && (
+            <div className="max-w-xs mx-auto mt-6">
+              <LinkedInAddButton
+                className="rounded-full h-11"
+                name={`${certType?.name ? `${certType.name} certificate - ` : ""}${event?.name || ""}`}
+                organizationName={event?.organization || event?.name || ""}
+                issuedAt={recipient.issuedAt}
+                certUrl={window.location.href}
+                certId={recipient.certificateId}
+              />
+            </div>
+          )}
 
           {downloaded && (
             <p className="text-center text-[13px] text-neutral-400 mt-6 font-normal">

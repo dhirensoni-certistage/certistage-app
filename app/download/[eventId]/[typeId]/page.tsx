@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { useTemplateTextScale } from "@/lib/certificate-text"
+import { individualCertificateUrl } from "@/lib/linkedin"
+import { LinkedInAddButton } from "@/components/download/linkedin-add-button"
 
 interface SearchFields {
   name: boolean
@@ -26,6 +28,7 @@ interface Recipient {
   certificateId: string
   regNo?: string
   downloadCount: number
+  issuedAt?: string
 }
 
 interface CertificateType {
@@ -61,6 +64,7 @@ interface CertificateType {
 interface EventData {
   id: string
   name: string
+  organization?: string | null
 }
 
 type Step = "search" | "select" | "preview"
@@ -150,7 +154,8 @@ export default function CertTypeDownloadPage() {
     mobile: r.mobile || "",
     certificateId: r.regNo || r.id,
     regNo: r.regNo,
-    downloadCount: r.downloadCount || 0
+    downloadCount: r.downloadCount || 0,
+    issuedAt: r.issuedAt
   })
 
   const handleSearch = async (e?: React.FormEvent) => {
@@ -475,10 +480,20 @@ export default function CertTypeDownloadPage() {
                   {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : downloaded ? "Download again" : "Download PDF"}
                 </Button>
                 {downloaded ? (
-                  <p className="text-[13px] text-neutral-600 mt-3">
-                    Your PDF has been downloaded. On a phone it may open in a new tab; use the save or share option there.{" "}
-                    <button type="button" onClick={handleShare} className="text-neutral-900 underline underline-offset-4 hover:text-neutral-600">Share this page</button>
-                  </p>
+                  <>
+                    <p className="text-[13px] text-neutral-600 mt-3">
+                      Your PDF has been downloaded. On a phone it may open in a new tab; use the save or share option there.{" "}
+                      <button type="button" onClick={handleShare} className="text-neutral-900 underline underline-offset-4 hover:text-neutral-600">Share this page</button>
+                    </p>
+                    <LinkedInAddButton
+                      className="mt-4"
+                      name={`${certType.name} certificate - ${event?.name || ""}`.replace(/ - $/, "")}
+                      organizationName={event?.organization || event?.name || ""}
+                      issuedAt={selectedRecipient.issuedAt}
+                      certUrl={selectedRecipient.regNo ? individualCertificateUrl(window.location.origin, eventId, selectedRecipient.regNo) : pageUrl}
+                      certId={selectedRecipient.regNo}
+                    />
+                  </>
                 ) : (
                   <p className="text-[13px] text-neutral-500 mt-3">The downloaded PDF is print quality and has no watermark.</p>
                 )}
