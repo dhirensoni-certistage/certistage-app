@@ -10,11 +10,10 @@ function getPreview(type: string) {
         "Dhiren Soni",
         `${appUrl}/verify-email?token=preview-token-123`
       )
-    case "reset":
-      return emailTemplates.passwordReset(
-        "Dhiren Soni",
-        `${appUrl}/reset-password?token=preview-reset-token-123`
-      )
+    case "login-otp":
+      return emailTemplates.loginOtp("Dhiren Soni", "417930")
+    case "signup-otp":
+      return emailTemplates.signupOtp("Dhiren Soni", "682202")
     case "invoice":
       return emailTemplates.invoice({
         invoiceNumber: "INV-2026-0001",

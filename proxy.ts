@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
+// Next.js 16 proxy (formerly middleware): gate /client pages behind a session
 // Protected routes pattern
 const protectedRoutes = ['/client']
-const publicRoutes = ['/client/login', '/client/register', '/client/forgot-password']
+const publicRoutes = ['/client/login', '/client/register']
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     const path = request.nextUrl.pathname
 
     // Check if it's a protected route
@@ -48,3 +49,5 @@ export const config = {
         '/client/:path*',
     ],
 }
+
+export default proxy

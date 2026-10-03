@@ -44,7 +44,7 @@ export const authOptions: NextAuthOptions = {
             
             // Send welcome email to new Google users
             try {
-              const welcomeTemplate = emailTemplates.welcome(user.name || "User", user.email!)
+              const welcomeTemplate = emailTemplates.welcome(user.name || "User")
               await sendEmail({
                 to: user.email!,
                 subject: welcomeTemplate.subject,
