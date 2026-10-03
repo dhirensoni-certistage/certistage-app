@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { ClientSidebar } from "@/components/client/client-sidebar"
 import { MobileTopBar } from "@/components/client/mobile-top-bar"
 import { getClientSession, clearClientSession, getPlanFeaturesMap, normalizePlanId } from "@/lib/auth"
-import { Loader2, LogOut } from "lucide-react"
+import { Loader2, LogOut, PanelLeft } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -37,6 +37,12 @@ export default function ClientLayout({
   const [hasEventSelected, setHasEventSelected] = useState(false)
   const [userName, setUserName] = useState("")
   const [userPlan, setUserPlan] = useState<string>("free")
+  const [userEmail, setUserEmail] = useState("")
+  const [collapsed, setCollapsedState] = useState(false)
+  const setCollapsed = (value: boolean) => {
+    setCollapsedState(value)
+    try { localStorage.setItem("sidebarCollapsed", value ? "1" : "0") } catch {}
+  }
 
   const normalizePlan = (plan?: string) => normalizePlanId(plan)
 
@@ -104,6 +110,8 @@ export default function ClientLayout({
 
       setIsAuthenticated(true)
       setUserName(session.userName || "")
+      setUserEmail(session.userEmail || "")
+      try { setCollapsedState(localStorage.getItem("sidebarCollapsed") === "1") } catch {}
       setUserPlan(normalizePlan(session.userPlan))
 
       // Check if user has selected an event
@@ -153,33 +161,36 @@ export default function ClientLayout({
     return (
       <div className="min-h-screen bg-[#FDFDFD]">
         {/* Top Header */}
-        <header className="border-b border-[#E5E5E5] bg-white/80 backdrop-blur sticky top-0 z-50">
-          <div className="container flex h-16 items-center justify-between px-4 md:px-8">
+        <header className="border-b border-neutral-200 bg-white sticky top-0 z-50">
+          <div className="max-w-6xl mx-auto flex h-14 items-center justify-between px-4 md:px-10">
             {/* Logo */}
             <Link href="/client/events" className="flex items-center gap-2">
-              <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
-              <span className="font-semibold text-[17px] text-black">CertiStage</span>
+              <Image src="/Certistage_icon.svg" alt="CertiStage" width={28} height={28} />
+              <span className="font-semibold text-[15px] text-neutral-900">CertiStage</span>
             </Link>
 
-            {/* Right side - User info & Logout */}
-            <div className="flex items-center gap-4">
-              {/* Plan Badge */}
+            {/* Account + plan + logout */}
+            <div className="flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-3">
-                <span className="text-sm font-medium text-black">{userName}</span>
-                <span className="px-2.5 py-1 rounded text-xs font-semibold bg-neutral-100 text-[#333] border border-neutral-200">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[12px] font-medium text-neutral-900">
+                  <span className={userPlan === "free" ? "h-1.5 w-1.5 rounded-full bg-neutral-400" : "h-1.5 w-1.5 rounded-full bg-gold"} />
                   {planFeatures[userPlan]?.displayName || "Free"}
                 </span>
+                <Link href="/client/settings" className="flex items-center gap-2 group">
+                  <span className="h-8 w-8 rounded-full bg-neutral-900 text-white text-[12px] font-semibold flex items-center justify-center">
+                    {userName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "U"}
+                  </span>
+                  <span className="text-[13.5px] font-medium text-neutral-900 group-hover:underline underline-offset-4">{userName}</span>
+                </Link>
               </div>
-
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
+                type="button"
                 onClick={handleLogout}
-                className="gap-2 text-[#666] hover:text-black hover:bg-neutral-100"
+                title="Log out"
+                className="h-9 w-9 rounded-md flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
               >
                 <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Logout</span>
-              </Button>
+              </button>
             </div>
           </div>
         </header>
@@ -193,17 +204,51 @@ export default function ClientLayout({
   }
 
   // Full layout with sidebar (when event is selected)
+  const navTitles: Record<string, string> = {
+    "/client/dashboard": "Dashboard", "/client/certificates": "Certificates", "/client/recipients": "Recipients",
+    "/client/reports": "Reports", "/client/settings": "Settings", "/client/support": "Support", "/client/upgrade": "Plans"
+  }
+  const pageTitle = navTitles[pathname] || (pathname.startsWith("/client/certificates") ? "Certificates" : pathname.startsWith("/client/settings") ? "Settings" : "")
+  const planFeatures = getPlanFeaturesMap()
+  const initials = (userName || userEmail).split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "U"
+
   return (
     <div className="flex h-screen flex-col lg:flex-row bg-[#FDFDFD] overflow-hidden">
       <MobileTopBar />
       <div className="hidden lg:flex h-full shrink-0">
-        <ClientSidebar />
+        <ClientSidebar collapsed={collapsed} />
       </div>
-      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden lg:border-l border-[#E5E5E5] bg-[#FDFDFD] scrollbar-minimal">
-        <PageTransition>
-          {children}
-        </PageTransition>
-      </main>
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+        <header className="hidden lg:flex h-14 shrink-0 items-center justify-between px-5 bg-white border-b border-neutral-200">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCollapsed(!collapsed)}
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className="h-9 w-9 -ml-2 rounded-md flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+            >
+              <PanelLeft className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </button>
+            <span className="text-[15px] font-semibold text-neutral-900">{pageTitle}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[12px] font-medium text-neutral-900">
+              <span className={userPlan === "free" ? "h-1.5 w-1.5 rounded-full bg-neutral-400" : "h-1.5 w-1.5 rounded-full bg-gold"} />
+              {planFeatures[userPlan]?.displayName || "Free"}
+            </span>
+            <Link href="/client/settings" className="flex items-center gap-2 group" title={userEmail}>
+              <span className="h-8 w-8 rounded-full bg-neutral-900 text-white text-[12px] font-semibold flex items-center justify-center">{initials}</span>
+              <span className="text-[13.5px] font-medium text-neutral-900 group-hover:underline underline-offset-4">{userName}</span>
+            </Link>
+          </div>
+        </header>
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#FDFDFD] scrollbar-minimal">
+          <PageTransition>
+            {children}
+          </PageTransition>
+        </main>
+      </div>
     </div>
   )
 }
