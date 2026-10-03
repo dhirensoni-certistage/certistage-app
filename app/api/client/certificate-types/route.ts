@@ -5,6 +5,8 @@ import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 import { canUserCreateCertificateType, verifyEventOwnership } from "@/lib/plan-limits"
 import { requireClientUser } from "@/lib/client-auth.server"
+import { trashCertificateType } from "@/lib/trash.server"
+import { logAudit } from "@/lib/audit-logger"
 
 function generateShortCode(length = 6): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
@@ -309,7 +311,6 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const typeId = searchParams.get("typeId")
-    const permanent = searchParams.get("permanent") === "true"
     const auth = await requireClientUser(request)
     if (auth.response) return auth.response
     const userId = auth.userId
@@ -329,25 +330,16 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
-    if (permanent) {
-      // Delete all recipients first
-      await Recipient.deleteMany({ certificateTypeId: typeId })
-      // Delete certificate type
-      await CertificateType.findByIdAndDelete(typeId)
+    // Both "soft" and "permanent" deletes go to Recently deleted; the organiser can restore for 30 days
+    const { batchId, recipients } = await trashCertificateType(certType.toObject(), userId)
+    await logAudit({ userId, action: "DELETE_CERTIFICATE_TYPE", resourceId: typeId, details: { name: certType.name, recipients, batchId } })
 
-      return NextResponse.json({
-        success: true,
-        message: "Certificate type and all recipients permanently deleted"
-      })
-    } else {
-      // Soft delete
-      await CertificateType.findByIdAndUpdate(typeId, { isActive: false })
-
-      return NextResponse.json({
-        success: true,
-        message: "Certificate type deleted successfully"
-      })
-    }
+    return NextResponse.json({
+      success: true,
+      batchId,
+      recipientsDeleted: recipients,
+      message: "Certificate type moved to Recently deleted"
+    })
   } catch (error) {
     console.error("Certificate types DELETE error:", error)
     return NextResponse.json({ error: "Failed to delete certificate type" }, { status: 500 })

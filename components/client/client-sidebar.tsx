@@ -12,8 +12,7 @@ import {
   LifeBuoy,
   Crown,
   Settings2,
-  CalendarDays
-} from "lucide-react"
+  CalendarDays, ArchiveRestore } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -99,6 +98,7 @@ export function ClientSidebar({ mobile = false, onNavigate, collapsed: collapsed
     { href: "/client/recipients", label: "Recipients", icon: Users, requiresEvent: true, group: "Event" },
     { href: "/client/reports", label: "Reports", icon: ChartColumnIncreasing, requiresEvent: true, group: "Event" },
     { href: "/client/settings", label: "Settings", icon: Settings2, requiresEvent: false, group: "Account" },
+    { href: "/client/trash", label: "Recently deleted", icon: ArchiveRestore, requiresEvent: false, group: "Account" },
     { href: "/client/support", label: "Support", icon: LifeBuoy, requiresEvent: false, group: "Account" },
   ]
 

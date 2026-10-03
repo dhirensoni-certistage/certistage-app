@@ -45,6 +45,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 import { TextColorPicker } from "@/components/client/text-color-picker"
 import { useTemplateTextScale } from "@/lib/certificate-text"
+import { toastDeleted } from "@/lib/client-trash"
 import { usePlanConfig } from "@/hooks/use-plan-config"
 import { formatInr, getStartingPaidPlan } from "@/lib/plan-config"
 
@@ -372,17 +373,18 @@ export default function CertificatesPage() {
     }
 
     try {
-      const res = await fetch(`/api/client/certificate-types?typeId=${deleteType.id}&userId=${session.userId}&permanent=true`, {
+      const res = await fetch(`/api/client/certificate-types?typeId=${deleteType.id}`, {
         method: 'DELETE'
       })
 
       if (res.ok) {
+        const data = await res.json().catch(() => ({}))
         setDeleteType(null)
         if (selectedTypeId === deleteType.id) {
           setSelectedTypeId(null)
         }
         fetchEventData(eventId)
-        toast.success("Certificate type deleted")
+        toastDeleted(`"${deleteType.name}" deleted`, data.batchId, () => fetchEventData(eventId))
       } else {
         const data = await res.json()
         toast.error(data.error || "Failed to delete")
@@ -821,7 +823,7 @@ export default function CertificatesPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Certificate Type?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete "{deleteType?.name}" and all its {deleteType?.stats.total || 0} recipients.
+                This deletes "{deleteType?.name}" and its {deleteType?.stats.total || 0} recipients. Download links stop working right away. You can restore everything from Recently deleted for 30 days.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -1056,7 +1058,7 @@ export default function CertificatesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Certificate Type?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete "{deleteType?.name}" and all its {deleteType?.stats.total || 0} recipients.
+              This deletes "{deleteType?.name}" and its {deleteType?.stats.total || 0} recipients. Download links stop working right away. You can restore everything from Recently deleted for 30 days.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
