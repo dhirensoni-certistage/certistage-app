@@ -1107,6 +1107,18 @@ function TemplateEditor({
 }) {
   // Scale stored font sizes (PDF points) to the on-screen image so the canvas matches the PDF
   const { ref: templateImgRef, scale: textScale } = useTemplateTextScale()
+  // Size the template to the visible canvas area so the whole design is always on screen
+  const canvasAreaRef = useRef<HTMLDivElement>(null)
+  const [canvasMax, setCanvasMax] = useState<{ w: number; h: number } | null>(null)
+  useEffect(() => {
+    const el = canvasAreaRef.current
+    if (!el) return
+    const measure = () => setCanvasMax({ w: Math.max(0, el.clientWidth - 66), h: Math.max(0, el.clientHeight - 66) })
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [certType.template])
 
   if (!certType.template) {
     return (
@@ -1157,7 +1169,7 @@ function TemplateEditor({
         </div>
 
         {/* Canvas Scroller */}
-        <div className="flex-1 overflow-auto bg-[url('/grid-pattern.svg')] relative">
+        <div ref={canvasAreaRef} className="flex-1 overflow-auto bg-[url('/grid-pattern.svg')] relative">
           <div className="absolute inset-0 flex items-center justify-center p-8 min-h-full min-w-full">
             <div
               ref={containerRef}
@@ -1171,10 +1183,11 @@ function TemplateEditor({
                 id="certificate-template-image"
                 src={certType.template}
                 alt="Template"
-                className="block max-w-[90vw] lg:max-w-[calc(100vw-400px)] shadow-md"
+                className="block shadow-md"
                 draggable={false}
                 style={{
-                  maxHeight: 'calc(100vh - 180px)',
+                  maxWidth: canvasMax ? `${canvasMax.w}px` : '90vw',
+                  maxHeight: canvasMax ? `${canvasMax.h}px` : 'calc(100vh - 180px)',
                   width: 'auto',
                   height: 'auto',
                   objectFit: 'contain'
