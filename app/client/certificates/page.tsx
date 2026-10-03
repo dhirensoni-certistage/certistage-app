@@ -1148,7 +1148,7 @@ function TemplateEditor({
   // existing effects...
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-130px)] min-h-[600px]">
+    <div className="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-232px)] lg:min-h-[520px]">
       {/* Left: Canvas Area */}
       <div className="flex-1 bg-[#F5F5F7] rounded-xl border border-[#E5E5E5] relative overflow-hidden flex flex-col">
         {/* Canvas Toolbar */}
