@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/signup" },
   title: "Sign Up - Create Your Account",
   description: "Create your free CertiStage account and start generating professional certificates for your events, courses, and achievements. No credit card required.",
   keywords: ["sign up", "create account", "certificate generator signup", "free certificate maker"],

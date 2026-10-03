@@ -5,10 +5,9 @@ const nextConfig = {
   },
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
+      { protocol: 'https', hostname: 'res.cloudinary.com' },
+      { protocol: 'https', hostname: 'www.certistage.com' },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
     ],
   },
   // Optimize production builds
