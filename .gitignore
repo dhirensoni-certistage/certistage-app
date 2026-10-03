@@ -37,3 +37,7 @@ yarn-error.log*
 next-env.d.ts
 node_modules
 node_modules
+
+# Research notes and reports produced in Claude sessions (not part of the app)
+research_notes/
+reports/
