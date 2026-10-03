@@ -31,6 +31,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("profile")
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [profileForm, setProfileForm] = useState({ name: "", phone: "", organization: "" })
+  const [usage, setUsage] = useState<{ events: number; certificateTypes: number; certificates: number } | null>(null)
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -39,6 +40,7 @@ export default function SettingsPage() {
       const session = JSON.parse(sessionStr)
       if (!session.userId) { router.push("/client/login"); return }
 
+      fetch("/api/client/usage").then(async (r) => { if (r.ok) { const d = await r.json(); if (d.usage) setUsage(d.usage) } }).catch(() => {})
       try {
         const result = await fetchClientProfile()
         if (result.ok && result.user) {
@@ -195,19 +197,38 @@ export default function SettingsPage() {
             )}
           </div>
           <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-            <div className="px-5 py-4 border-b border-neutral-100"><h2 className="text-[15px] font-semibold text-neutral-900">What is included</h2></div>
+            <div className="px-5 py-4 border-b border-neutral-100">
+              <h2 className="text-[15px] font-semibold text-neutral-900">Usage and limits</h2>
+              <p className="text-[12.5px] text-neutral-500 mt-0.5">Limits apply across all your events. Issued certificates count for the plan period even if you delete the recipient later.</p>
+            </div>
             <dl className="divide-y divide-neutral-100">
-              {[
-                ["Events", limit(planFeatures.maxEvents)],
-                ["Certificates per event", limit(planFeatures.maxCertificateTypes)],
-                ["Recipients", limit(planFeatures.maxCertificates)],
+              {([
+                ["Events", planFeatures.maxEvents, usage?.events],
+                ["Certificate types", planFeatures.maxCertificateTypes, usage?.certificateTypes],
+                [isPaid ? "Certificates issued this plan period" : "Certificates issued", planFeatures.maxCertificates, usage?.certificates]
+              ] as Array<[string, number, number | undefined]>).map(([label, max, used]) => (
+                <div key={label} className="px-5 py-3 text-[13.5px]">
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-neutral-600">{label}</dt>
+                    <dd className="font-medium text-neutral-900">
+                      {used === undefined ? limit(max) : max === -1 ? `${used.toLocaleString("en-IN")} used · Unlimited` : `${used.toLocaleString("en-IN")} of ${max.toLocaleString("en-IN")}`}
+                    </dd>
+                  </div>
+                  {used !== undefined && max > 0 && (
+                    <div className="h-1 w-full bg-neutral-100 rounded-full overflow-hidden mt-2">
+                      <div className={cn("h-full rounded-full", used / max >= 0.9 ? "bg-red-500" : "bg-neutral-900")} style={{ width: `${Math.min(100, Math.round((used / max) * 100))}%` }} />
+                    </div>
+                  )}
+                </div>
+              ))}
+              {([
                 ["Excel import", planFeatures.canImportData],
                 ["Report exports", planFeatures.canExportReport]
-              ].map(([label, value]) => (
-                <div key={String(label)} className="flex items-center justify-between px-5 py-3 text-[13.5px]">
+              ] as Array<[string, boolean]>).map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between px-5 py-3 text-[13.5px]">
                   <dt className="text-neutral-600">{label}</dt>
                   <dd className="font-medium text-neutral-900">
-                    {typeof value === "boolean" ? (value ? <Check className="h-4 w-4 text-gold-deep" /> : <span className="text-neutral-400 font-normal">Not included</span>) : value}
+                    {value ? <Check className="h-4 w-4 text-gold-deep" /> : <span className="text-neutral-400 font-normal">Not included</span>}
                   </dd>
                 </div>
               ))}

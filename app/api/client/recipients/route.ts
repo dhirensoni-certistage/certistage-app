@@ -3,7 +3,7 @@ import connectDB from "@/lib/mongodb"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
-import { canUserAddRecipients, verifyEventOwnership, canUserUseFeature } from "@/lib/plan-limits"
+import { canUserAddRecipients, verifyEventOwnership, canUserUseFeature, recordCertificatesIssued } from "@/lib/plan-limits"
 import { requireClientUser } from "@/lib/client-auth.server"
 import { trashRecipients } from "@/lib/trash.server"
 import { logAudit } from "@/lib/audit-logger"
@@ -164,6 +164,7 @@ export async function POST(request: NextRequest) {
     })
 
     const created = await Recipient.insertMany(recipientDocs)
+    await recordCertificatesIssued(userId, created.length)
 
     return NextResponse.json({
       success: true,

@@ -3,7 +3,7 @@ import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 import TrashItem from "@/models/TrashItem"
-import { canUserAddRecipients, canUserCreateCertificateType } from "@/lib/plan-limits"
+import { canUserCreateCertificateType } from "@/lib/plan-limits"
 
 export const TRASH_RETENTION_DAYS = 30
 
@@ -141,10 +141,8 @@ export async function restoreBatch(batchId: string, ownerId: string): Promise<Re
     const can = await canUserCreateCertificateType(ownerId, String(typeItem.eventId))
     if (!can.allowed) return { ok: false, status: 403, error: can.reason || "Certificate limit reached for your plan." }
   }
+  // Restored recipients were counted when they were issued, so they are not charged again
   if (recipientItems.length > 0) {
-    const can = await canUserAddRecipients(ownerId, recipientItems.length)
-    if (!can.allowed) return { ok: false, status: 403, error: can.reason || "Recipient limit reached for your plan." }
-
     // The certificate these recipients belong to must exist (or be restored in this batch)
     if (!typeItem) {
       const typeIds = Array.from(new Set(recipientItems.map((i) => String(i.doc.certificateTypeId))))
