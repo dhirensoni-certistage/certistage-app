@@ -42,9 +42,16 @@ export interface EmailTemplate {
   html: string
 }
 
+export interface EmailAttachment {
+  filename: string
+  content: Buffer
+  contentType?: string
+}
+
 export interface SendEmailOptions extends EmailTemplate {
   template?: string
   cc?: string | string[]
+  attachments?: EmailAttachment[]
   metadata?: {
     userId?: string
     userName?: string
@@ -85,13 +92,13 @@ async function logEmail(options: {
   }
 }
 
-export async function sendEmail({ to, subject, html, template = "custom", cc, metadata }: SendEmailOptions): Promise<{ success: boolean; error?: any; data?: any }> {
+export async function sendEmail({ to, subject, html, template = "custom", cc, metadata, attachments }: SendEmailOptions): Promise<{ success: boolean; error?: any; data?: any }> {
   // Try SendGrid first (if configured), fallback to SMTP
   if (process.env.SENDGRID_API_KEY) {
     console.log('Using SendGrid for email delivery...')
     const { sendEmailViaSendGrid } = await import('./email-sendgrid')
     
-    const result = await sendEmailViaSendGrid({ to, subject, html, cc, template, metadata })
+    const result = await sendEmailViaSendGrid({ to, subject, html, cc, template, metadata, attachments })
     
     // Log email
     await logEmail({
@@ -138,6 +145,9 @@ export async function sendEmail({ to, subject, html, template = "custom", cc, me
 
   if (cc) {
     mailOptions.cc = cc
+  }
+  if (attachments?.length) {
+    mailOptions.attachments = attachments.map((a) => ({ filename: a.filename, content: a.content, contentType: a.contentType }))
   }
 
   let lastError: any = null

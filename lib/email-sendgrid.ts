@@ -13,6 +13,7 @@ export interface SendGridEmailOptions {
   cc?: string | string[]
   template?: string
   metadata?: any
+  attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>
 }
 
 export async function sendEmailViaSendGrid(options: SendGridEmailOptions): Promise<{ success: boolean; error?: any; data?: any }> {
@@ -38,6 +39,14 @@ export async function sendEmailViaSendGrid(options: SendGridEmailOptions): Promi
     // Add CC if provided
     if (options.cc) {
       msg.cc = options.cc
+    }
+    if (options.attachments?.length) {
+      msg.attachments = options.attachments.map((a) => ({
+        content: a.content.toString("base64"),
+        filename: a.filename,
+        type: a.contentType || "application/octet-stream",
+        disposition: "attachment"
+      }))
     }
 
     // Send email
