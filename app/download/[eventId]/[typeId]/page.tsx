@@ -479,21 +479,23 @@ export default function CertTypeDownloadPage() {
                 <Button type="button" onClick={handleDownload} disabled={isDownloading} className="w-full h-10 rounded-md text-sm bg-neutral-900 hover:bg-black">
                   {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : downloaded ? "Download again" : "Download PDF"}
                 </Button>
+                {/* Shown next to Download, not only after it: on phones the PDF opens in a new tab
+                    and many recipients never come back to this one */}
+                <LinkedInAddButton
+                  className="mt-2.5"
+                  variant={downloaded ? "solid" : "outline"}
+                  recipientId={selectedRecipient.id}
+                  name={`${certType.name} certificate - ${event?.name || ""}`.replace(/ - $/, "")}
+                  organizationName={event?.organization || event?.name || ""}
+                  issuedAt={selectedRecipient.issuedAt}
+                  certUrl={selectedRecipient.regNo ? individualCertificateUrl(window.location.origin, eventId, selectedRecipient.regNo) : pageUrl}
+                  certId={selectedRecipient.regNo}
+                />
                 {downloaded ? (
-                  <>
-                    <p className="text-[13px] text-neutral-600 mt-3">
-                      Your PDF has been downloaded. On a phone it may open in a new tab; use the save or share option there.{" "}
-                      <button type="button" onClick={handleShare} className="text-neutral-900 underline underline-offset-4 hover:text-neutral-600">Share this page</button>
-                    </p>
-                    <LinkedInAddButton
-                      className="mt-4"
-                      name={`${certType.name} certificate - ${event?.name || ""}`.replace(/ - $/, "")}
-                      organizationName={event?.organization || event?.name || ""}
-                      issuedAt={selectedRecipient.issuedAt}
-                      certUrl={selectedRecipient.regNo ? individualCertificateUrl(window.location.origin, eventId, selectedRecipient.regNo) : pageUrl}
-                      certId={selectedRecipient.regNo}
-                    />
-                  </>
+                  <p className="text-[13px] text-neutral-600 mt-3">
+                    Downloaded. Add it to your LinkedIn profile too; it takes 30 seconds. On a phone the PDF may open in a new tab; use the save or share option there.{" "}
+                    <button type="button" onClick={handleShare} className="text-neutral-900 underline underline-offset-4 hover:text-neutral-600">Share this page</button>
+                  </p>
                 ) : (
                   <p className="text-[13px] text-neutral-500 mt-3">The downloaded PDF is print quality and has no watermark.</p>
                 )}
