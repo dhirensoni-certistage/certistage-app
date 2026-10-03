@@ -35,8 +35,7 @@ import {
   Calendar,
   FileText,
   CreditCard as PaymentIcon,
-  Loader2
-} from "lucide-react"
+  Loader2, DatabaseBackup, Download, Mail } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { Breadcrumbs } from "@/components/admin/breadcrumbs"
@@ -273,6 +272,24 @@ export default function AdminSettingsPage() {
   })
   const [confirmText, setConfirmText] = useState("")
   const [isClearing, setIsClearing] = useState(false)
+  const [isEmailingBackup, setIsEmailingBackup] = useState(false)
+
+  const handleEmailBackup = async () => {
+    setIsEmailingBackup(true)
+    try {
+      const res = await fetch("/api/admin/backup", { method: "POST" })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(`Backup sent to ${data.to}`, { description: `${data.filename} · ${Math.round(data.bytes / 1024)} KB · ${data.counts.recipients} recipients` })
+      } else {
+        toast.error(data.error || "Backup failed")
+      }
+    } catch {
+      toast.error("Backup failed")
+    } finally {
+      setIsEmailingBackup(false)
+    }
+  }
   const [dataCounts, setDataCounts] = useState<Record<string, number>>({})
 
   const fetchDataCounts = async () => {
@@ -669,6 +686,46 @@ export default function AdminSettingsPage() {
             </Button>
             <Button variant="outline" onClick={handleTestConnection} disabled={isTestingConnection} className="min-w-[140px]">
               {isTestingConnection ? "Testing..." : "Test Connection"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Backups */}
+      <Card className="mb-6">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <DatabaseBackup className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle>Backups</CardTitle>
+              <CardDescription>A full copy of the database, as a compressed file you can restore from</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3 text-sm">
+            <div className="p-3 rounded-lg border bg-background">
+              <p className="font-medium">Every week</p>
+              <p className="text-xs text-muted-foreground mt-1">Sunday 2:00 AM IST a backup is emailed to the backup address set in the environment (BACKUP_EMAIL, else ADMIN_EMAIL).</p>
+            </div>
+            <div className="p-3 rounded-lg border bg-background">
+              <p className="font-medium">What is inside</p>
+              <p className="text-xs text-muted-foreground mt-1">Users, admins, events, certificate types, recipients, payments, settings and Recently deleted. Template images stay on Cloudinary. No password hashes.</p>
+            </div>
+            <div className="p-3 rounded-lg border bg-background">
+              <p className="font-medium">Restore</p>
+              <p className="text-xs text-muted-foreground mt-1 font-mono break-all">node scripts/restore-backup.mjs &lt;file&gt; --uri &lt;MONGODB_URI&gt;</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild>
+              <a href="/api/admin/backup"><Download className="h-4 w-4 mr-2" />Download backup</a>
+            </Button>
+            <Button variant="outline" onClick={handleEmailBackup} disabled={isEmailingBackup}>
+              {isEmailingBackup ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
+              Email backup now
             </Button>
           </div>
         </CardContent>

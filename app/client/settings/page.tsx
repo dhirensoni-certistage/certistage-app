@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Loader2, Check } from "lucide-react"
+import { Loader2, Check, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -161,6 +161,18 @@ export default function SettingsPage() {
             </Button>
           </div>
         </form>
+      )}
+
+      {activeTab === "profile" && (
+        <div className="mt-4 rounded-xl border border-neutral-200 bg-white p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-[15px] font-semibold text-neutral-900">Your data</h2>
+            <p className="text-[13px] text-neutral-500 mt-0.5">Every event, certificate and recipient in this account as one Excel file. Keep a copy before big changes.</p>
+          </div>
+          <Button asChild variant="outline" className="h-9 px-4 border-neutral-200 hover:bg-neutral-50 text-[13px] w-fit shrink-0">
+            <a href="/api/client/export"><Download className="h-4 w-4 mr-2" />Download Excel</a>
+          </Button>
+        </div>
       )}
 
       {activeTab === "security" && (
