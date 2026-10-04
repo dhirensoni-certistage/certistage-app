@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { Download, Search, ChevronLeft, ChevronRight, Mail } from "lucide-react"
+import { Download, Search, ChevronLeft, ChevronRight, Mail, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getClientSession } from "@/lib/auth"
 import { cn } from "@/lib/utils"
+import { BuyEmailsDialog } from "@/components/client/buy-emails-dialog"
+import { StatusTag } from "@/components/client/addon-status-tag"
 
 type Status = "sending" | "sent" | "delivered" | "opened" | "clicked" | "bounced" | "failed" | "spam"
 
@@ -83,6 +85,8 @@ export default function EmailLogPage() {
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [buyOpen, setBuyOpen] = useState(false)
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     setEventId(getClientSession()?.eventId || null)
@@ -127,7 +131,7 @@ export default function EmailLogPage() {
       .catch((e) => { if (!cancelled) setError(e.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [eventId, ready, page, params])
+  }, [eventId, ready, page, params, reload])
 
   if (ready && !eventId) {
     return (
@@ -155,7 +159,7 @@ export default function EmailLogPage() {
     <div className="p-4 md:p-6 flex flex-col h-full overflow-hidden bg-[#FDFDFD]">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5 flex-shrink-0">
         <div>
-          <h1 className="text-[24px] font-semibold text-neutral-900 tracking-tight leading-none">Email log</h1>
+          <h1 className="text-[24px] font-semibold text-neutral-900 tracking-tight leading-none flex items-center gap-2">Email log <StatusTag status="beta" /></h1>
           <p className="text-[13px] text-neutral-500 mt-1.5">
             Every certificate email for this event and what happened to it.
             {quota && (
@@ -165,6 +169,9 @@ export default function EmailLogPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="h-9 px-3 text-[13px] border-neutral-200 bg-white" onClick={() => setBuyOpen(true)}>
+            <ShoppingCart className="h-3.5 w-3.5 mr-1.5" /> Buy emails
+          </Button>
           <Button asChild variant="outline" size="sm" className="h-9 px-3 text-[13px] border-neutral-200 bg-white">
             <Link href="/client/recipients"><Mail className="h-3.5 w-3.5 mr-1.5" /> Send emails</Link>
           </Button>
@@ -297,6 +304,7 @@ export default function EmailLogPage() {
           </div>
         </div>
       </div>
+      <BuyEmailsDialog open={buyOpen} onOpenChange={setBuyOpen} onBought={() => setReload((r) => r + 1)} />
     </div>
   )
 }

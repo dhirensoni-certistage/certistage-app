@@ -9,6 +9,11 @@ export interface IPayment extends Document {
   invoiceBaseAmount?: number
   invoiceGatewayFee?: number
   plan: string
+  /** "addon" payments buy extras (lib/addons) and never change the plan */
+  kind?: "plan" | "addon"
+  addonId?: string
+  addonEmails?: number
+  creditsGrantedAt?: Date
   amount: number
   currency: string
   status: "pending" | "success" | "failed" | "refunded"
@@ -31,6 +36,10 @@ const PaymentSchema = new Schema<IPayment>(
     invoiceBaseAmount: { type: Number },
     invoiceGatewayFee: { type: Number, default: 0 },
     plan: { type: String, required: true },
+    kind: { type: String, enum: ["plan", "addon"], default: "plan" },
+    addonId: { type: String },
+    addonEmails: { type: Number },
+    creditsGrantedAt: { type: Date },
     amount: { type: Number, required: true },
     currency: { type: String, default: "INR" },
     status: { 

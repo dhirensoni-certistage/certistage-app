@@ -471,3 +471,48 @@ export function renderCertificateEmail({ recipientName, eventName, certificateNa
     })
   }
 }
+
+/** Receipt for an add-on purchase (lib/addons), e.g. a pack of certificate emails */
+export function renderAddonReceipt(data: {
+  invoiceNumber: string
+  customerName: string
+  customerEmail: string
+  itemName: string
+  amount: number // paise
+  paymentId: string
+  paymentDate: Date
+  invoiceUrl?: string
+}): { subject: string; html: string } {
+  const b = EMAIL_BRAND
+  const fmt = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  const line = (label: string, value: string, strong = false) => `<tr>
+      <td style="padding:10px 0;font-family:${FONT};font-size:${strong ? 16 : 14}px;color:${strong ? b.ink : b.muted};font-weight:${strong ? 600 : 400};border-top:1px solid ${b.line};">${label}</td>
+      <td align="right" style="padding:10px 0;font-family:${FONT};font-size:${strong ? 16 : 14}px;color:${b.ink};font-weight:${strong ? 600 : 400};border-top:1px solid ${b.line};">${value}</td>
+    </tr>`
+  return {
+    subject: `Receipt ${data.invoiceNumber}: ${data.itemName}`,
+    html: emailLayout({
+      preheader: `Payment of ${inr(data.amount)} received. ${data.itemName} added to your account.`,
+      body: `
+        ${h1('Payment received')}
+        ${para(`Thank you, ${esc(data.customerName)}. <strong style="color:${b.ink};">${esc(data.itemName)}</strong> ${data.itemName.endsWith('s') ? 'have' : 'has'} been added to your account. They never expire.`)}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 4px;">
+          <tr>
+            <td style="padding:0 0 8px;font-family:${FONT};font-size:11px;letter-spacing:1px;text-transform:uppercase;color:${b.muted};">Receipt</td>
+            <td align="right" style="padding:0 0 8px;font-family:${FONT};font-size:13px;color:${b.ink};">${esc(data.invoiceNumber)}</td>
+          </tr>
+          ${line('Billed to', `${esc(data.customerName)}<br><span style="color:${b.muted};font-size:13px;">${esc(data.customerEmail)}</span>`)}
+          ${line('Date', fmt(data.paymentDate))}
+          ${line('Payment ID', `<span style="font-family:${MONO};font-size:12px;">${esc(data.paymentId)}</span>`)}
+          ${line(`${esc(data.itemName)}, one-time`, inr(data.amount))}
+          ${line('Total paid', inr(data.amount), true)}
+        </table>
+        ${button(`${APP_URL}/client/email-log`, 'Go to email log')}
+        ${data.invoiceUrl ? small(`<a href="${data.invoiceUrl}" style="color:${b.ink};">Download PDF receipt</a>`) : ''}
+        ${divider()}
+        ${small('CertiStage &middot; support@certistage.com &middot; Keep this email as your payment record.')}
+      `,
+      footerNote: 'You received this email because a payment was made on your CertiStage account.'
+    })
+  }
+}

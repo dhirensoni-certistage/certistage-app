@@ -55,6 +55,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 })
     }
 
+    // An add-on order is confirmed by /api/client/addons/verify and never activates a plan
+    if (await Payment.exists({ orderId: razorpay_order_id, kind: "addon" })) {
+      return NextResponse.json({ error: "This payment is not for a plan" }, { status: 400 })
+    }
+
     // Verify signature
     const expectedSignature = crypto
       .createHmac("sha256", razorpayKeySecret)
@@ -77,6 +82,23 @@ export async function POST(request: NextRequest) {
       })
       
       return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 })
+    }
+
+    // The plan comes from the order we created, not from the browser: the order's notes and
+    // amount must match the plan being activated
+    const { getRazorpayKeys } = await import("@/lib/addon-payments.server")
+    const { keyId } = await getRazorpayKeys()
+    if (keyId) {
+      const orderRes = await fetch(`https://api.razorpay.com/v1/orders/${encodeURIComponent(razorpay_order_id)}`, {
+        headers: { Authorization: `Basic ${Buffer.from(`${keyId}:${razorpayKeySecret}`).toString("base64")}` }
+      })
+      if (!orderRes.ok) {
+        return NextResponse.json({ error: "Could not confirm the payment with Razorpay. Please try again in a minute." }, { status: 502 })
+      }
+      const order = await orderRes.json()
+      if (order?.notes?.kind === "addon" || (order?.notes?.plan && order.notes.plan !== plan) || (order?.notes?.userId && order.notes.userId !== userId)) {
+        return NextResponse.json({ error: "This payment does not match the selected plan" }, { status: 400 })
+      }
     }
 
     const now = new Date()

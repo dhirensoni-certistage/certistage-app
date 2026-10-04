@@ -21,6 +21,7 @@ const pageTitles: Record<string, string> = {
   "/client/recipients": "Recipients - CertiStage",
   "/client/reports": "Reports - CertiStage",
   "/client/email-log": "Email log - CertiStage",
+  "/client/addons": "Add-ons - CertiStage",
   "/client/settings": "Settings - CertiStage",
   "/client/trash": "Recently deleted - CertiStage",
   "/client/upgrade": "Upgrade - CertiStage",
@@ -207,7 +208,7 @@ export default function ClientLayout({
 
   // Full layout with sidebar (when event is selected)
   const navTitles: Record<string, string> = {
-    "/client/dashboard": "Dashboard", "/client/certificates": "Certificates", "/client/recipients": "Recipients", "/client/email-log": "Email log",
+    "/client/dashboard": "Dashboard", "/client/certificates": "Certificates", "/client/recipients": "Recipients", "/client/email-log": "Email log", "/client/addons": "Add-ons",
     "/client/reports": "Reports", "/client/settings": "Settings", "/client/support": "Support", "/client/upgrade": "Plans", "/client/trash": "Recently deleted"
   }
   const pageTitle = navTitles[pathname] || (pathname.startsWith("/client/certificates") ? "Certificates" : pathname.startsWith("/client/settings") ? "Settings" : "")

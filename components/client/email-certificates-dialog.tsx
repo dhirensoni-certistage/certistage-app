@@ -5,6 +5,8 @@ import Link from "next/link"
 import { Mail, BellRing, Users, AlertTriangle, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { BuyEmailsDialog } from "@/components/client/buy-emails-dialog"
+import { StatusTag } from "@/components/client/addon-status-tag"
 import {
   Dialog,
   DialogContent,
@@ -63,6 +65,7 @@ export function EmailCertificatesDialog({
   const [quota, setQuota] = useState<Quota | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [confirmAll, setConfirmAll] = useState(false)
+  const [buyOpen, setBuyOpen] = useState(false)
   const [sending, setSending] = useState<{ mode: Mode; done: number; total: number } | null>(null)
   const cancelRef = useRef(false)
 
@@ -159,6 +162,7 @@ export function EmailCertificatesDialog({
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
             Email certificates
+            <StatusTag status="beta" />
           </DialogTitle>
           <DialogDescription>
             Each person gets an email with a button to view and download their own certificate. Certificates: {scopeLabel}.
@@ -258,10 +262,13 @@ export function EmailCertificatesDialog({
               {quota.todayCap !== null && (
                 <p>Sent today: <span className="font-medium text-neutral-900">{n(quota.todayUsed)} of {n(quota.todayCap)}</span></p>
               )}
-              {left <= 0 && (
+              {left <= 0 ? (
                 <p className="text-red-600">
-                  No emails left. <Link href="/client/support" className="underline font-medium">Get more emails</Link>
+                  No emails left.{" "}
+                  <button type="button" onClick={() => setBuyOpen(true)} className="underline font-medium">Buy more emails</button>
                 </p>
+              ) : quota.remaining !== -1 && (
+                <button type="button" onClick={() => setBuyOpen(true)} className="text-neutral-700 underline">Buy more emails</button>
               )}
               {left > 0 && todayLeft <= 0 && <p className="text-amber-700">Today&apos;s limit is reached. You can send the rest tomorrow.</p>}
             </div>
@@ -276,6 +283,8 @@ export function EmailCertificatesDialog({
             Close
           </Button>
         </DialogFooter>
+        {/* Inside the content so Radix treats it as a nested dialog (clicks in it don't close this one) */}
+        <BuyEmailsDialog open={buyOpen} onOpenChange={setBuyOpen} onBought={() => load()} />
       </DialogContent>
     </Dialog>
   )

@@ -831,6 +831,7 @@ export default function RecipientsPage() {
             </DropdownMenu>
             <Button variant="outline" size="sm" onClick={() => setEmailDialogOpen(true)} disabled={showTableSkeleton || allRecipientsCount === 0} className="h-9 px-3 text-[13px] border-neutral-200 bg-white hover:bg-neutral-50">
               <Mail className="h-3.5 w-3.5 mr-1.5" /> Email certificates
+              <span className="ml-1.5 px-1 py-px rounded bg-indigo-50 text-indigo-700 text-[9px] font-semibold uppercase tracking-wider">Beta</span>
             </Button>
             <Button size="sm" onClick={openAddDialog} disabled={showTableSkeleton} className="h-9 px-3.5 text-[13px] bg-neutral-900 text-white hover:bg-black">
               <UserPlus className="h-3.5 w-3.5 mr-1.5" /> Add recipient

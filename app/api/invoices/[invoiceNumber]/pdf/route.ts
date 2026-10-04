@@ -232,13 +232,14 @@ export async function GET(
     doc.setFont("helvetica", "normal")
     doc.setFontSize(11)
     doc.setTextColor(17, 24, 39)
-    doc.text(`${capitalize(payment.plan)} Plan`, margin + 12, y)
+    const isAddon = payment.kind === "addon"
+    doc.text(isAddon ? `${Number(payment.addonEmails || 0).toLocaleString("en-IN")} certificate emails` : `${capitalize(payment.plan)} Plan`, margin + 12, y)
     doc.setFont("helvetica", "normal")
     doc.setFontSize(9)
     doc.setTextColor(107, 114, 128)
-    doc.text("Annual Subscription - CertiStage", margin + 12, y + 14)
+    doc.text(isAddon ? "Add-on - CertiStage" : "Annual Subscription - CertiStage", margin + 12, y + 14)
     doc.setTextColor(17, 24, 39)
-    doc.text("1 Year", margin + contentWidth - 150, y)
+    doc.text(isAddon ? "One-time" : "1 Year", margin + contentWidth - 150, y)
     doc.text(formatInr(baseAmount), margin + contentWidth - 12, y, { align: "right" })
     y += 28
     doc.setDrawColor(229, 231, 235)

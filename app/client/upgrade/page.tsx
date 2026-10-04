@@ -178,6 +178,17 @@ function UpgradePageContent() {
           })}
       </div>
 
+      <Link
+        href="/client/addons"
+        className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-white px-5 py-4 hover:border-neutral-400 transition-colors"
+      >
+        <div>
+          <p className="text-[14px] font-semibold text-neutral-900">Add-ons</p>
+          <p className="text-[13px] text-neutral-500">Certificate email packs from ₹200, WhatsApp delivery and more. No plan change needed.</p>
+        </div>
+        <span className="text-[13px] font-medium text-neutral-900">See add-ons →</span>
+      </Link>
+
       <div className="rounded-xl border border-neutral-200 bg-white px-5 py-4 text-[13px] text-neutral-600 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <p>Payments are processed by Razorpay (UPI, cards, net banking). A receipt is emailed after every payment.</p>
         <p>Questions about plans? <a href="mailto:support@certistage.com" className="text-neutral-900 underline underline-offset-4">support@certistage.com</a></p>
