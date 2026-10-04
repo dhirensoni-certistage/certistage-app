@@ -9,6 +9,7 @@ import Settings from "@/models/Settings"
 import TrashItem from "@/models/TrashItem"
 import { sendEmail, renderInternalEmail } from "@/lib/email"
 import { serializeBackup, backupFilename } from "@/lib/backup-format"
+import { zipSingleFile } from "@/lib/zip"
 
 export interface BackupResult {
   buffer: Buffer
@@ -59,8 +60,8 @@ export async function emailBackup(to: string, trigger: "scheduled" | "manual"): 
       ["File", `${backup.filename} (${(backup.bytes / 1024).toFixed(0)} KB)`],
       ["Trigger", trigger === "scheduled" ? "Weekly schedule" : "Sent from admin settings"]
     ],
-    message: "The attached file is a complete copy of the CertiStage database. Keep it somewhere safe outside your inbox as well.",
-    note: `Restore with: node scripts/restore-backup.mjs ${backup.filename} --uri <MONGODB_URI>. Template images stay on Cloudinary and are not in the file.`
+    message: "The attached .zip is a complete copy of the CertiStage database. Keep it somewhere safe outside your inbox as well.",
+    note: `Restore with: node scripts/restore-backup.mjs ${backup.filename.replace(/\.json\.gz$/, ".zip")} --uri <MONGODB_URI> (the .zip or the .json.gz inside it both work). Template images stay on Cloudinary and are not in the file.`
   })
   const result = await sendEmail({
     to,
@@ -68,7 +69,8 @@ export async function emailBackup(to: string, trigger: "scheduled" | "manual"): 
     html,
     template: "backup",
     metadata: { type: "backup", trigger, ...backup.counts },
-    attachments: [{ filename: backup.filename, content: backup.buffer, contentType: "application/gzip" }]
+    // Brevo refuses .gz attachments, so the .json.gz goes inside a .zip
+    attachments: [{ filename: backup.filename.replace(/\.json\.gz$/, ".zip"), content: zipSingleFile(backup.filename, backup.buffer), contentType: "application/zip" }]
   })
   return { ...backup, sent: result.success, error: result.success ? undefined : String(result.error) }
 }

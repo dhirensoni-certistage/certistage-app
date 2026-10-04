@@ -185,6 +185,12 @@ export default function AdminPlansPage() {
       toast.error("Plan name is required")
       return
     }
+    // A paid plan with 0 events or certificates lets customers pay and then do nothing
+    const isSet = (v: unknown) => Number(v || 0) !== 0
+    if (draft.price > 0 && (!isSet(draft.limits.maxEvents) || !isSet(draft.limits.maxCertificates) || !isSet(draft.limits.maxCertificateTypes))) {
+      toast.error("Set Usage Limits for a paid plan: events, certificate types and certificates can't be 0 (use -1 for unlimited)")
+      return
+    }
 
     const normalized: PlanConfig = {
       ...draft,

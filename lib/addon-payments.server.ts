@@ -92,11 +92,20 @@ export async function completeAddonPayment(orderId: string, paymentId?: string, 
         paymentDate: now,
         invoiceUrl: number ? `${appUrl}/api/invoices/${encodeURIComponent(number)}/pdf` : undefined
       })
+      // PDF receipt attached, as for plan payments; the email still goes out if it can't be made
+      let attachments: { filename: string; content: Buffer; contentType: string }[] | undefined
+      try {
+        const { renderInvoicePdf } = await import("@/lib/invoice-pdf.server")
+        attachments = [{ filename: `CertiStage-Receipt-${number || "payment"}.pdf`, content: await renderInvoicePdf(fresh, user), contentType: "application/pdf" }]
+      } catch (error) {
+        console.error("Failed to render add-on receipt PDF:", error)
+      }
       await sendEmail({
         to: user.email,
         subject: receipt.subject,
         html: receipt.html,
         cc: process.env.ADMIN_CC_EMAIL,
+        attachments,
         template: "invoice",
         metadata: { userId: String(user._id), userName: user.name, type: "addon_invoice", addon: claimed.addonId, amount: claimed.amount }
       })

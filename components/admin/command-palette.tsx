@@ -78,6 +78,8 @@ export function CommandPalette() {
     const handleKeydown = (e: KeyboardEvent) => {
       if (open) return
       
+      // Autofill and some IME events fire keydown without a key
+      if (typeof e.key !== "string") return
       const key = e.key.toLowerCase()
       
       if (lastKey === "g") {
