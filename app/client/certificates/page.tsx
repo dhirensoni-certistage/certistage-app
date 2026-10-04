@@ -65,7 +65,7 @@ const AVAILABLE_VARIABLES = [
 ]
 import {
   Plus, FileText, Trash2, Image, Upload, Move, Eye, Check, ArrowLeft,
-  Bold, Italic, Link as LinkIcon, Copy, Users, Download, Settings, PenTool, X, Crown, Award, Lock, Search, Loader2, MoreHorizontal, ExternalLink
+  Bold, Italic, Link as LinkIcon, Copy, Users, Download, Settings, PenTool, X, Crown, Award, Lock, Search, Loader2, MoreHorizontal, ExternalLink, Pencil
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -82,6 +82,9 @@ export default function CertificatesPage() {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [newTypeName, setNewTypeName] = useState("")
   const [deleteType, setDeleteType] = useState<CertificateType | null>(null)
+  const [renameType, setRenameType] = useState<CertificateType | null>(null)
+  const [renameValue, setRenameValue] = useState("")
+  const [isRenaming, setIsRenaming] = useState(false)
   const [activeTab, setActiveTab] = useState("template")
   const [isUserLogin, setIsUserLogin] = useState(false)
   const [isTrialExpired, setIsTrialExpired] = useState(false)
@@ -360,6 +363,44 @@ export default function CertificatesPage() {
       }
     } catch (error) {
       toast.error("Failed to create certificate type")
+    }
+  }
+
+  const openRename = (certType: CertificateType) => {
+    setRenameType(certType)
+    setRenameValue(certType.name)
+  }
+
+  const handleRenameType = async () => {
+    if (!eventId || !renameType) return
+    const name = renameValue.trim()
+    if (!name) {
+      toast.error("Enter a name for the certificate")
+      return
+    }
+    if (name === renameType.name) {
+      setRenameType(null)
+      return
+    }
+    setIsRenaming(true)
+    try {
+      const res = await fetch("/api/client/certificate-types", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ typeId: renameType.id, name })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error || "Could not rename the certificate")
+        return
+      }
+      setRenameType(null)
+      fetchEventData(eventId)
+      toast.success("Certificate renamed")
+    } catch {
+      toast.error("Could not rename the certificate")
+    } finally {
+      setIsRenaming(false)
     }
   }
 
@@ -973,6 +1014,10 @@ export default function CertificatesPage() {
                             <ExternalLink className="h-3.5 w-3.5 mr-2" />
                             Preview Page
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openRename(certType) }}>
+                            <Pencil className="h-3.5 w-3.5 mr-2" />
+                            Rename
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50" onClick={(e) => { e.stopPropagation(); setDeleteType(certType) }}>
                             <Trash2 className="h-3.5 w-3.5 mr-2" />
@@ -1048,6 +1093,36 @@ export default function CertificatesPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
             <Button onClick={handleAddCertificateType}>Create</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Dialog */}
+      <Dialog open={!!renameType} onOpenChange={(open) => !open && setRenameType(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename certificate</DialogTitle>
+            <DialogDescription>
+              The new name shows on the download page and in the certificate name recipients add to LinkedIn. Download links stay the same.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="rename-certificate">Certificate name</Label>
+            <Input
+              id="rename-certificate"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              maxLength={100}
+              className="mt-1"
+              autoFocus
+              onKeyDown={(e) => e.key === "Enter" && !isRenaming && handleRenameType()}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameType(null)}>Cancel</Button>
+            <Button onClick={handleRenameType} disabled={isRenaming || !renameValue.trim()}>
+              {isRenaming ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
