@@ -143,6 +143,44 @@ export default function CertTypeDownloadPage() {
     setStep("preview")
   }
 
+  // A personal link (/download?event=…&cert=…) lands here with ?cert=<registration no>:
+  // open that recipient's certificate straight away instead of the search form
+  const [autoOpening, setAutoOpening] = useState(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).has("cert")
+  )
+  const autoOpenStarted = useRef(false)
+  useEffect(() => {
+    if (loading || autoOpenStarted.current) return
+    const cert = new URLSearchParams(window.location.search).get("cert")
+    // Page failed to load (error state) or no personal link: nothing to open
+    if (!cert || !certType) { setAutoOpening(false); return }
+    autoOpenStarted.current = true
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/download?event=${eventId}&cert=${encodeURIComponent(cert)}`)
+        const data = await res.json().catch(() => ({}))
+        const r = data.recipient
+        if (res.ok && r) {
+          await openPreview({
+            id: r.id,
+            name: r.name,
+            email: r.email || "",
+            mobile: r.mobile || "",
+            certificateId: r.certificateId || r.id,
+            regNo: r.certificateId,
+            downloadCount: r.downloadCount || 0,
+            issuedAt: r.issuedAt,
+            customFields: r.customFields || {}
+          })
+        }
+      } catch {
+        // fall back to the search form
+      } finally {
+        setAutoOpening(false)
+      }
+    })()
+  }, [loading, certType, eventId])
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -296,7 +334,7 @@ export default function CertTypeDownloadPage() {
   }
 
   // ---------- states ----------
-  if (loading) {
+  if (loading || autoOpening) {
     return (
       <Shell>
         <div className="w-full max-w-md mx-auto rounded-lg border border-neutral-200 bg-white p-6 sm:p-8 space-y-4">

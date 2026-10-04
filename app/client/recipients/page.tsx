@@ -36,6 +36,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { columnKey } from "@/lib/certificate-fields"
+import { STANDARD_COLUMNS, categoryColumns } from "@/lib/event-categories"
 import { getDownloadLink } from "@/lib/events"
 import { useRefreshOnFocus } from "@/hooks/use-refresh-on-focus"
 import { cn } from "@/lib/utils"
@@ -67,6 +68,7 @@ interface CertificateType {
 interface ApiEvent {
   _id: string
   name: string
+  category?: string | null
   certificateTypes: CertificateType[]
   stats: {
     total: number
@@ -89,6 +91,10 @@ export default function RecipientsPage() {
   const [previewRecipient, setPreviewRecipient] = useState<(EventRecipient & { certTypeName: string; certTypeId: string }) | null>(null)
   const [editingRecipient, setEditingRecipient] = useState<(EventRecipient & { certTypeId: string }) | null>(null)
   const [addToTypeId, setAddToTypeId] = useState<string>("")
+  // Extra columns for the "Add recipient" form: this event's suggested columns plus any the
+  // chosen certificate already has from an imported Excel (e.g. Credit Hours)
+  const [typeColumns, setTypeColumns] = useState<string[]>([])
+  const [formExtra, setFormExtra] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
@@ -385,6 +391,7 @@ export default function RecipientsPage() {
   }
 
   const resetForm = () => {
+    setFormExtra({})
     setFormPrefix("")
     setFormFirstName("")
     setFormLastName("")
@@ -392,6 +399,17 @@ export default function RecipientsPage() {
     setFormMobile("")
     setFormRegNo("")
   }
+
+  useEffect(() => {
+    if (!addToTypeId) { setTypeColumns([]); return }
+    let cancelled = false
+    fetch(`/api/client/certificate-types/columns?typeId=${addToTypeId}`)
+      .then((res) => (res.ok ? res.json() : { columns: [] }))
+      .then((data) => { if (!cancelled) setTypeColumns((data.columns || []).map((c: { heading: string }) => c.heading)) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [addToTypeId])
+  const extraFormColumns = Array.from(new Set([...categoryColumns(event?.category), ...typeColumns]))
 
   const openAddDialog = () => {
     resetForm()
@@ -454,7 +472,10 @@ export default function RecipientsPage() {
             lastName: formLastName.trim(),
             email: formEmail.trim(),
             mobile: formMobile.trim(),
-            registrationNo: formRegNo.trim() || generateRegNo()
+            registrationNo: formRegNo.trim() || generateRegNo(),
+            customFields: Object.fromEntries(
+              extraFormColumns.map((c) => [columnKey(c), (formExtra[c] || "").trim()]).filter(([k, v]) => k && v)
+            )
           }]
         })
       })
@@ -673,22 +694,53 @@ export default function RecipientsPage() {
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
-  const downloadSampleExcel = () => {
-    import("xlsx").then((XLSX) => {
-      const sampleData = [
-        // Columns after "Registration No" are optional; each can be placed on the certificate
-        ["Prefix", "First Name", "Last Name", "Email", "Mobile", "Registration No", "Credit Hours"],
-        ["Mr.", "John", "Doe", "john@example.com", "+91-9876543210", "REG-001", "4"],
-        ["Ms.", "Jane", "Smith", "jane@example.com", "+91-9876543211", "REG-002", "4"],
-        ["Dr.", "Bob", "Wilson", "bob@example.com", "+91-9876543212", "REG-003", "2"],
-      ]
-      const ws = XLSX.utils.aoa_to_sheet(sampleData)
-      ws["!cols"] = [{ wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 14 }]
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, "Recipients")
-      XLSX.writeFile(wb, "sample-recipients.xlsx")
-      toast.success("Sample Excel downloaded!")
-    })
+  // Sample values for well-known extra columns; anything else is left blank
+  const SAMPLE_VALUES: Record<string, string[]> = {
+    "Credit Hours": ["4", "4", "2"],
+    "Council Reg No": ["GMC-10231", "GMC-20877", "MMC-55120"],
+    "Accreditation No": ["GMC/CME/2026/101", "GMC/CME/2026/101", "GMC/CME/2026/101"],
+    "Department": ["Computer Science", "Physics", "Commerce"],
+    "Roll No": ["21CS045", "21PH012", "21CM088"],
+    "Class": ["8", "9", "10"],
+    "Section": ["A", "B", "A"],
+    "Employee ID": ["EMP-1042", "EMP-1043", "EMP-1050"],
+  }
+
+  // Columns: the six standard ones, then this event's suggested columns, then any the selected
+  // certificate already uses (see lib/event-categories and lib/certificate-fields)
+  const downloadSampleExcel = async () => {
+    let existing: string[] = []
+    if (selectedTypeId !== "all") {
+      try {
+        const res = await fetch(`/api/client/certificate-types/columns?typeId=${selectedTypeId}`)
+        if (res.ok) existing = ((await res.json()).columns || []).map((c: { heading: string }) => c.heading)
+      } catch {}
+    }
+    const extra = Array.from(new Set([...categoryColumns(event?.category), ...existing]))
+    const people = [
+      ["Mr.", "John", "Doe", "john@example.com", "+91-9876543210", "REG-001"],
+      ["Ms.", "Jane", "Smith", "jane@example.com", "+91-9876543211", "REG-002"],
+      ["Dr.", "Bob", "Wilson", "bob@example.com", "+91-9876543212", "REG-003"],
+    ]
+    const XLSX = await import("xlsx")
+    const ws = XLSX.utils.aoa_to_sheet([
+      [...STANDARD_COLUMNS, ...extra],
+      ...people.map((row, i) => [...row, ...extra.map((c) => SAMPLE_VALUES[c]?.[i] ?? "")]),
+    ])
+    ws["!cols"] = [{ wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, ...extra.map((c) => ({ wch: Math.max(14, c.length + 4) }))]
+    const help = XLSX.utils.aoa_to_sheet([
+      ["How to fill this sheet"],
+      ["1. Keep the first six columns in this order: Prefix, First Name, Last Name, Email, Mobile, Registration No."],
+      ["2. Row 1 holds the column names. Add more columns after \"Registration No\" with a name in row 1 (e.g. Credit Hours, Designation, College)."],
+      ["3. Every extra column can be placed on the certificate from the editor's Fields tab."],
+      ["4. Delete the example rows, add one row per recipient, and import the \"Recipients\" sheet."],
+    ])
+    help["!cols"] = [{ wch: 110 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "Recipients")
+    XLSX.utils.book_append_sheet(wb, help, "How to fill")
+    XLSX.writeFile(wb, "sample-recipients.xlsx")
+    toast.success("Sample Excel downloaded!")
   }
 
   // Show skeleton table while loading, not full page loading
@@ -1158,6 +1210,23 @@ export default function RecipientsPage() {
                 className="font-mono"
               />
             </div>
+
+            {extraFormColumns.length > 0 && (
+              <div className="space-y-3 pt-1">
+                <p className="text-xs font-medium text-muted-foreground">More details (from your Excel columns)</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {extraFormColumns.map((c) => (
+                    <div key={c} className="space-y-1.5">
+                      <Label className="text-xs">{c}</Label>
+                      <Input
+                        value={formExtra[c] || ""}
+                        onChange={(e) => setFormExtra((prev) => ({ ...prev, [c]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

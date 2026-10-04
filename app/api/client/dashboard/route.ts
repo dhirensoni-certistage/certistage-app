@@ -224,6 +224,7 @@ export async function GET(request: NextRequest) {
       id: event._id?.toString(),
       name: event.name,
       description: event.description,
+      category: (event as any).category || null,
       certificateTypes,
       stats: {
         total: totalRecipients,
