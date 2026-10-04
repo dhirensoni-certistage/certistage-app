@@ -5,6 +5,7 @@ import { MongoClient } from "mongodb"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import { notifyNewSignup } from "@/lib/signup.server"
+import { completeOAuthUser } from "@/lib/oauth-user.server"
 
 const client = new MongoClient(process.env.MONGODB_URI!)
 
@@ -25,28 +26,10 @@ export const authOptions: NextAuthOptions = {
         try {
           await connectDB()
           
-          // Check if user already exists
-          const existingUser = await User.findOne({ email: user.email })
-          
-          if (!existingUser) {
-            // Create new user with Google data
-            const created = await User.create({
-              name: user.name,
-              email: user.email,
-              phone: "",
-              organization: "",
-              plan: "free",
-              isActive: true,
-              isEmailVerified: true,
-              password: "oauth_user"
-            })
-            console.log("New Google user created:", user.email)
-
-            // Same as email sign-up: welcome email, admin email and admin notification
-            await notifyNewSignup(created)
-          } else {
-            console.log("Existing user logging in:", existingUser.email)
-          }
+          // New Google users are created by the adapter after this callback (see events.createUser);
+          // creating them here would make the adapter refuse the sign-in because the email exists.
+          // For returning users, fill in fields missing from records made before this fix.
+          if (user.email) await completeOAuthUser({ email: user.email.toLowerCase() })
           
           return true
         } catch (error) {
@@ -86,6 +69,19 @@ export const authOptions: NextAuthOptions = {
       if (url.startsWith("/")) return `${baseUrl}${url}`
       else if (new URL(url).origin === baseUrl) return url
       return `${baseUrl}/client/events`
+    }
+  },
+  events: {
+    // A brand-new Google account: add the app's fields, then welcome email + admin email/notification
+    async createUser({ user }) {
+      try {
+        await connectDB()
+        await completeOAuthUser({ _id: user.id })
+        await notifyNewSignup({ _id: user.id, name: user.name || user.email?.split("@")[0] || "User", email: user.email || "" })
+        console.log("New Google user created:", user.email)
+      } catch (error) {
+        console.error("Failed to set up new Google user:", error)
+      }
     }
   },
   pages: {

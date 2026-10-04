@@ -4,10 +4,13 @@ import User from "@/models/User"
 import Event from "@/models/Event"
 import bcrypt from "bcryptjs"
 import { getPlanConfigFromDb } from "@/lib/plan-config.server"
+import { backfillOAuthUsers } from "@/lib/oauth-user.server"
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB()
+    // Google users created before the fix had no "Joined" date and sorted last
+    await backfillOAuthUsers()
 
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get("page") || "1")
