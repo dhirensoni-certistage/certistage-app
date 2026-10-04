@@ -29,8 +29,9 @@ const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
-    password: { type: String, required: true },
-    phone: { type: String, required: true },
+    // Not required: Google sign-ups have no password or phone (email sign-up checks phone itself)
+    password: { type: String },
+    phone: { type: String, default: "" },
     organization: { type: String },
     plan: { type: String, default: "free" },
     pendingPlan: {
