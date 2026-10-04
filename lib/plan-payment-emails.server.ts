@@ -1,6 +1,7 @@
 import Payment from "@/models/Payment"
 import User from "@/models/User"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
+import { renderInvoicePdf } from "@/lib/invoice-pdf.server"
 
 /**
  * Receipt to the customer, email to the admin and the admin panel notification for a
@@ -23,19 +24,9 @@ export async function sendPlanPaymentEmails(orderId: string): Promise<void> {
 
     const planName = getPlanMap(await getPlanConfigFromDb())[payment.plan]?.name
       || payment.plan.charAt(0).toUpperCase() + payment.plan.slice(1)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://certistage.com"
     const invoiceNumber = payment.invoiceNumber || ""
     const paidAt = payment.invoiceIssuedAt || payment.updatedAt || new Date()
     const validUntil = user.planExpiresAt || new Date(paidAt.getTime() + 365 * 24 * 60 * 60 * 1000)
-
-    // Optional PDF link template: INVOICE_PDF_URL_TEMPLATE with {invoiceNumber}, {paymentId}, {userId}
-    const template = process.env.INVOICE_PDF_URL_TEMPLATE
-    const invoiceUrl = template
-      ? template
-          .replace("{invoiceNumber}", encodeURIComponent(invoiceNumber))
-          .replace("{paymentId}", encodeURIComponent(payment.paymentId || ""))
-          .replace("{userId}", encodeURIComponent(String(user._id)))
-      : `${appUrl}/api/invoices/${encodeURIComponent(invoiceNumber)}/pdf`
 
     try {
       const Notification = (await import("@/models/Notification")).default
@@ -67,14 +58,23 @@ export async function sendPlanPaymentEmails(orderId: string): Promise<void> {
       totalAmount: payment.amount,
       paymentId: payment.paymentId || "",
       paymentDate: paidAt,
-      validUntil,
-      invoiceUrl
+      validUntil
     })
+    // The PDF receipt goes with the email; if it can't be made, the email still goes out
+    let attachments: { filename: string; content: Buffer; contentType: string }[] | undefined
+    try {
+      const pdf = await renderInvoicePdf(payment, user, planName)
+      attachments = [{ filename: `CertiStage-Receipt-${invoiceNumber || "payment"}.pdf`, content: pdf, contentType: "application/pdf" }]
+    } catch (error) {
+      console.error("Failed to render receipt PDF for email:", error)
+    }
+
     await sendEmail({
       to: user.email,
       subject: invoice.subject,
       html: invoice.html,
       cc: adminCCEmail,
+      attachments,
       template: "invoice",
       metadata: { ...metadata, type: "payment_invoice" }
     })
@@ -85,7 +85,8 @@ export async function sendPlanPaymentEmails(orderId: string): Promise<void> {
         userEmail: user.email,
         plan: planName,
         amount: payment.amount,
-        paymentId: payment.paymentId
+        paymentId: payment.paymentId,
+        invoiceNumber
       })
       await sendEmail({
         to: process.env.ADMIN_EMAIL,

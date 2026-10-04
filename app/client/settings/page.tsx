@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { getPlanFeaturesMap } from "@/lib/auth"
 import { fetchClientProfile, invalidateClientProfile } from "@/lib/client-profile"
+import { BillingPanel } from "@/components/client/billing-panel"
 
 interface UserProfile {
   id: string
@@ -28,7 +29,11 @@ export default function SettingsPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
-  const [activeTab, setActiveTab] = useState("profile")
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === "undefined") return "profile"
+    const tab = new URLSearchParams(window.location.search).get("tab")
+    return tab && ["profile", "security", "plan", "billing"].includes(tab) ? tab : "profile"
+  })
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [profileForm, setProfileForm] = useState({ name: "", phone: "", organization: "" })
   const [usage, setUsage] = useState<{ events: number; certificateTypes: number; certificates: number } | null>(null)
@@ -94,7 +99,7 @@ export default function SettingsPage() {
   const daysLeft = profile.planExpiresAt ? Math.max(0, Math.ceil((new Date(profile.planExpiresAt).getTime() - Date.now()) / 86400000)) : null
   const isPaid = profile.plan !== "free"
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-  const tabs: Array<[string, string]> = [["profile", "Profile"], ["security", "Sign-in"], ["plan", "Plan"]]
+  const tabs: Array<[string, string]> = [["profile", "Profile"], ["security", "Sign-in"], ["plan", "Plan"], ["billing", "Billing"]]
   const inputClass = "h-10 border-neutral-200 bg-white focus-visible:ring-1 focus-visible:ring-neutral-900 focus-visible:border-neutral-900"
   const limit = (v: number) => (v === -1 ? "Unlimited" : v.toLocaleString("en-IN"))
 
@@ -191,6 +196,8 @@ export default function SettingsPage() {
           </dl>
         </div>
       )}
+
+      {activeTab === "billing" && <BillingPanel />}
 
       {activeTab === "plan" && (
         <div className="space-y-4">

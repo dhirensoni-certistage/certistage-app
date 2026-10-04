@@ -16,7 +16,7 @@
  * the setup route or reset-admin-password.js afterwards if needed.
  */
 import { readFileSync } from "node:fs"
-import { gunzipSync } from "node:zlib"
+import { gunzipSync, inflateRawSync } from "node:zlib"
 import { MongoClient, BSON } from "mongodb"
 
 const args = process.argv.slice(2)
@@ -28,11 +28,22 @@ const drop = args.includes("--drop")
 const dryRun = args.includes("--dry-run")
 
 if (!file || !uri) {
-  console.error("Usage: node scripts/restore-backup.mjs <backup.json.gz> --uri <MONGODB_URI> [--only a,b] [--drop] [--dry-run]")
+  console.error("Usage: node scripts/restore-backup.mjs <backup.zip | backup.json.gz> --uri <MONGODB_URI> [--only a,b] [--drop] [--dry-run]")
   process.exit(1)
 }
 
-const backup = BSON.EJSON.parse(gunzipSync(readFileSync(file)).toString("utf8"))
+// Emailed backups are a .zip holding the .json.gz; downloads are the .json.gz itself
+function backupBytes(path) {
+  const buf = readFileSync(path)
+  if (buf.readUInt32LE(0) !== 0x04034b50) return buf
+  const method = buf.readUInt16LE(8)
+  const size = buf.readUInt32LE(18)
+  const start = 30 + buf.readUInt16LE(26) + buf.readUInt16LE(28)
+  const data = buf.subarray(start, start + size)
+  return method === 8 ? inflateRawSync(data) : data
+}
+
+const backup = BSON.EJSON.parse(gunzipSync(backupBytes(file)).toString("utf8"))
 if (backup?.format !== "certistage-backup/1") { console.error("Not a CertiStage backup file"); process.exit(1) }
 
 // Collection names as mongoose stores them
