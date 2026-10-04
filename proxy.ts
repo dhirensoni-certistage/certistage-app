@@ -14,13 +14,13 @@ const adminPublicApi = ['/api/admin/login', '/api/admin/setup', '/api/admin/logo
 const adminPublicPages = ['/admin/login']
 
 // Same secret and algorithm the admin login route signs with (jsonwebtoken, HS256)
-const adminSecret = () => new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret-key')
-
+// (no fallback: without JWT_SECRET every admin session is refused)
 async function hasValidAdminSession(request: NextRequest): Promise<boolean> {
     const token = request.cookies.get('admin_token')?.value
-    if (!token) return false
+    const secret = process.env.JWT_SECRET
+    if (!token || !secret) return false
     try {
-        const { payload } = await jwtVerify(token, adminSecret(), { algorithms: ['HS256'] })
+        const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), { algorithms: ['HS256'] })
         return payload.type === 'admin' && typeof payload.id === 'string'
     } catch {
         return false

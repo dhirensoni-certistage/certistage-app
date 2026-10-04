@@ -2,8 +2,7 @@
 import connectDB from "@/lib/mongodb"
 import Admin from "@/models/Admin"
 import jwt from "jsonwebtoken"
-
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key"
+import { adminJwtSecret } from "@/lib/admin-auth"
 
 // Verify admin session
 export async function GET(request: NextRequest) {
@@ -15,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify JWT
-    const decoded = jwt.verify(token, JWT_SECRET) as {
+    const decoded = jwt.verify(token, adminJwtSecret()) as {
       id: string
       email: string
       role: string
