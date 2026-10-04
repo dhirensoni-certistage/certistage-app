@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import { requireClientUser } from "@/lib/client-auth.server"
-import { findEmailPack, emailPackName } from "@/lib/addons"
+import { findEmailPack, emailPackName, parseCustomEmails, customEmailPrice, CUSTOM_EMAILS } from "@/lib/addons"
 import { getRazorpayKeys } from "@/lib/addon-payments.server"
 import { generateReceipt } from "@/lib/razorpay"
 import Payment from "@/models/Payment"
@@ -13,8 +13,18 @@ export async function POST(request: NextRequest) {
     await connectDB()
     const auth = await requireClientUser(request)
     if (auth.response) return auth.response
-    const { packId } = await request.json().catch(() => ({}))
-    const pack = findEmailPack(packId)
+    const { packId, emails: customEmails } = await request.json().catch(() => ({}))
+    // A listed pack, or any quantity priced by volume (lib/addons); the price is always computed here
+    let pack = findEmailPack(packId)
+    if (!pack && customEmails !== undefined) {
+      const emails = parseCustomEmails(customEmails)
+      if (!emails) {
+        return NextResponse.json({
+          error: `Enter ${CUSTOM_EMAILS.min.toLocaleString("en-IN")} to ${CUSTOM_EMAILS.max.toLocaleString("en-IN")} emails, in steps of ${CUSTOM_EMAILS.step}`
+        }, { status: 400 })
+      }
+      pack = { id: "emails_custom", emails, price: customEmailPrice(emails) }
+    }
     if (!pack) return NextResponse.json({ error: "Choose an email pack" }, { status: 400 })
 
     const { keyId, keySecret } = await getRazorpayKeys()

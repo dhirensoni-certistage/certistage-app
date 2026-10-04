@@ -9,14 +9,15 @@ import { getClientSession } from "@/lib/auth"
 export function useBuyEmails(onBought?: (emails: number) => void) {
   const [busyPack, setBusyPack] = useState<string | null>(null)
 
-  const buy = useCallback(async (packId: string) => {
+  /** packId of a listed pack, or "custom" with a number of emails */
+  const buy = useCallback(async (packId: string, customEmails?: number) => {
     setBusyPack(packId)
     try {
       if (!(await loadRazorpayScript())) throw new Error("Failed to load payment gateway")
       const res = await fetch("/api/client/addons/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packId }),
+        body: JSON.stringify(packId === "custom" ? { emails: customEmails } : { packId }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to start payment")
