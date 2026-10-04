@@ -426,9 +426,9 @@ export default function RecipientsPage() {
   const openAddDialog = () => {
     resetForm()
     setFormRegNo(generateRegNo())
-    // Default to first certificate type if available
+    // Default to the certificate chosen in the filter, else the first one
     if (event && event.certificateTypes.length > 0) {
-      setAddToTypeId(event.certificateTypes[0].id)
+      setAddToTypeId(selectedTypeId !== "all" ? selectedTypeId : event.certificateTypes[0].id)
     }
     setIsAddDialogOpen(true)
   }
