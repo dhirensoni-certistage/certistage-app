@@ -15,11 +15,13 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
+import { EventCategoryPicker } from "@/components/client/event-category-picker"
 
 interface EventData {
   _id: string
   name: string
   description?: string
+  category?: string | null
 }
 
 interface EditEventDialogProps {
@@ -32,12 +34,14 @@ interface EditEventDialogProps {
 export function EditEventDialog({ open, onOpenChange, event, onSuccess }: EditEventDialogProps) {
   const [name, setName] = useState(event.name)
   const [description, setDescription] = useState(event.description || "")
+  const [category, setCategory] = useState(event.category || "")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
     setName(event.name)
     setDescription(event.description || "")
+    setCategory(event.category || "")
   }, [event])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,7 +72,8 @@ export function EditEventDialog({ open, onOpenChange, event, onSuccess }: EditEv
           userId: session.userId,
           eventId: event._id,
           name: name.trim(),
-          description: description.trim() || undefined
+          description: description.trim() || undefined,
+          category
         })
       })
 
@@ -92,7 +97,7 @@ export function EditEventDialog({ open, onOpenChange, event, onSuccess }: EditEv
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Event</DialogTitle>
           <DialogDescription>
@@ -122,6 +127,11 @@ export function EditEventDialog({ open, onOpenChange, event, onSuccess }: EditEv
               disabled={loading}
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>What kind of event is it? <span className="font-normal text-muted-foreground">(optional)</span></Label>
+            <EventCategoryPicker value={category} onChange={setCategory} disabled={loading} />
           </div>
 
           {error && (

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isEventCategory } from "@/lib/event-categories"
 import connectDB from "@/lib/mongodb"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
     const auth = await requireClientUser(request)
     if (auth.response) return auth.response
     const userId = auth.userId
-    const { name, description } = await request.json()
+    const { name, description, category } = await request.json()
     
     if (!name) {
       return NextResponse.json({ error: "Event name required" }, { status: 400 })
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
     const event = await Event.create({
       name,
       description,
+      category: isEventCategory(category) ? category : undefined,
       ownerId: userId,
       isActive: true
     })
@@ -141,7 +143,7 @@ export async function PUT(request: NextRequest) {
     const auth = await requireClientUser(request)
     if (auth.response) return auth.response
     const userId = auth.userId
-    const { eventId, name, description } = await request.json()
+    const { eventId, name, description, category } = await request.json()
     
     if (!eventId) {
       return NextResponse.json({ error: "Event ID required" }, { status: 400 })
@@ -157,6 +159,7 @@ export async function PUT(request: NextRequest) {
     const updateData: Record<string, unknown> = {}
     if (name) updateData.name = name
     if (description !== undefined) updateData.description = description
+    if (category !== undefined) updateData.category = isEventCategory(category) ? category : null
 
     const event = await Event.findByIdAndUpdate(
       eventId,

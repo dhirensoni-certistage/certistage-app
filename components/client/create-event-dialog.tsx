@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
+import { EventCategoryPicker } from "@/components/client/event-category-picker"
 
 interface CreateEventDialogProps {
   open: boolean
@@ -27,6 +28,7 @@ interface CreateEventDialogProps {
 export function CreateEventDialog({ open, onOpenChange, userId, onSuccess }: CreateEventDialogProps) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const [category, setCategory] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -48,7 +50,8 @@ export function CreateEventDialog({ open, onOpenChange, userId, onSuccess }: Cre
         body: JSON.stringify({
           userId,
           name: name.trim(),
-          description: description.trim() || undefined
+          description: description.trim() || undefined,
+          category: category || undefined
         })
       })
 
@@ -66,6 +69,7 @@ export function CreateEventDialog({ open, onOpenChange, userId, onSuccess }: Cre
       toast.success(`Event "${data.event.name}" created successfully!`)
       setName("")
       setDescription("")
+      setCategory("")
       setLoading(false)
       onSuccess()
     } catch (error) {
@@ -79,6 +83,7 @@ export function CreateEventDialog({ open, onOpenChange, userId, onSuccess }: Cre
     if (!open) {
       setName("")
       setDescription("")
+      setCategory("")
       setError("")
     }
     onOpenChange(open)
@@ -86,7 +91,7 @@ export function CreateEventDialog({ open, onOpenChange, userId, onSuccess }: Cre
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Event</DialogTitle>
           <DialogDescription>
@@ -116,6 +121,11 @@ export function CreateEventDialog({ open, onOpenChange, userId, onSuccess }: Cre
               disabled={loading}
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>What kind of event is it? <span className="font-normal text-muted-foreground">(optional)</span></Label>
+            <EventCategoryPicker value={category} onChange={setCategory} disabled={loading} />
           </div>
 
           {error && (

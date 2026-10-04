@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from "mongoose"
 export interface IEvent extends Document {
   name: string
   description?: string
+  category?: string // see lib/event-categories; only suggests Excel columns
   ownerId: mongoose.Types.ObjectId
   isActive: boolean
   createdAt: Date
@@ -13,6 +14,7 @@ const EventSchema = new Schema<IEvent>(
   {
     name: { type: String, required: true },
     description: { type: String },
+    category: { type: String },
     ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     isActive: { type: Boolean, default: true }
   },
