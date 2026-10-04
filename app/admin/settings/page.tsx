@@ -51,7 +51,11 @@ import {
 
 interface AdminUser {
   _id: string
-  username: string
+  name: string
+  email: string
+  role: "super_admin" | "admin"
+  isActive?: boolean
+  lastLogin?: string
   createdAt: string
 }
 
@@ -91,16 +95,19 @@ export default function AdminSettingsPage() {
   // Admin management state
   const [admins, setAdmins] = useState<AdminUser[]>([])
   const [showAddAdmin, setShowAddAdmin] = useState(false)
-  const [newAdminUsername, setNewAdminUsername] = useState("")
-  const [newAdminPassword, setNewAdminPassword] = useState("")
+  const [currentAdmin, setCurrentAdmin] = useState<{ id: string; role: string } | null>(null)
+  const [newAdmin, setNewAdmin] = useState({ name: "", email: "", password: "" })
   const [isAddingAdmin, setIsAddingAdmin] = useState(false)
+
+  const isSuperAdmin = currentAdmin?.role === "super_admin"
 
   const fetchAdmins = async () => {
     try {
       const res = await fetch("/api/admin/admins")
       if (res.ok) {
         const data = await res.json()
-        setAdmins(data.admins)
+        setAdmins(data.admins || [])
+        setCurrentAdmin({ id: data.currentAdminId, role: data.currentRole })
       }
     } catch (error) {
       console.error("Failed to fetch admins:", error)
@@ -108,8 +115,12 @@ export default function AdminSettingsPage() {
   }
 
   const handleAddAdmin = async () => {
-    if (!newAdminUsername || !newAdminPassword) {
-      toast.error("Please enter username and password")
+    if (!newAdmin.name.trim() || !newAdmin.email.trim() || !newAdmin.password) {
+      toast.error("Please enter name, email and password")
+      return
+    }
+    if (newAdmin.password.length < 8) {
+      toast.error("Password must be at least 8 characters")
       return
     }
     setIsAddingAdmin(true)
@@ -117,13 +128,12 @@ export default function AdminSettingsPage() {
       const res = await fetch("/api/admin/admins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: newAdminUsername, password: newAdminPassword })
+        body: JSON.stringify(newAdmin)
       })
       if (res.ok) {
         toast.success("Admin added successfully")
         setShowAddAdmin(false)
-        setNewAdminUsername("")
-        setNewAdminPassword("")
+        setNewAdmin({ name: "", email: "", password: "" })
         fetchAdmins()
       } else {
         const data = await res.json()
@@ -421,10 +431,12 @@ export default function AdminSettingsPage() {
                 <CardDescription>Manage admin accounts</CardDescription>
               </div>
             </div>
-            <Button size="sm" onClick={() => setShowAddAdmin(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Admin
-            </Button>
+            {isSuperAdmin && (
+              <Button size="sm" onClick={() => setShowAddAdmin(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Admin
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -433,8 +445,9 @@ export default function AdminSettingsPage() {
           ) : (
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
               {admins.map((admin, index) => {
-                const username = admin?.username || "Admin"
-                const initials = username.substring(0, 2).toUpperCase()
+                const displayName = admin?.name || admin?.email || "Admin"
+                const initials = displayName.substring(0, 2).toUpperCase()
+                const isYou = admin._id === currentAdmin?.id
                 const createdDate = admin?.createdAt 
                   ? new Date(admin.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
                   : "Unknown"
@@ -447,19 +460,21 @@ export default function AdminSettingsPage() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="font-medium">{username}</p>
-                          {index === 0 && (
+                          <p className="font-medium">{displayName}</p>
+                          {admin.role === "super_admin" ? (
                             <Badge variant="default" className="text-[10px] h-5">Super Admin</Badge>
-                          )}
-                          {index !== 0 && (
+                          ) : (
                             <Badge variant="secondary" className="text-[10px] h-5">Admin</Badge>
                           )}
+                          {admin.isActive === false && (
+                            <Badge variant="outline" className="text-[10px] h-5">Inactive</Badge>
+                          )}
                         </div>
-                        <p className="text-xs text-muted-foreground">Added {createdDate}</p>
+                        <p className="text-xs text-muted-foreground">{admin.email} · Added {createdDate}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {admins.length > 1 && index !== 0 && (
+                      {isSuperAdmin && !isYou && admin.role !== "super_admin" && (
                         <Button 
                           variant="ghost" 
                           size="sm" 
@@ -470,7 +485,7 @@ export default function AdminSettingsPage() {
                           Remove
                         </Button>
                       )}
-                      {index === 0 && (
+                      {isYou && (
                         <Badge variant="outline" className="text-xs">You</Badge>
                       )}
                     </div>
@@ -487,16 +502,20 @@ export default function AdminSettingsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Admin</DialogTitle>
-            <DialogDescription>Create a new admin account</DialogDescription>
+            <DialogDescription>They sign in at /admin/login with this email and password, and can change the password from their Profile.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label>Username</Label>
-              <Input value={newAdminUsername} onChange={(e) => setNewAdminUsername(e.target.value)} placeholder="Enter username" className="mt-1" />
+              <Label htmlFor="new-admin-name">Name</Label>
+              <Input id="new-admin-name" value={newAdmin.name} onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })} placeholder="Full name" className="mt-1" />
             </div>
             <div>
-              <Label>Password</Label>
-              <Input type="password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} placeholder="Enter password" className="mt-1" />
+              <Label htmlFor="new-admin-email">Email</Label>
+              <Input id="new-admin-email" type="email" autoComplete="off" value={newAdmin.email} onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })} placeholder="name@company.com" className="mt-1" />
+            </div>
+            <div>
+              <Label htmlFor="new-admin-password">Password</Label>
+              <Input id="new-admin-password" type="password" autoComplete="new-password" value={newAdmin.password} onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })} placeholder="At least 8 characters" className="mt-1" />
             </div>
           </div>
           <DialogFooter>

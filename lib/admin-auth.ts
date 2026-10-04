@@ -1,9 +1,14 @@
-import { NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 import Admin from "@/models/Admin"
 import connectDB from "@/lib/mongodb"
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key"
+/** Secret for admin tokens. There is no fallback: without JWT_SECRET admin sign-in is refused. */
+export function adminJwtSecret(): string {
+  const secret = process.env.JWT_SECRET
+  if (!secret) throw new Error("JWT_SECRET is not set")
+  return secret
+}
 
 export interface AdminPayload {
   id: string
@@ -21,7 +26,7 @@ export async function verifyAdminToken(request: NextRequest): Promise<AdminPaylo
       return null
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as AdminPayload
+    const decoded = jwt.verify(token, adminJwtSecret()) as AdminPayload
 
     if (decoded.type !== "admin") {
       return null
@@ -52,6 +57,21 @@ export async function getAdminFromToken(request: NextRequest) {
   return admin
 }
 
+/**
+ * The signed-in, active admin for an API route, or a ready 401/403 response.
+ * Pass "super_admin" for actions only the owner may take.
+ */
+export async function requireAdmin(request: NextRequest, role: "super_admin" | "admin" = "admin") {
+  const admin = await getAdminFromToken(request)
+  if (!admin) {
+    return { admin: null, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) }
+  }
+  if (role === "super_admin" && admin.role !== "super_admin") {
+    return { admin: null, response: NextResponse.json({ error: "Only the super admin can do this" }, { status: 403 }) }
+  }
+  return { admin, response: null }
+}
+
 // Check if admin has required role
 export function hasRole(admin: AdminPayload | null, requiredRole: "super_admin" | "admin"): boolean {
   if (!admin) return false
@@ -72,7 +92,7 @@ export function generateAdminToken(admin: { _id: string; email: string; role: st
       role: admin.role,
       type: "admin"
     },
-    JWT_SECRET,
+    adminJwtSecret(),
     { expiresIn: "7d" }
   )
 }
