@@ -232,7 +232,12 @@ export async function PUT(request: NextRequest) {
     const updateData: Record<string, unknown> = {}
 
     // Basic fields
-    if (body.name) updateData.name = body.name
+    if (body.name !== undefined) {
+      const name = typeof body.name === "string" ? body.name.trim() : ""
+      if (!name) return NextResponse.json({ error: "Certificate name cannot be empty" }, { status: 400 })
+      if (name.length > 100) return NextResponse.json({ error: "Certificate name is too long (100 characters max)" }, { status: 400 })
+      updateData.name = name
+    }
     if (body.templateImage !== undefined) updateData.templateImage = body.templateImage
     if (body.template !== undefined) updateData.templateImage = body.template
     if (body.textFields !== undefined) updateData.textFields = body.textFields
