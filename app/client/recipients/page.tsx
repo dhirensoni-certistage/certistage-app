@@ -35,7 +35,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
-import { columnKey } from "@/lib/certificate-fields"
+import { columnHeading, columnKey } from "@/lib/certificate-fields"
+import { applyRenames, checkImport, type ImportIssue } from "@/lib/import-check"
 import { STANDARD_COLUMNS, categoryColumns } from "@/lib/event-categories"
 import { getDownloadLink } from "@/lib/events"
 import { useRefreshOnFocus } from "@/hooks/use-refresh-on-focus"
@@ -57,6 +58,7 @@ interface EventRecipient {
 interface CertificateType {
   id: string
   name: string
+  customFields?: { variable: string }[]
   recipients: EventRecipient[]
   stats: {
     total: number
@@ -78,6 +80,16 @@ interface ApiEvent {
   }
 }
 
+type ImportRow = {
+  prefix: string
+  firstName: string
+  lastName: string
+  email: string
+  mobile: string
+  registrationNo: string
+  customFields: Record<string, string>
+}
+
 export default function RecipientsPage() {
   const [event, setEvent] = useState<ApiEvent | null>(null)
   const [eventId, setEventId] = useState<string | null>(null)
@@ -94,6 +106,8 @@ export default function RecipientsPage() {
   // Extra columns for the "Add recipient" form: this event's suggested columns plus any the
   // chosen certificate already has from an imported Excel (e.g. Credit Hours)
   const [typeColumns, setTypeColumns] = useState<string[]>([])
+  // Problems found in an uploaded Excel, shown before importing
+  const [importCheck, setImportCheck] = useState<{ recipients: ImportRow[]; issues: ImportIssue[]; renamed: string[] } | null>(null)
   const [formExtra, setFormExtra] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [rowsPerPage, setRowsPerPage] = useState(10)
@@ -506,6 +520,144 @@ export default function RecipientsPage() {
     }
   }
 
+  // Sends parsed rows to the API, within the plan's certificate limit
+  const importRecipients = async (recipients: ImportRow[]) => {
+    // Check certificate limit for bulk import
+    const currentTotal = getTotalRecipientsCount()
+    if (maxCertificates !== -1) {
+      const availableSlots = maxCertificates - currentTotal
+      if (availableSlots <= 0) {
+        const planFeatures = getCurrentPlanFeatures()
+        toast.error(`Certificate limit reached (${maxCertificates})`, {
+          description: `Your ${planFeatures.displayName} plan includes ${maxCertificates} certificates. Issued certificates count even after they are deleted. Upgrade to add more.`
+        })
+        return
+      }
+      if (recipients.length > availableSlots) {
+        // Import only what fits
+        const limitedRecipients = recipients.slice(0, availableSlots)
+        fetch('/api/client/recipients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            eventId,
+            certificateTypeId: selectedTypeId,
+            recipients: limitedRecipients,
+            isBulkImport: true
+          })
+        }).then(res => {
+          if (res.ok && eventId) fetchEventData(eventId)
+        })
+        const planFeatures = getCurrentPlanFeatures()
+        toast.warning(`Only ${limitedRecipients.length} of ${recipients.length} imported`, {
+          description: `${planFeatures.displayName} plan includes ${maxCertificates} certificates. Upgrade to add more.`
+        })
+        return
+      }
+    }
+
+    // For large imports (>500), use chunked upload
+    const CHUNK_SIZE = 500
+    if (recipients.length > CHUNK_SIZE) {
+      // Show progress toast
+      const toastId = toast.loading(`Importing ${recipients.length} recipients...`, {
+        description: "Please wait, this may take a moment."
+      })
+
+      let imported = 0
+      let failed = 0
+      const chunks = []
+
+      for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
+        chunks.push(recipients.slice(i, i + CHUNK_SIZE))
+      }
+
+      for (let i = 0; i < chunks.length; i++) {
+        try {
+          const res = await fetch('/api/client/recipients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId,
+              eventId,
+              certificateTypeId: selectedTypeId,
+              recipients: chunks[i],
+              isBulkImport: true
+            })
+          })
+
+          if (res.ok) {
+            const data = await res.json()
+            imported += data.count || chunks[i].length
+          } else {
+            failed += chunks[i].length
+          }
+
+          // Update progress
+          const progress = Math.round(((i + 1) / chunks.length) * 100)
+          toast.loading(`Importing... ${progress}% (${imported} done)`, {
+            id: toastId,
+            description: `Processing batch ${i + 1} of ${chunks.length}`
+          })
+        } catch {
+          failed += chunks[i].length
+        }
+      }
+
+      // Final result
+      toast.dismiss(toastId)
+      if (eventId) fetchEventData(eventId)
+
+      if (failed === 0) {
+        toast.success(`Import Complete!`, {
+          description: `${imported} recipients imported successfully.`,
+          duration: 5000
+        })
+      } else {
+        toast.warning(`Import Partially Complete`, {
+          description: `${imported} imported, ${failed} failed.`,
+          duration: 5000
+        })
+      }
+      return
+    }
+
+    // API call to add recipients (small batches)
+    const toastId = toast.loading(`Importing ${recipients.length} recipients...`)
+
+    fetch('/api/client/recipients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        eventId,
+        certificateTypeId: selectedTypeId,
+        recipients,
+        isBulkImport: true
+      })
+    }).then(async res => {
+      toast.dismiss(toastId)
+      if (res.ok) {
+        const data = await res.json()
+        if (eventId) fetchEventData(eventId)
+        // Show import summary
+        toast.success(`Import Successful!`, {
+          description: `${data.count || recipients.length} recipients imported successfully.`,
+          duration: 5000
+        })
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Failed to import", {
+          description: data.details || "Please check your data and try again."
+        })
+      }
+    }).catch(() => {
+      toast.dismiss(toastId)
+      toast.error("Failed to import recipients")
+    })
+  }
+
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !eventId) return
@@ -536,7 +688,7 @@ export default function RecipientsPage() {
           // Columns after the first six are kept by heading (e.g. "Credit Hours") so they can be
           // placed on the certificate; see lib/certificate-fields
           const headers = (jsonData[0] || []).map((h) => columnKey(h))
-          const recipients = []
+          const recipients: ImportRow[] = []
           for (let i = 1; i < jsonData.length; i++) {
             const row = jsonData[i]
             if (row && (row[0] || row[1])) {
@@ -563,140 +715,19 @@ export default function RecipientsPage() {
             return
           }
 
-          // Check certificate limit for bulk import
-          const currentTotal = getTotalRecipientsCount()
-          if (maxCertificates !== -1) {
-            const availableSlots = maxCertificates - currentTotal
-            if (availableSlots <= 0) {
-              const planFeatures = getCurrentPlanFeatures()
-              toast.error(`Certificate limit reached (${maxCertificates})`, {
-                description: `Your ${planFeatures.displayName} plan includes ${maxCertificates} certificates. Issued certificates count even after they are deleted. Upgrade to add more.`
-              })
-              return
-            }
-            if (recipients.length > availableSlots) {
-              // Import only what fits
-              const limitedRecipients = recipients.slice(0, availableSlots)
-              fetch('/api/client/recipients', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  userId,
-                  eventId,
-                  certificateTypeId: selectedTypeId,
-                  recipients: limitedRecipients,
-                  isBulkImport: true
-                })
-              }).then(res => {
-                if (res.ok && eventId) fetchEventData(eventId)
-              })
-              const planFeatures = getCurrentPlanFeatures()
-              toast.warning(`Only ${limitedRecipients.length} of ${recipients.length} imported`, {
-                description: `${planFeatures.displayName} plan includes ${maxCertificates} certificates. Upgrade to add more.`
-              })
-              return
-            }
-          }
-
-          // For large imports (>500), use chunked upload
-          const CHUNK_SIZE = 500
-          if (recipients.length > CHUNK_SIZE) {
-            // Show progress toast
-            const toastId = toast.loading(`Importing ${recipients.length} recipients...`, {
-              description: "Please wait, this may take a moment."
-            })
-
-            let imported = 0
-            let failed = 0
-            const chunks = []
-
-            for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
-              chunks.push(recipients.slice(i, i + CHUNK_SIZE))
-            }
-
-            for (let i = 0; i < chunks.length; i++) {
-              try {
-                const res = await fetch('/api/client/recipients', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    userId,
-                    eventId,
-                    certificateTypeId: selectedTypeId,
-                    recipients: chunks[i],
-                    isBulkImport: true
-                  })
-                })
-
-                if (res.ok) {
-                  const data = await res.json()
-                  imported += data.count || chunks[i].length
-                } else {
-                  failed += chunks[i].length
-                }
-
-                // Update progress
-                const progress = Math.round(((i + 1) / chunks.length) * 100)
-                toast.loading(`Importing... ${progress}% (${imported} done)`, {
-                  id: toastId,
-                  description: `Processing batch ${i + 1} of ${chunks.length}`
-                })
-              } catch {
-                failed += chunks[i].length
-              }
-            }
-
-            // Final result
-            toast.dismiss(toastId)
-            if (eventId) fetchEventData(eventId)
-
-            if (failed === 0) {
-              toast.success(`Import Complete!`, {
-                description: `${imported} recipients imported successfully.`,
-                duration: 5000
-              })
-            } else {
-              toast.warning(`Import Partially Complete`, {
-                description: `${imported} imported, ${failed} failed.`,
-                duration: 5000
-              })
-            }
+          // Compare the Excel with the certificate before importing (lib/import-check)
+          const designColumns = (event?.certificateTypes.find((ct) => ct.id === selectedTypeId)?.customFields || [])
+            .map((f) => columnHeading(f.variable))
+            .filter((h): h is string => !!h)
+          const check = checkImport(headers, recipients, designColumns)
+          const ready = applyRenames(recipients, check.renames)
+          const renamed = Object.entries(check.renames).map(([from, to]) => `"${from}" → ${to}`)
+          if (check.issues.length > 0) {
+            setImportCheck({ recipients: ready, issues: check.issues, renamed })
             return
           }
-
-          // API call to add recipients (small batches)
-          const toastId = toast.loading(`Importing ${recipients.length} recipients...`)
-
-          fetch('/api/client/recipients', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId,
-              eventId,
-              certificateTypeId: selectedTypeId,
-              recipients,
-              isBulkImport: true
-            })
-          }).then(async res => {
-            toast.dismiss(toastId)
-            if (res.ok) {
-              const data = await res.json()
-              if (eventId) fetchEventData(eventId)
-              // Show import summary
-              toast.success(`Import Successful!`, {
-                description: `${data.count || recipients.length} recipients imported successfully.`,
-                duration: 5000
-              })
-            } else {
-              const data = await res.json()
-              toast.error(data.error || "Failed to import", {
-                description: data.details || "Please check your data and try again."
-              })
-            }
-          }).catch(() => {
-            toast.dismiss(toastId)
-            toast.error("Failed to import recipients")
-          })
+          if (renamed.length > 0) toast.message(`Matched ${renamed.join(", ")}`)
+          await importRecipients(ready)
         } catch {
           toast.error("Failed to parse Excel file")
         }
@@ -1127,9 +1158,57 @@ export default function RecipientsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Excel check: certificate columns missing or empty in the uploaded file */}
+      <Dialog open={!!importCheck} onOpenChange={(open) => { if (!open) setImportCheck(null) }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Check your Excel before importing
+            </DialogTitle>
+            <DialogDescription>
+              {importCheck?.recipients.length} recipient{importCheck?.recipients.length === 1 ? "" : "s"} found. Some certificates may not come out right:
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-2.5">
+            {importCheck?.issues.map((issue, i) => (
+              <li key={i} className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <p className="text-sm font-medium text-neutral-900">{issue.title}</p>
+                {issue.detail && <p className="text-[13px] text-neutral-600 mt-0.5">{issue.detail}</p>}
+              </li>
+            ))}
+          </ul>
+          {importCheck && importCheck.renamed.length > 0 && (
+            <p className="text-[13px] text-neutral-600">Matched automatically: {importCheck.renamed.join(", ")}.</p>
+          )}
+          <p className="text-[13px] text-neutral-600">
+            To fix it, correct the Excel and upload it again, or{" "}
+            <button type="button" onClick={downloadSampleExcel} className="font-medium text-blue-600 hover:underline">
+              download the sample Excel
+            </button>{" "}
+            with the right columns.
+          </p>
+          <DialogFooter className="gap-3">
+            <Button variant="outline" onClick={() => setImportCheck(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const rows = importCheck?.recipients || []
+                setImportCheck(null)
+                importRecipients(rows)
+              }}
+            >
+              Import anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Recipient Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        {/* Scrolls inside the screen when extra Excel columns make it tall; buttons stay visible */}
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5" />
@@ -1244,7 +1323,7 @@ export default function RecipientsPage() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="sticky -bottom-6 -mx-6 -mb-6 px-6 py-4 bg-background border-t">
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
@@ -1258,7 +1337,7 @@ export default function RecipientsPage() {
 
       {/* Edit Recipient Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-5 w-5" />
