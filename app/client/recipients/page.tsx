@@ -1207,7 +1207,8 @@ export default function RecipientsPage() {
 
       {/* Add Recipient Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        {/* Scrolls inside the screen when extra Excel columns make it tall; buttons stay visible */}
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5" />
@@ -1322,7 +1323,7 @@ export default function RecipientsPage() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="sticky -bottom-6 -mx-6 -mb-6 px-6 py-4 bg-background border-t">
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
@@ -1336,7 +1337,7 @@ export default function RecipientsPage() {
 
       {/* Edit Recipient Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-5 w-5" />
