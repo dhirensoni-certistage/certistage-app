@@ -440,13 +440,14 @@ export function renderInternalEmail({ title, rows, message, note }: { title: str
  * Links to the recipient's own download page rather than attaching the PDF, so downloads,
  * LinkedIn adds and shares are counted and the message stays small.
  */
-export function renderCertificateEmail({ recipientName, eventName, certificateName, issuer, link, reminder }: {
+export function renderCertificateEmail({ recipientName, eventName, certificateName, issuer, link, reminder, openPixel }: {
   recipientName: string
   eventName: string
   certificateName: string
   issuer: string
   link: string
   reminder?: boolean
+  openPixel?: string // 1x1 image that records the open in the Email log
 }): { subject: string; html: string } {
   const subject = reminder
     ? `Reminder: your ${eventName} certificate is ready`
@@ -459,6 +460,7 @@ export function renderCertificateEmail({ recipientName, eventName, certificateNa
     ${small('On that page you can also add the certificate to your LinkedIn profile.')}
     ${divider()}
     ${small(`If the button does not work, copy this link into your browser:<br><a href="${link}" style="color:${EMAIL_BRAND.muted};word-break:break-all;">${esc(link)}</a>`)}
+    ${openPixel ? `<img src="${openPixel}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;">` : ''}
   `
   return {
     subject,

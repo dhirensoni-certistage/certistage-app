@@ -20,6 +20,7 @@ export interface IRecipient extends Document {
   lastEmailedAt?: Date
   lastEmailStatus?: "sending" | "sent" | "failed"
   lastEmailError?: string
+  lastEmailRun?: string // the send run that last emailed this recipient (no repeats within one run)
   customFields?: Record<string, string>
   createdAt: Date
   updatedAt: Date
@@ -45,6 +46,7 @@ const RecipientSchema = new Schema<IRecipient>(
     lastEmailedAt: { type: Date },
     lastEmailStatus: { type: String, enum: ["sending", "sent", "failed"] },
     lastEmailError: { type: String },
+    lastEmailRun: { type: String },
     customFields: { type: Map, of: String }
   },
   { timestamps: true }

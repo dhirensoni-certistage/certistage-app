@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Mail, Phone, Building, Calendar, CreditCard, ExternalLink, Users, FileText, Trash2, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
+import { Input } from "@/components/ui/input"
 
 interface UserDetails {
   user: {
@@ -34,6 +35,8 @@ interface UserDetails {
     plan: string
     isActive: boolean
     createdAt: string
+    emailCredits?: number
+    emailUsage?: { sent?: number }
   }
   events: Array<{
     _id: string
@@ -111,6 +114,27 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
       }
     } catch (error) {
       toast.error("Failed to update plan")
+    }
+  }
+
+  const [creditsToAdd, setCreditsToAdd] = useState("")
+  const handleAddEmailCredits = async () => {
+    if (!data) return
+    const add = parseInt(creditsToAdd, 10)
+    if (!Number.isInteger(add) || add === 0) { toast.error("Enter a number of emails"); return }
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addEmailCredits: add })
+      })
+      const result = await res.json()
+      if (!res.ok) { toast.error(result.error || "Failed to add emails"); return }
+      setData({ ...data, user: { ...data.user, emailCredits: result.user.emailCredits } })
+      setCreditsToAdd("")
+      toast.success(`${add > 0 ? "Added" : "Removed"} ${Math.abs(add).toLocaleString("en-IN")} emails`)
+    } catch {
+      toast.error("Failed to add emails")
     }
   }
 
@@ -230,6 +254,27 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
                       day: "numeric", month: "short", year: "numeric" 
                     })}
                   </span>
+                </div>
+              </div>
+
+              {/* Add-on certificate emails (sold manually until in-app purchase exists) */}
+              <div className="mt-6 pt-6 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium">Add-on emails</p>
+                  <p className="text-sm text-muted-foreground">
+                    {(user.emailCredits || 0).toLocaleString("en-IN")} left · used after the plan&apos;s emails · never expire
+                    {user.emailUsage?.sent ? ` · ${user.emailUsage.sent.toLocaleString("en-IN")} plan emails used this period` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={creditsToAdd}
+                    onChange={(e) => setCreditsToAdd(e.target.value)}
+                    placeholder="e.g. 5000"
+                    className="w-32 h-9"
+                  />
+                  <Button size="sm" onClick={handleAddEmailCredits}>Add emails</Button>
                 </div>
               </div>
 

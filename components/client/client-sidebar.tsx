@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   ChartColumnIncreasing,
+  MailCheck,
   LogOut,
   ChevronRight,
   Award,
@@ -96,6 +97,7 @@ export function ClientSidebar({ mobile = false, onNavigate, collapsed: collapsed
     { href: "/client/dashboard", label: "Dashboard", icon: LayoutDashboard, requiresEvent: true, group: "Event" },
     { href: "/client/certificates", label: "Certificates", icon: Award, requiresEvent: true, group: "Event" },
     { href: "/client/recipients", label: "Recipients", icon: Users, requiresEvent: true, group: "Event" },
+    { href: "/client/email-log", label: "Email log", icon: MailCheck, requiresEvent: true, group: "Event" },
     { href: "/client/reports", label: "Reports", icon: ChartColumnIncreasing, requiresEvent: true, group: "Event" },
     { href: "/client/settings", label: "Settings", icon: Settings2, requiresEvent: false, group: "Account" },
     { href: "/client/trash", label: "Recently deleted", icon: ArchiveRestore, requiresEvent: false, group: "Account" },

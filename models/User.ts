@@ -28,6 +28,8 @@ export interface IUser extends Document {
     day: string
     sent: number
   }
+  /** Extra certificate emails bought as an add-on; used after the plan's emails, never expire */
+  emailCredits?: number
   isActive: boolean
   isEmailVerified: boolean
   createdAt: Date
@@ -60,6 +62,7 @@ const UserSchema = new Schema<IUser>(
       day: { type: String },
       sent: { type: Number, default: 0 }
     },
+    emailCredits: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
     isEmailVerified: { type: Boolean, default: false }
   },
