@@ -61,7 +61,8 @@ export async function GET(request: NextRequest) {
           mobile: recipient.mobile,
           certificateId: recipient.regNo,
           downloadCount: recipient.downloadCount || 0,
-          issuedAt: recipient.createdAt
+          issuedAt: recipient.createdAt,
+          customFields: recipient.customFields || {}
         },
         certificateType: {
           id: certType._id.toString(),
@@ -278,7 +279,9 @@ export async function POST(request: NextRequest) {
         mobile: maskMobile(r.mobile),
         regNo: r.regNo,
         downloadCount: r.downloadCount,
-        issuedAt: r.createdAt
+        issuedAt: r.createdAt,
+        // Printed on the certificate, so the preview needs them
+        customFields: r.customFields || {}
       }))
     })
   } catch (error) {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Download, Check, AlertCircle, Loader2 } from "lucide-react"
+import { fieldValue } from "@/lib/certificate-fields"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import Image from "next/image"
@@ -21,6 +22,7 @@ interface Recipient {
   certificateId: string
   downloadCount: number
   issuedAt?: string
+  customFields?: Record<string, string>
 }
 
 interface CertificateType {
@@ -188,13 +190,7 @@ export default function DownloadPage() {
           ctx.textAlign = "center"
           ctx.textBaseline = "middle"
 
-          let value = ""
-          switch (field.variable) {
-            case "EMAIL": value = recipient.email || ""; break
-            case "MOBILE": value = recipient.mobile || ""; break
-            case "REG_NO": value = recipient.certificateId || ""; break
-            default: value = ""
-          }
+          const value = fieldValue(field.variable, recipient)
           if (value) ctx.fillText(value, fieldX, fieldY)
         })
       }
@@ -309,13 +305,7 @@ export default function DownloadPage() {
 
                 {/* Custom Fields Overlay */}
                 {certType.customFields?.map((field: any, i: number) => {
-                  let value = ""
-                  switch (field.variable) {
-                    case "EMAIL": value = recipient?.email || ""; break
-                    case "MOBILE": value = recipient?.mobile || ""; break
-                    case "REG_NO": value = recipient?.certificateId || ""; break
-                    default: value = `{{${field.variable}}}`
-                  }
+                  const value = fieldValue(field.variable, recipient)
                   if (!value) return null
 
                   return (

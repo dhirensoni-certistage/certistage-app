@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
+import { columnKey } from "@/lib/certificate-fields"
 import { getDownloadLink } from "@/lib/events"
 import { useRefreshOnFocus } from "@/hooks/use-refresh-on-focus"
 import { cn } from "@/lib/utils"
@@ -499,18 +500,27 @@ export default function RecipientsPage() {
           const sheet = workbook.Sheets[workbook.SheetNames[0]]
           const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as string[][]
 
+          // Columns after the first six are kept by heading (e.g. "Credit Hours") so they can be
+          // placed on the certificate; see lib/certificate-fields
+          const headers = (jsonData[0] || []).map((h) => columnKey(h))
           const recipients = []
           for (let i = 1; i < jsonData.length; i++) {
             const row = jsonData[i]
             if (row && (row[0] || row[1])) {
-              // Excel columns: Prefix, FirstName, LastName, Email, Mobile, RegistrationNo
+              const customFields: Record<string, string> = {}
+              for (let c = 6; c < row.length; c++) {
+                const value = row[c] == null ? "" : String(row[c]).trim()
+                if (headers[c] && value) customFields[headers[c]] = value
+              }
+              // Excel columns: Prefix, FirstName, LastName, Email, Mobile, RegistrationNo, then any extra columns
               recipients.push({
                 prefix: String(row[0] || "").trim(),
                 firstName: String(row[1] || "").trim(),
                 lastName: String(row[2] || "").trim(),
                 email: String(row[3] || "").trim(),
                 mobile: String(row[4] || "").trim(),
-                registrationNo: String(row[5] || generateRegNo()).trim()
+                registrationNo: String(row[5] || generateRegNo()).trim(),
+                customFields
               })
             }
           }
@@ -666,13 +676,14 @@ export default function RecipientsPage() {
   const downloadSampleExcel = () => {
     import("xlsx").then((XLSX) => {
       const sampleData = [
-        ["Prefix", "First Name", "Last Name", "Email", "Mobile", "Registration No"],
-        ["Mr.", "John", "Doe", "john@example.com", "+91-9876543210", "REG-001"],
-        ["Ms.", "Jane", "Smith", "jane@example.com", "+91-9876543211", "REG-002"],
-        ["Dr.", "Bob", "Wilson", "bob@example.com", "+91-9876543212", "REG-003"],
+        // Columns after "Registration No" are optional; each can be placed on the certificate
+        ["Prefix", "First Name", "Last Name", "Email", "Mobile", "Registration No", "Credit Hours"],
+        ["Mr.", "John", "Doe", "john@example.com", "+91-9876543210", "REG-001", "4"],
+        ["Ms.", "Jane", "Smith", "jane@example.com", "+91-9876543211", "REG-002", "4"],
+        ["Dr.", "Bob", "Wilson", "bob@example.com", "+91-9876543212", "REG-003", "2"],
       ]
       const ws = XLSX.utils.aoa_to_sheet(sampleData)
-      ws["!cols"] = [{ wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 15 }]
+      ws["!cols"] = [{ wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 14 }]
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, "Recipients")
       XLSX.writeFile(wb, "sample-recipients.xlsx")

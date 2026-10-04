@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import { Award, Download, Check, AlertCircle, Loader2, Search, ArrowLeft, FileText, User, Mail, Phone, Hash } from "lucide-react"
+import { fieldValue } from "@/lib/certificate-fields"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -52,6 +53,7 @@ interface Recipient {
   downloadCount: number
   certTypeId: string
   certTypeName: string
+  customFields?: Record<string, string>
 }
 
 type Step = "select-type" | "search" | "select" | "preview"
@@ -316,6 +318,7 @@ export default function EventDownloadPage() {
         certificateId: r.regNo || r.id,
         regNo: r.regNo,
         downloadCount: r.downloadCount || 0,
+        customFields: r.customFields || {},
         certTypeId: selectedType.id,
         certTypeName: selectedType.name
       })))
@@ -686,13 +689,7 @@ export default function EventDownloadPage() {
 
                     {/* Custom Fields */}
                     {selectedType.customFields?.map((field: any, i: number) => {
-                      let value = ""
-                      switch (field.variable) {
-                        case "EMAIL": value = selectedRecipient.email || ""; break
-                        case "MOBILE": value = selectedRecipient.mobile || ""; break
-                        case "REG_NO": value = selectedRecipient.certificateId || ""; break
-                        default: value = ""
-                      }
+                      const value = fieldValue(field.variable, selectedRecipient)
                       if (!value) return null
 
                       return (

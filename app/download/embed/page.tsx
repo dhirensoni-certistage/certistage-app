@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { fieldValue } from "@/lib/certificate-fields"
 import { textScaleFor } from "@/lib/certificate-text"
 import { useSearchParams } from "next/navigation"
 
@@ -10,6 +11,7 @@ interface Recipient {
   email?: string
   mobile?: string
   certificateId: string
+  customFields?: Record<string, string>
 }
 
 interface CertificateType {
@@ -205,20 +207,7 @@ export default function EmbeddedPreviewPage() {
               )}
 
               {certType.customFields?.map((field: any, i: number) => {
-                let value = ""
-                switch (field.variable) {
-                  case "EMAIL":
-                    value = recipient?.email || ""
-                    break
-                  case "MOBILE":
-                    value = recipient?.mobile || ""
-                    break
-                  case "REG_NO":
-                    value = recipient?.certificateId || ""
-                    break
-                  default:
-                    value = `{{${field.variable}}}`
-                }
+                const value = fieldValue(field.variable, recipient)
                 if (!value) return null
 
                 return (

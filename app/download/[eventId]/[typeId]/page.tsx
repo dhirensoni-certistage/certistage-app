@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { useTemplateTextScale } from "@/lib/certificate-text"
 import { individualCertificateUrl } from "@/lib/linkedin"
+import { fieldValue } from "@/lib/certificate-fields"
 import { LinkedInAddButton } from "@/components/download/linkedin-add-button"
 
 interface SearchFields {
@@ -28,6 +29,7 @@ interface Recipient {
   regNo?: string
   downloadCount: number
   issuedAt?: string
+  customFields?: Record<string, string>
 }
 
 interface CertificateType {
@@ -179,7 +181,8 @@ export default function CertTypeDownloadPage() {
     certificateId: r.regNo || r.id,
     regNo: r.regNo,
     downloadCount: r.downloadCount || 0,
-    issuedAt: r.issuedAt
+    issuedAt: r.issuedAt,
+    customFields: r.customFields || {}
   })
 
   const handleSearch = async (e?: React.FormEvent) => {
@@ -469,7 +472,7 @@ export default function CertTypeDownloadPage() {
                         </span>
                       </div>
                       {certType.customFields?.map((field, i) => {
-                        const value = field.variable === "EMAIL" ? selectedRecipient?.email : field.variable === "MOBILE" ? selectedRecipient?.mobile : field.variable === "REG_NO" ? selectedRecipient?.certificateId : ""
+                        const value = fieldValue(field.variable, selectedRecipient)
                         if (!value) return null
                         return (
                           <div key={i} className="absolute pointer-events-none" style={{ left: `${field.position.x}%`, top: `${field.position.y}%`, transform: "translate(-50%, -50%)" }}>
