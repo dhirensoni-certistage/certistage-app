@@ -12,7 +12,7 @@ export default function AuthCallback() {
   const [processing, setProcessing] = useState(false)
 
   // Sync NextAuth session to localStorage clientSession
-  const syncClientSession = async (plan?: string) => {
+  const syncClientSession = async (pendingPlan?: string) => {
     if (!session?.user) return
     
     // Fetch user profile from API to get accurate plan info
@@ -24,7 +24,8 @@ export default function AuthCallback() {
           userId: data.user.id || (session.user as any).id,
           userName: data.user.name || session.user.name,
           userEmail: data.user.email || session.user.email,
-          userPlan: plan || data.user.plan || "free",
+          userPlan: data.user.plan || "free",
+          pendingPlan: pendingPlan || data.user.pendingPlan || null,
           planExpiresAt: data.user.planExpiresAt,
           loginType: "user",
           loggedInAt: new Date().toISOString()
@@ -38,7 +39,8 @@ export default function AuthCallback() {
         userId: (session.user as any).id,
         userName: session.user.name,
         userEmail: session.user.email,
-        userPlan: plan || "free",
+        userPlan: "free",
+        pendingPlan: pendingPlan || null,
         loginType: "user",
         loggedInAt: new Date().toISOString()
       }
@@ -50,34 +52,32 @@ export default function AuthCallback() {
     if (status === "loading" || processing) return
 
     if (status === "authenticated" && session?.user) {
-      // Check if there was a selected plan
+      setProcessing(true)
+      // Plan picked on the signup page before going to Google; use it once
       const selectedPlan = localStorage.getItem("selectedPlan")
-      
-      // Only redirect to payment if plan is valid paid plan
-      if (selectedPlan && ["professional", "enterprise", "premium"].includes(selectedPlan)) {
-        setProcessing(true)
-        
-        // Store pending plan in user record and redirect to clean payment page
-        fetch("/api/client/profile", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pendingPlan: selectedPlan })
-        }).then(async () => {
-          await syncClientSession("free") // Keep as free until payment
-          // Redirect to clean payment page (no sidebar)
-          router.push(`/complete-payment?plan=${selectedPlan}`)
-        }).catch(() => {
-          localStorage.removeItem("selectedPlan")
-          toast.error("Failed to process plan selection. Please upgrade from settings.")
-          syncClientSession().then(() => router.push("/client/events"))
-        })
-      } else {
-        // Sync session and redirect
-        syncClientSession().then(() => {
-          toast.success(`Welcome back, ${session.user?.name}!`)
-          router.push("/client/events")
-        })
+      localStorage.removeItem("selectedPlan")
+
+      const finish = async () => {
+        if (selectedPlan) {
+          // The server accepts it only if it's a paid plan that is currently on sale
+          // (any plan from Admin > Plans, not a fixed list)
+          const res = await fetch("/api/client/profile", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pendingPlan: selectedPlan })
+          }).catch(() => null)
+          if (res?.ok) {
+            await syncClientSession(selectedPlan)
+            router.push(`/complete-payment?plan=${encodeURIComponent(selectedPlan)}`)
+            return
+          }
+          toast.error("That plan isn't available right now. You can pick a plan from See plans.")
+        }
+        await syncClientSession()
+        toast.success(`Welcome, ${session.user?.name}!`)
+        router.push("/client/events")
       }
+      finish()
     } else if (status === "unauthenticated") {
       toast.error("Authentication failed. Please try again.")
       router.push("/signup")

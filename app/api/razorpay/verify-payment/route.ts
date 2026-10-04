@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { sendPlanPaymentEmails } from "@/lib/plan-payment-emails.server"
 import crypto from "crypto"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
@@ -110,6 +111,8 @@ export async function POST(request: NextRequest) {
     // Check if payment already processed (idempotency)
     const existingPayment = await Payment.findOne({ orderId: razorpay_order_id })
     if (existingPayment && existingPayment.status === "success") {
+      // The webhook may have activated the plan first; make sure the receipt still goes out
+      await sendPlanPaymentEmails(razorpay_order_id)
       const existingInvoiceNumber = existingPayment.invoiceNumber
       const existingInvoiceUrl = existingInvoiceNumber
         ? `${appUrl}/api/invoices/${encodeURIComponent(existingInvoiceNumber)}/pdf`
@@ -186,107 +189,8 @@ export async function POST(request: NextRequest) {
     const invoiceNumber = paymentRecord?.invoiceNumber || generatedInvoiceNumber
     const defaultInvoiceUrl = `${appUrl}/api/invoices/${encodeURIComponent(invoiceNumber)}/pdf`
 
-    // Create admin notification in database
-    try {
-      const Notification = (await import('@/models/Notification')).default
-      const planDisplayName = plan.charAt(0).toUpperCase() + plan.slice(1)
-      
-      await Notification.create({
-        type: "payment",
-        title: "Payment Received",
-        description: `${user.name} upgraded to ${planDisplayName} - ₹${Math.round(amount / 100)}`,
-        userId: user._id,
-        metadata: {
-          userName: user.name,
-          userEmail: user.email,
-          plan: planDisplayName,
-          amount: amount,
-          paymentId: razorpay_payment_id
-        },
-        read: false
-      })
-    } catch (notifError) {
-      console.error('Failed to create notification:', notifError)
-    }
-
-    // Send invoice email to customer
-    try {
-      const { sendEmail, emailTemplates } = await import('@/lib/email')
-      const planDisplayName = plan.charAt(0).toUpperCase() + plan.slice(1)
-      const adminCCEmail = process.env.ADMIN_CC_EMAIL
-
-      // Optional PDF download URL template (set in env):
-      // INVOICE_PDF_URL_TEMPLATE=https://certistage.com/api/invoices/{invoiceNumber}/pdf
-      // Supported placeholders: {invoiceNumber}, {paymentId}, {userId}
-      const invoiceUrlTemplate = process.env.INVOICE_PDF_URL_TEMPLATE
-      const invoiceUrl = invoiceUrlTemplate
-        ? invoiceUrlTemplate
-            .replace('{invoiceNumber}', encodeURIComponent(invoiceNumber))
-            .replace('{paymentId}', encodeURIComponent(razorpay_payment_id))
-            .replace('{userId}', encodeURIComponent(String(userId)))
-        : defaultInvoiceUrl
-      
-      // Send professional invoice email with CC
-      const invoiceTemplate = emailTemplates.invoice({
-        invoiceNumber,
-        customerName: user.name,
-        customerEmail: user.email,
-        customerPhone: user.phone,
-        customerOrganization: user.organization,
-        planName: planDisplayName,
-        amount: baseAmount,
-        gatewayFee: gatewayFee,
-        totalAmount: amount,
-        paymentId: razorpay_payment_id,
-        paymentDate: now,
-        validUntil: planExpiresAt,
-        invoiceUrl
-      })
-      
-      await sendEmail({
-        to: user.email,
-        subject: invoiceTemplate.subject,
-        html: invoiceTemplate.html,
-        cc: adminCCEmail, // Add CC
-        template: "invoice",
-        metadata: {
-          userId: userId,
-          userName: user.name,
-          type: "payment_invoice",
-          plan: planDisplayName,
-          amount: amount,
-          paymentId: razorpay_payment_id
-        }
-      })
-      
-      // Send admin notification with CC
-      if (process.env.ADMIN_EMAIL) {
-        const adminTemplate = emailTemplates.adminNotification('payment', {
-          userName: user.name,
-          userEmail: user.email,
-          plan: planDisplayName,
-          amount: amount,
-          paymentId: razorpay_payment_id
-        })
-        await sendEmail({
-          to: process.env.ADMIN_EMAIL,
-          subject: adminTemplate.subject,
-          html: adminTemplate.html,
-          cc: adminCCEmail, // Add CC
-          template: "adminNotification",
-          metadata: {
-            userId: userId,
-            userName: user.name,
-            type: "payment_notification",
-            plan: planDisplayName,
-            amount: amount
-          }
-        })
-      }
-    } catch (emailError) {
-      console.error('Failed to send invoice email:', emailError)
-      // Don't fail payment verification if email fails
-    }
+    // Receipt, admin email and notification (sent once, even if the webhook got here first)
+    await sendPlanPaymentEmails(razorpay_order_id)
 
     console.log("Payment verified and user plan updated:", {
       userId,

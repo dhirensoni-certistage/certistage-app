@@ -22,6 +22,8 @@ export interface IPayment extends Document {
   failureReason?: string
   refundAmount?: number
   refundedAt?: Date
+  /** Set once the receipt and admin emails for this payment have gone out */
+  receiptSentAt?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -51,7 +53,8 @@ const PaymentSchema = new Schema<IPayment>(
     webhookVerified: { type: Boolean, default: false },
     failureReason: { type: String },
     refundAmount: { type: Number },
-    refundedAt: { type: Date }
+    refundedAt: { type: Date },
+    receiptSentAt: { type: Date }
   },
   { timestamps: true }
 )

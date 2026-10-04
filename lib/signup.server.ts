@@ -37,6 +37,22 @@ export async function createVerifiedUser(record: VerificationRecord, password?: 
     isEmailVerified: true
   })
 
+  await notifyNewSignup(user)
+
+  return user
+}
+
+/**
+ * Admin panel notification, welcome email to the new user and "new signup" email to
+ * ADMIN_EMAIL. Used by email sign-up and Google sign-up. Never throws.
+ */
+export async function notifyNewSignup(user: {
+  _id: { toString(): string }
+  name: string
+  email: string
+  phone?: string
+  organization?: string
+}): Promise<void> {
   try {
     const Notification = (await import("@/models/Notification")).default
     await Notification.create({
@@ -82,8 +98,6 @@ export async function createVerifiedUser(record: VerificationRecord, password?: 
   } catch (err) {
     console.error("Failed to send signup emails:", err)
   }
-
-  return user
 }
 
 /** Response for a freshly created account: same user payload the login routes return, plus the session cookie. */
