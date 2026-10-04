@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     const secret = searchParams.get("secret")
     
     // Security check - only works with correct secret
-    if (secret !== process.env.ADMIN_SETUP_SECRET) {
+    if (!process.env.ADMIN_SETUP_SECRET || secret !== process.env.ADMIN_SETUP_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

@@ -3,8 +3,7 @@ import connectDB from "@/lib/mongodb"
 import Admin from "@/models/Admin"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
-
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key"
+import { adminJwtSecret } from "@/lib/admin-auth"
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,7 +41,7 @@ export async function POST(request: NextRequest) {
         role: admin.role,
         type: "admin"
       },
-      JWT_SECRET,
+      adminJwtSecret(),
       { expiresIn: "7d" }
     )
 
