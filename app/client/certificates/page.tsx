@@ -584,8 +584,24 @@ export default function CertificatesPage() {
     }
   }, [selectedType?.id])
 
+  // Cursor position as a percentage of the template image (the unit positions are stored in)
+  const cursorPercent = (clientX: number, clientY: number): { x: number; y: number } | null => {
+    const imgElement = containerRef.current?.querySelector('img')
+    if (!imgElement) return null
+    const rect = imgElement.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return null
+    return { x: ((clientX - rect.left) / rect.width) * 100, y: ((clientY - rect.top) / rect.height) * 100 }
+  }
+  // Where inside the field it was grabbed, so the field does not jump to centre on the cursor
+  const dragOffsetRef = useRef({ x: 0, y: 0 })
+  // A click without movement only selects; it must not save a position
+  const dragMovedRef = useRef(false)
+
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
+    const c = cursorPercent(e.clientX, e.clientY)
+    dragOffsetRef.current = c ? { x: c.x - localPosition.x, y: c.y - localPosition.y } : { x: 0, y: 0 }
+    dragMovedRef.current = false
     setIsDraggingText(true)
     setSelectedFieldId("NAME")
   }
@@ -593,28 +609,23 @@ export default function CertificatesPage() {
   const handleFieldMouseDown = (e: React.MouseEvent, fieldId: string) => {
     e.preventDefault()
     e.stopPropagation()
+    const current = localFieldPositions[fieldId] || selectedType?.customFields?.find(f => f.id === fieldId)?.position || { x: 50, y: 50 }
+    const c = cursorPercent(e.clientX, e.clientY)
+    dragOffsetRef.current = c ? { x: c.x - current.x, y: c.y - current.y } : { x: 0, y: 0 }
+    dragMovedRef.current = false
     setDraggingFieldId(fieldId)
     setSelectedFieldId(fieldId)
   }
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     e.preventDefault()
-    if (!containerRef.current) return
+    const c = cursorPercent(e.clientX, e.clientY)
+    if (!c) return
+    dragMovedRef.current = true
 
-    // Find image within the container for precise bounds
-    const imgElement = containerRef.current.querySelector('img')
-    if (!imgElement) return
-
-    const rect = imgElement.getBoundingClientRect()
-    if (rect.width === 0 || rect.height === 0) return
-
-    // Calculate percentage relative to the image dimensions
-    const rawX = ((e.clientX - rect.left) / rect.width) * 100
-    const rawY = ((e.clientY - rect.top) / rect.height) * 100
-
-    // Clamp to valid range (allow slight edge buffer 0-100)
-    const x = Math.max(0, Math.min(100, rawX))
-    const y = Math.max(0, Math.min(100, rawY))
+    // Clamp to the image (0-100%)
+    const x = Math.max(0, Math.min(100, c.x - dragOffsetRef.current.x))
+    const y = Math.max(0, Math.min(100, c.y - dragOffsetRef.current.y))
 
     if (isDraggingText) {
       setLocalPosition({ x, y })
@@ -627,14 +638,16 @@ export default function CertificatesPage() {
     // We use refs to get the latest values without needing them in the dependency array
     // This keeps the event listener stable.
 
+    const moved = dragMovedRef.current
+    dragMovedRef.current = false
     // Save text position on drag end
-    if (isDraggingText && eventId && selectedTypeId) {
+    if (moved && isDraggingText && eventId && selectedTypeId) {
       const newPos = localPositionRef.current
       updateLocalCertType({ textPosition: newPos })
       updateCertTypeAPI(selectedTypeId, { textPosition: newPos })
     }
     // Save custom field position on drag end
-    if (draggingFieldId && eventId && selectedTypeId && selectedType) {
+    if (moved && draggingFieldId && eventId && selectedTypeId && selectedType) {
       const pos = localFieldPositionsRef.current[draggingFieldId]
       if (pos) {
         const fields = selectedType.customFields || []
@@ -649,6 +662,48 @@ export default function CertificatesPage() {
     setIsDraggingText(false)
     setDraggingFieldId(null)
   }, [eventId, selectedTypeId, selectedType, isDraggingText, draggingFieldId, refreshEvent])
+
+  // Move the selected field (name or custom) to an exact position; used by the X/Y inputs,
+  // the Center button and arrow-key nudging. Saves debounced.
+  const moveSelectedField = (pos: { x: number; y: number }) => {
+    const clamped = { x: Math.max(0, Math.min(100, pos.x)), y: Math.max(0, Math.min(100, pos.y)) }
+    if (selectedFieldId === "NAME") {
+      setLocalPosition(clamped)
+      updateLocalCertType({ textPosition: clamped })
+      if (selectedTypeId) syncToAPI(selectedTypeId, { textPosition: clamped })
+      return
+    }
+    if (!selectedType?.customFields?.some(f => f.id === selectedFieldId)) return
+    setLocalFieldPositions(prev => ({ ...prev, [selectedFieldId]: clamped }))
+    const updatedFields = selectedType.customFields.map(f => f.id === selectedFieldId ? { ...f, position: clamped } : f)
+    updateLocalCertType({ customFields: updatedFields })
+    if (selectedTypeId) syncToAPI(selectedTypeId, { customFields: updatedFields })
+  }
+  const selectedFieldPosition = (): { x: number; y: number } =>
+    selectedFieldId === "NAME"
+      ? localPosition
+      : localFieldPositions[selectedFieldId] || selectedType?.customFields?.find(f => f.id === selectedFieldId)?.position || { x: 50, y: 50 }
+
+  // Arrow keys nudge the selected field (Shift = bigger steps), unless the user is typing
+  const moveSelectedFieldRef = useRef(moveSelectedField)
+  moveSelectedFieldRef.current = moveSelectedField
+  const selectedFieldPositionRef = useRef(selectedFieldPosition)
+  selectedFieldPositionRef.current = selectedFieldPosition
+  useEffect(() => {
+    if (!selectedTypeId || !selectedFieldId) return
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return
+      const step = e.shiftKey ? 2 : 0.5
+      const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key]
+      if (!delta) return
+      e.preventDefault()
+      const p = selectedFieldPositionRef.current()
+      moveSelectedFieldRef.current({ x: p.x + delta[0], y: p.y + delta[1] })
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [selectedTypeId, selectedFieldId])
 
   useEffect(() => {
     if (isDraggingText || draggingFieldId) {
@@ -727,14 +782,7 @@ export default function CertificatesPage() {
               onFieldMouseDown={handleFieldMouseDown}
               onRemoveTemplate={removeTemplate}
               onTogglePreview={() => setShowPreview(!showPreview)}
-              onPositionChange={(axis, value) => {
-                const newPosition = { ...localPosition, [axis]: value }
-                setLocalPosition(newPosition)
-                // Update local state immediately
-                updateLocalCertType({ textPosition: newPosition })
-                // Sync to API in background
-                if (selectedTypeId) syncToAPI(selectedTypeId, { textPosition: newPosition })
-              }}
+              onPositionChange={(axis, value) => moveSelectedField({ ...selectedFieldPosition(), [axis]: value })}
               onFontChange={(updates) => {
                 // Check if this is a critical setting that needs immediate save
                 const isCriticalUpdate = 'textCase' in updates || 'fontFamily' in updates
@@ -1185,6 +1233,13 @@ function TemplateEditor({
 }) {
   // Scale stored font sizes (PDF points) to the on-screen image so the canvas matches the PDF
   const { ref: templateImgRef, scale: textScale } = useTemplateTextScale()
+  // Right panel tab; clicking a field on the canvas opens its settings in Design
+  const [sidebarTab, setSidebarTab] = useState("design")
+  const selectAndEdit = (fieldId: string) => {
+    onSelectField(fieldId)
+    setSidebarTab("design")
+  }
+  const [fieldSearch, setFieldSearch] = useState("")
   // Extra Excel columns imported for this certificate (e.g. Credit Hours), offered as fields
   const [excelColumns, setExcelColumns] = useState<{ heading: string; sample: string }[]>([])
   useEffect(() => {
@@ -1297,24 +1352,24 @@ function TemplateEditor({
                   style={{ left: `${localPosition.x}%`, top: `${localPosition.y}%`, transform: "translate(-50%, -50%)" }}
                   onClick={(e) => {
                     e.stopPropagation()
-                    onSelectField("NAME")
+                    selectAndEdit("NAME")
                   }}
                 >
                   {!showPreview ? (
-                    <div className="relative group">
+                    // The whole field is the drag target (not just a small handle)
+                    <div className="relative group cursor-move" onMouseDown={onMouseDown} title="Drag to move. Arrow keys nudge it.">
                       <div className={cn(
                         "absolute -inset-2 border border-dashed rounded-lg transition-opacity",
                         selectedFieldId === "NAME" ? "border-blue-600 opacity-100 ring-2 ring-blue-400/20" : "border-blue-400 opacity-0 group-hover:opacity-100"
                       )}></div>
-                      {/* Drag Handle */}
+                      {/* Hint only; the whole field drags */}
                       <div
                         className={cn(
-                          "absolute -top-6 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10",
-                          isDraggingText && "opacity-100 cursor-grabbing"
+                          "pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10",
+                          isDraggingText && "opacity-100"
                         )}
-                        onMouseDown={onMouseDown}
                       >
-                        <Move className="h-2.5 w-2.5" /> Drag
+                        <Move className="h-2.5 w-2.5" /> Drag to move
                       </div>
 
                       <div className="border border-blue-600 bg-blue-100 rounded px-2 py-0.5 flex items-center justify-center relative min-w-[60px] min-h-[20px] shadow-sm">
@@ -1336,6 +1391,7 @@ function TemplateEditor({
                       {/* Remove Button */}
                       <button
                         className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-white border border-[#E5E5E5] shadow-sm flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100 z-20"
+                        onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => { e.stopPropagation(); onRemoveNameField() }}
                         title="Remove Name Field"
                       >
@@ -1372,21 +1428,23 @@ function TemplateEditor({
                     style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: "translate(-50%, -50%)" }}
                     onClick={(e) => {
                       e.stopPropagation()
-                      onSelectField(field.id)
+                      selectAndEdit(field.id)
                     }}
                   >
                     {!showPreview ? (
-                      <div className="relative group">
+                      <div className="relative group cursor-move" onMouseDown={(e) => onFieldMouseDown(e, field.id)} title="Drag to move. Arrow keys nudge it.">
                         <div className={cn(
                           "absolute -inset-2 border border-dashed rounded-lg transition-opacity",
                           selectedFieldId === field.id ? "border-amber-600 opacity-100 ring-2 ring-amber-400/20" : "border-amber-600 opacity-0 group-hover:opacity-100"
                         )}></div>
 
                         <div
-                          className="absolute -top-6 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                          onMouseDown={(e) => onFieldMouseDown(e, field.id)}
+                          className={cn(
+                            "pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap bg-amber-600 text-white text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10",
+                            draggingFieldId === field.id && "opacity-100"
+                          )}
                         >
-                          <Move className="h-2.5 w-2.5" /> Drag
+                          <Move className="h-2.5 w-2.5" /> Drag to move
                         </div>
 
                         <div className="border border-amber-600 bg-amber-100 rounded px-2 py-0.5 flex items-center justify-center relative min-w-[60px] min-h-[20px] shadow-sm">
@@ -1406,6 +1464,7 @@ function TemplateEditor({
 
                         <button
                           className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-white border border-[#E5E5E5] shadow-sm flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100 z-20"
+                          onMouseDown={(e) => e.stopPropagation()}
                           onClick={(e) => { e.stopPropagation(); onRemoveCustomField(field.id) }}
                         >
                           <X className="h-2.5 w-2.5 text-[#666] hover:text-red-600" />
@@ -1438,7 +1497,7 @@ function TemplateEditor({
 
       {/* Right Sidebar: Properties Panel */}
       <div className="w-full lg:w-[320px] bg-white border-l border-[#E5E5E5] flex flex-col shrink-0 h-full">
-        <Tabs defaultValue="design" className="w-full h-full flex flex-col">
+        <Tabs value={sidebarTab} onValueChange={setSidebarTab} className="w-full h-full flex flex-col">
           <div className="p-3 border-b border-[#F0F0F0]">
             <TabsList className="w-full bg-[#F5F5F7]">
               <TabsTrigger value="design" className="flex-1 text-xs">Design</TabsTrigger>
@@ -1493,19 +1552,78 @@ function TemplateEditor({
                       <div className="grid grid-cols-1 gap-4">
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <Label className="text-[11px] font-medium text-[#444]">Size</Label>
-                            <span className="text-[10px] font-mono text-[#666] bg-[#F5F5F7] px-1.5 py-0.5 rounded">{selectedField.fontSize || 24}pt</span>
+                            <Label htmlFor="field-font-size" className="text-[11px] font-medium text-[#444]">Size</Label>
+                            <div className="flex items-center gap-1">
+                              <input
+                                id="field-font-size"
+                                type="number"
+                                min={6}
+                                max={200}
+                                value={selectedField.fontSize || 24}
+                                onChange={(e) => {
+                                  const v = Math.round(Number(e.target.value))
+                                  if (Number.isFinite(v) && v >= 6 && v <= 200) onFontChange({ fontSize: v })
+                                }}
+                                className="w-14 h-7 px-2 rounded border border-[#E5E5E5] text-xs text-right font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                              />
+                              <span className="text-[10px] text-[#888]">pt</span>
+                            </div>
                           </div>
                           <Slider
                             value={[selectedField.fontSize || 24]}
                             onValueChange={([v]) => onFontChange({ fontSize: v })}
-                            min={12}
+                            min={6}
                             max={200}
                             step={1}
                             className="py-1"
                           />
                         </div>
                       </div>
+
+                      {/* Exact position: same numbers the PDF uses (centre of the text, % of the design) */}
+                      {(() => {
+                        const pos = selectedFieldId === "NAME"
+                          ? localPosition
+                          : localFieldPositions[selectedFieldId] || certType.customFields?.find(f => f.id === selectedFieldId)?.position || { x: 50, y: 50 }
+                        const setAxis = (axis: "x" | "y", raw: string) => {
+                          const v = Number(raw)
+                          if (Number.isFinite(v)) onPositionChange(axis, Math.round(Math.max(0, Math.min(100, v)) * 10) / 10)
+                        }
+                        return (
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <Label className="text-[11px] font-medium text-[#444]">Position</Label>
+                              <button
+                                type="button"
+                                onClick={() => onPositionChange("x", 50)}
+                                className="text-[10px] font-medium text-blue-700 hover:text-blue-900"
+                              >
+                                Center horizontally
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {(["x", "y"] as const).map((axis) => (
+                                <label key={axis} className="flex items-center gap-1.5 h-8 px-2 rounded border border-[#E5E5E5] focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
+                                  <span className="text-[10px] font-semibold text-[#888]">{axis === "x" ? "Left" : "Top"}</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step={0.5}
+                                    value={Math.round(pos[axis] * 10) / 10}
+                                    onChange={(e) => setAxis(axis, e.target.value)}
+                                    className="w-full min-w-0 text-xs text-right font-mono outline-none bg-transparent"
+                                  />
+                                  <span className="text-[10px] text-[#888]">%</span>
+                                </label>
+                              ))}
+                            </div>
+                            <p className="text-[10px] text-[#888] mt-1.5">
+                              Drag the field, type a value, or use the arrow keys (Shift for bigger steps). The PDF uses this exact position.
+                            </p>
+                          </div>
+                        )
+                      })()}
 
                       {/* Style & Casing Grid */}
                       <div className="grid grid-cols-2 gap-3">
@@ -1592,83 +1710,107 @@ function TemplateEditor({
               <div className="h-px bg-[#F0F0F0] w-full"></div>
             </TabsContent>
 
-            {/* VARIABLES TAB */}
+            {/* FIELDS TAB: what is on the certificate first, then what can be added */}
             <TabsContent value="variables" className="p-4 m-0 h-full">
-              <div className="space-y-4">
-                <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100 mb-6">
-                  <h4 className="text-xs font-semibold text-blue-900 mb-1">Dynamic Fields</h4>
-                  <p className="text-[11px] text-blue-700/80 leading-relaxed">
-                    Click to add variables. Drag them on the canvas to position where they will appear on the final certificate.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-[#444] mb-2 block">Available Variables</Label>
-
-                  {certType.showNameField === false && (
-                    <button onClick={onRestoreNameField} className="w-full flex items-center justify-between p-3 rounded-lg border border-[#E5E5E5] bg-white hover:border-black/30 hover:shadow-sm transition-all group text-left">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-[#F5F5F7] flex items-center justify-center group-hover:bg-[#EBEBEB]">
-                          <span className="text-xs font-bold text-[#444]">N</span>
+              {(() => {
+                const onCert = [
+                  ...(certType.showNameField !== false ? [{ id: "NAME", label: "Recipient Name", size: certType.fontSize || 24 }] : []),
+                  ...(certType.customFields || []).map((f) => ({ id: f.id, label: fieldLabel(f.variable), size: f.fontSize || 24 }))
+                ]
+                const q = fieldSearch.trim().toLowerCase()
+                const matches = (label: string) => !q || label.toLowerCase().includes(q)
+                const excelOptions = excelColumns
+                  .filter((c) => !certType.customFields?.find((f) => f.variable === columnVariable(c.heading)))
+                  .filter((c) => matches(c.heading))
+                const standardOptions = AVAILABLE_VARIABLES
+                  .filter((v) => v.key !== 'NAME' && !certType.customFields?.find((f) => f.variable === v.key))
+                  .filter((v) => matches(v.label))
+                const showNameOption = certType.showNameField === false && matches("Recipient Name")
+                const addableCount = excelColumns.length + AVAILABLE_VARIABLES.length
+                const optionRow = (key: string, label: string, hint: string, onAdd: () => void) => (
+                  <button key={key} onClick={onAdd} className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-[#E5E5E5] bg-white hover:border-black/30 transition-colors group text-left">
+                    <span className="min-w-0">
+                      <span className="block text-xs font-medium text-[#222] truncate">{label}</span>
+                      {hint && <span className="block text-[10px] text-[#888] truncate">{hint}</span>}
+                    </span>
+                    <Plus className="h-4 w-4 shrink-0 text-[#BBB] group-hover:text-black" />
+                  </button>
+                )
+                return (
+                  <div className="space-y-6">
+                    <section>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#666] mb-2">On this certificate</p>
+                      {onCert.length === 0 ? (
+                        <p className="text-[11px] text-[#888]">No fields yet. Add one below.</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {onCert.map((f) => (
+                            <button
+                              key={f.id}
+                              onClick={() => selectAndEdit(f.id)}
+                              className={cn(
+                                "w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md border text-left transition-colors",
+                                selectedFieldId === f.id ? "border-blue-500 bg-blue-50/60" : "border-[#E5E5E5] bg-white hover:border-black/30"
+                              )}
+                            >
+                              <span className="text-xs font-medium text-[#222] truncate">{f.label}</span>
+                              <span className="shrink-0 text-[10px] font-mono text-[#888]">{f.size}pt · Edit</span>
+                            </button>
+                          ))}
                         </div>
+                      )}
+                    </section>
+
+                    <section>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#666] mb-2">Add a field</p>
+                      {addableCount > 5 && (
+                        <div className="relative mb-3">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#999]" />
+                          <input
+                            value={fieldSearch}
+                            onChange={(e) => setFieldSearch(e.target.value)}
+                            placeholder="Search fields"
+                            className="w-full h-8 pl-8 pr-2 rounded-md border border-[#E5E5E5] text-xs outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                          />
+                        </div>
+                      )}
+
+                      <div className="space-y-4">
+                        {showNameOption && (
+                          <div className="space-y-1.5">{optionRow("NAME", "Recipient Name", "", onRestoreNameField)}</div>
+                        )}
+
+                        {/* Columns after "Registration No" in the imported Excel */}
                         <div>
-                          <span className="block text-xs font-semibold text-[#222]">Recipient Name</span>
-                          <span className="block text-[10px] text-[#888] font-mono mt-0.5">{`{{NAME}}`}</span>
-                        </div>
-                      </div>
-                      <Plus className="h-4 w-4 text-[#CCC] group-hover:text-black" />
-                    </button>
-                  )}
-
-                  {AVAILABLE_VARIABLES.filter(v => v.key !== 'NAME' && !certType.customFields?.find(f => f.variable === v.key)).map((v) => (
-                    <button key={v.key} onClick={() => onAddCustomField(v.key)} className="w-full flex items-center justify-between p-3 rounded-lg border border-[#E5E5E5] bg-white hover:border-black/30 hover:shadow-sm transition-all group text-left">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-[#F5F5F7] flex items-center justify-center group-hover:bg-[#EBEBEB]">
-                          <span className="text-xs font-bold text-[#444]">{v.key.charAt(0)}</span>
-                        </div>
-                        <div>
-                          <span className="block text-xs font-semibold text-[#222]">{v.label}</span>
-                          <span className="block text-[10px] text-[#888] font-mono mt-0.5">{`{{${v.key}}}`}</span>
-                        </div>
-                      </div>
-                      <Plus className="h-4 w-4 text-[#CCC] group-hover:text-black" />
-                    </button>
-                  ))}
-
-                  {/* Columns after "Registration No" in the imported Excel */}
-                  <div className="pt-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#666] mb-2">From your Excel</p>
-                    {excelColumns.length === 0 ? (
-                      <p className="text-[11px] text-[#888] leading-relaxed">
-                        Add more columns after &ldquo;Registration No&rdquo; in your Excel (for example Credit Hours, Designation or College), import it, and they appear here to place on the certificate.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {excelColumns.filter((c) => !certType.customFields?.find((f) => f.variable === columnVariable(c.heading))).map((c) => (
-                          <button key={c.heading} onClick={() => onAddCustomField(columnVariable(c.heading))} className="w-full flex items-center justify-between p-3 rounded-lg border border-[#E5E5E5] bg-white hover:border-black/30 hover:shadow-sm transition-all group text-left">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="h-8 w-8 shrink-0 rounded-full bg-[#F5F5F7] flex items-center justify-center group-hover:bg-[#EBEBEB]">
-                                <span className="text-xs font-bold text-[#444]">{c.heading.charAt(0).toUpperCase()}</span>
-                              </div>
-                              <div className="min-w-0">
-                                <span className="block text-xs font-semibold text-[#222] truncate">{c.heading}</span>
-                                <span className="block text-[10px] text-[#888] truncate mt-0.5">e.g. {c.sample}</span>
-                              </div>
+                          <p className="text-[10px] font-medium text-[#888] mb-1.5">From your Excel</p>
+                          {excelColumns.length === 0 ? (
+                            <p className="text-[11px] text-[#888] leading-relaxed">
+                              Add columns after &ldquo;Registration No&rdquo; in your Excel (for example Credit Hours, Designation or College) and import it; they appear here.
+                            </p>
+                          ) : excelOptions.length === 0 ? (
+                            <p className="text-[11px] text-[#888]">{q ? "No matching column." : "All Excel columns are on the certificate."}</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {excelOptions.map((c) => optionRow(c.heading, c.heading, c.sample ? `e.g. ${c.sample}` : "", () => onAddCustomField(columnVariable(c.heading))))}
                             </div>
-                            <Plus className="h-4 w-4 shrink-0 text-[#CCC] group-hover:text-black" />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                          )}
+                        </div>
 
-                  {certType.showNameField !== false && AVAILABLE_VARIABLES.filter(v => v.key !== 'NAME').every(v => certType.customFields?.find(f => f.variable === v.key)) && (
-                    <div className="text-center py-8 text-[#999] text-xs">
-                      All available variables have been added.
-                    </div>
-                  )}
-                </div>
-              </div>
+                        <div>
+                          <p className="text-[10px] font-medium text-[#888] mb-1.5">Standard</p>
+                          {standardOptions.length === 0 ? (
+                            <p className="text-[11px] text-[#888]">{q ? "No matching field." : "All standard fields are on the certificate."}</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {standardOptions.map((v) => optionRow(v.key, v.label, "", () => onAddCustomField(v.key)))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                )
+              })()}
             </TabsContent>
 
             {/* SETTINGS TAB */}

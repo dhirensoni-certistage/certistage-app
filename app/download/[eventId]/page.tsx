@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import { Award, Download, Check, AlertCircle, Loader2, Search, ArrowLeft, FileText, User, Mail, Phone, Hash } from "lucide-react"
 import { fieldValue } from "@/lib/certificate-fields"
+import { useTemplateTextScale } from "@/lib/certificate-text"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -96,6 +97,8 @@ export default function EventDownloadPage() {
 
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
+  // Same text-size rule as the editor and the PDF (see lib/certificate-text)
+  const { ref: previewImgRef, scale: textScale } = useTemplateTextScale()
 
 
   // Load event and certificate types
@@ -650,6 +653,7 @@ export default function EventDownloadPage() {
                         className="relative inline-block max-w-full rounded-lg overflow-hidden border select-none bg-white"
                       >
                       <img
+                        ref={previewImgRef}
                         src={selectedType.templateImage}
                         alt="Certificate"
                         className="block w-auto max-w-full h-auto pointer-events-none"
@@ -675,7 +679,7 @@ export default function EventDownloadPage() {
                         <span
                           className="whitespace-nowrap leading-none select-none"
                           style={{
-                            fontSize: `clamp(8px, ${(selectedType.fontSize || 24) * 0.04}cqw, ${(selectedType.fontSize || 24) * 0.7}px)`,
+                            fontSize: `${(selectedType.fontSize || 24) * textScale}px`,
                             fontFamily: `"${selectedType.fontFamily || 'Arial'}", sans-serif`,
                             fontWeight: selectedType.fontBold ? 'bold' : 'normal',
                             fontStyle: selectedType.fontItalic ? 'italic' : 'normal',
@@ -705,7 +709,7 @@ export default function EventDownloadPage() {
                           <span
                             className="whitespace-nowrap leading-none select-none"
                             style={{
-                              fontSize: `clamp(6px, ${(field.fontSize || 24) * 0.04}cqw, ${(field.fontSize || 24) * 0.7}px)`,
+                              fontSize: `${(field.fontSize || 24) * textScale}px`,
                               fontFamily: `"${field.fontFamily || 'Arial'}", sans-serif`,
                               fontWeight: field.fontBold ? 'bold' : 'normal',
                               fontStyle: field.fontItalic ? 'italic' : 'normal',
