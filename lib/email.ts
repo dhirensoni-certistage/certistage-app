@@ -434,3 +434,38 @@ export function renderInternalEmail({ title, rows, message, note }: { title: str
     footerNote: 'Internal notification from CertiStage.'
   })
 }
+
+/**
+ * Certificate email to a recipient, sent on the organizer's behalf (lib/email-delivery).
+ * Links to the recipient's own download page rather than attaching the PDF, so downloads,
+ * LinkedIn adds and shares are counted and the message stays small.
+ */
+export function renderCertificateEmail({ recipientName, eventName, certificateName, issuer, link, reminder }: {
+  recipientName: string
+  eventName: string
+  certificateName: string
+  issuer: string
+  link: string
+  reminder?: boolean
+}): { subject: string; html: string } {
+  const subject = reminder
+    ? `Reminder: your ${eventName} certificate is ready`
+    : `Your certificate for ${eventName}`
+  const body = `
+    ${h1(reminder ? 'Your certificate is waiting' : 'Your certificate is ready')}
+    ${para(`Dear ${esc(recipientName)},`)}
+    ${para(`${esc(issuer)} has issued your <strong>${esc(certificateName)}</strong> certificate for <strong>${esc(eventName)}</strong>.`)}
+    ${button(link, 'View and download certificate')}
+    ${small('On that page you can also add the certificate to your LinkedIn profile.')}
+    ${divider()}
+    ${small(`If the button does not work, copy this link into your browser:<br><a href="${link}" style="color:${EMAIL_BRAND.muted};word-break:break-all;">${esc(link)}</a>`)}
+  `
+  return {
+    subject,
+    html: emailLayout({
+      preheader: `${issuer} has issued your certificate for ${eventName}.`,
+      body,
+      footerNote: `You received this email because ${issuer} added you as a participant of ${eventName}.`
+    })
+  }
+}

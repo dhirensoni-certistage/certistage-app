@@ -15,6 +15,11 @@ export interface IRecipient extends Document {
   linkedinClicks: number // times "Add to LinkedIn profile" was opened
   lastLinkedinClickAt?: Date
   whatsappShares: number // times "Share on WhatsApp" was opened from the download page
+  // Certificate emails (lib/email-delivery): first email plus reminders
+  emailCount: number
+  lastEmailedAt?: Date
+  lastEmailStatus?: "sending" | "sent" | "failed"
+  lastEmailError?: string
   customFields?: Record<string, string>
   createdAt: Date
   updatedAt: Date
@@ -36,6 +41,10 @@ const RecipientSchema = new Schema<IRecipient>(
     linkedinClicks: { type: Number, default: 0 },
     lastLinkedinClickAt: { type: Date },
     whatsappShares: { type: Number, default: 0 },
+    emailCount: { type: Number, default: 0 },
+    lastEmailedAt: { type: Date },
+    lastEmailStatus: { type: String, enum: ["sending", "sent", "failed"] },
+    lastEmailError: { type: String },
     customFields: { type: Map, of: String }
   },
   { timestamps: true }

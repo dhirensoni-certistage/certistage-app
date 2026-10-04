@@ -24,8 +24,9 @@ import {
 import { getClientSession, getTrialStatus, getCurrentPlanFeatures } from "@/lib/auth"
 import {
   Users, FileSpreadsheet, Search, Trash2, Download, Plus, Lock,
-  UserPlus, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Pencil, MoreHorizontal, Award, Eye
+  UserPlus, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Pencil, MoreHorizontal, Award, Eye, Mail
 } from "lucide-react"
+import { EmailCertificatesDialog } from "@/components/client/email-certificates-dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
@@ -107,6 +108,7 @@ export default function RecipientsPage() {
   // chosen certificate already has from an imported Excel (e.g. Credit Hours)
   const [typeColumns, setTypeColumns] = useState<string[]>([])
   // Problems found in an uploaded Excel, shown before importing
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
   const [importCheck, setImportCheck] = useState<{ recipients: ImportRow[]; issues: ImportIssue[]; renamed: string[] } | null>(null)
   const [formExtra, setFormExtra] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(true)
@@ -827,6 +829,9 @@ export default function RecipientsPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button variant="outline" size="sm" onClick={() => setEmailDialogOpen(true)} disabled={showTableSkeleton || allRecipientsCount === 0} className="h-9 px-3 text-[13px] border-neutral-200 bg-white hover:bg-neutral-50">
+              <Mail className="h-3.5 w-3.5 mr-1.5" /> Email certificates
+            </Button>
             <Button size="sm" onClick={openAddDialog} disabled={showTableSkeleton} className="h-9 px-3.5 text-[13px] bg-neutral-900 text-white hover:bg-black">
               <UserPlus className="h-3.5 w-3.5 mr-1.5" /> Add recipient
             </Button>
@@ -1157,6 +1162,17 @@ export default function RecipientsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {eventId && event && (
+        <EmailCertificatesDialog
+          open={emailDialogOpen}
+          onOpenChange={setEmailDialogOpen}
+          eventId={eventId}
+          typeId={selectedTypeId === "all" ? null : selectedTypeId}
+          scopeLabel={selectedTypeId === "all" ? "all certificates in this event" : event.certificateTypes.find((ct) => ct.id === selectedTypeId)?.name || "selected certificate"}
+          onSent={() => fetchEventData(eventId)}
+        />
+      )}
 
       {/* Excel check: certificate columns missing or empty in the uploaded file */}
       <Dialog open={!!importCheck} onOpenChange={(open) => { if (!open) setImportCheck(null) }}>

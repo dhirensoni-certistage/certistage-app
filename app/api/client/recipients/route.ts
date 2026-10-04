@@ -282,17 +282,21 @@ export async function PUT(request: NextRequest) {
     const fullName = [prefix, firstName, lastName].filter(Boolean).join(" ")
 
     // Update recipient
+    const email = updates.email !== undefined ? updates.email.trim() : recipient.email
+    const update: Record<string, unknown> = {
+      prefix,
+      firstName,
+      lastName,
+      name: fullName,
+      email,
+      mobile: updates.mobile !== undefined ? updates.mobile.trim() : recipient.mobile,
+      regNo: updates.regNo !== undefined ? updates.regNo.trim() : recipient.regNo,
+    }
+    // A corrected address gets a fresh chance at the certificate email
+    const emailChanged = (email || "").toLowerCase() !== (recipient.email || "").toLowerCase()
     const updatedRecipient = await Recipient.findByIdAndUpdate(
       recipientId,
-      {
-        prefix,
-        firstName,
-        lastName,
-        name: fullName,
-        email: updates.email !== undefined ? updates.email.trim() : recipient.email,
-        mobile: updates.mobile !== undefined ? updates.mobile.trim() : recipient.mobile,
-        regNo: updates.regNo !== undefined ? updates.regNo.trim() : recipient.regNo,
-      },
+      emailChanged ? { $set: { ...update, emailCount: 0 }, $unset: { lastEmailStatus: 1, lastEmailError: 1, lastEmailedAt: 1 } } : update,
       { new: true }
     )
 
