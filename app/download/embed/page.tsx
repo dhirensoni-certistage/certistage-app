@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { fieldValue } from "@/lib/certificate-fields"
+import { applyTextCase, fieldValue } from "@/lib/certificate-fields"
 import { textScaleFor } from "@/lib/certificate-text"
 import { useSearchParams } from "next/navigation"
 
@@ -43,24 +43,6 @@ export default function EmbeddedPreviewPage() {
   // Image renders at its natural size here, so text scales by natural width vs the PDF page width
   const textScale = imageSize ? textScaleFor(imageSize.width, imageSize.width, imageSize.height) : 1
   const containerRef = useRef<HTMLDivElement>(null)
-
-  // Transform text based on textCase setting
-  const transformText = (text: string, textCase?: string): string => {
-    if (!textCase || textCase === "none") return text
-    switch (textCase) {
-      case "uppercase":
-        return text.toUpperCase()
-      case "lowercase":
-        return text.toLowerCase()
-      case "capitalize":
-        return text
-          .split(" ")
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-          .join(" ")
-      default:
-        return text
-    }
-  }
 
   useEffect(() => {
     if (!eventId || !certId) {
@@ -201,13 +183,13 @@ export default function EmbeddedPreviewPage() {
                       color: certType.fontColor || "#000",
                     }}
                   >
-                    {transformText(recipient?.name || "", certType.textCase)}
+                    {applyTextCase(recipient?.name || "", certType.textCase)}
                   </span>
                 </div>
               )}
 
               {certType.customFields?.map((field: any, i: number) => {
-                const value = fieldValue(field.variable, recipient)
+                const value = applyTextCase(fieldValue(field.variable, recipient), field.textCase)
                 if (!value) return null
 
                 return (

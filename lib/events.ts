@@ -9,6 +9,7 @@ export interface TextField {
   fontBold: boolean
   fontItalic: boolean
   fontColor?: string // hex color, e.g. "#000000"
+  textCase?: string // "none" | "uppercase" | "lowercase" | "capitalize"
 }
 
 

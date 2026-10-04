@@ -70,3 +70,17 @@ export function fieldValue(variable: string, recipient: FieldSource | null | und
   const value = fields instanceof Map ? fields.get(heading) : fields?.[heading]
   return value == null ? "" : String(value)
 }
+
+export type TextCase = "none" | "uppercase" | "lowercase" | "capitalize"
+export const TEXT_CASES: TextCase[] = ["none", "uppercase", "lowercase", "capitalize"]
+export const isTextCase = (value: unknown): value is TextCase => TEXT_CASES.includes(value as TextCase)
+
+/** Casing chosen in the editor for a field (name or any other), applied by every renderer */
+export function applyTextCase(text: string, textCase?: string | null): string {
+  switch (textCase) {
+    case "uppercase": return text.toUpperCase()
+    case "lowercase": return text.toLowerCase()
+    case "capitalize": return text.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ")
+    default: return text
+  }
+}

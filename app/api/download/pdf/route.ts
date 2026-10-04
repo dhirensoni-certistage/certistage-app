@@ -3,7 +3,7 @@ import connectDB from "@/lib/mongodb"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
-import { fieldValue } from "@/lib/certificate-fields"
+import { applyTextCase, fieldValue } from "@/lib/certificate-fields"
 
 // Convert a #RRGGBB / #RGB hex color to an RGB triple; anything else falls back to black
 function hexToRgb(hex?: string): [number, number, number] {
@@ -146,17 +146,7 @@ export async function GET(request: NextRequest) {
       const textY = certType.textPosition?.y || 60
       const fs = certType.fontSize || 24
 
-      let displayName = recipient.name
-      const textCase = certType.textCase || 'none'
-      switch (textCase) {
-        case 'uppercase': displayName = displayName.toUpperCase(); break
-        case 'lowercase': displayName = displayName.toLowerCase(); break
-        case 'capitalize':
-          displayName = displayName.split(' ').map((word: string) =>
-            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-          ).join(' ')
-          break
-      }
+      const displayName = applyTextCase(recipient.name, certType.textCase)
 
       renderText(displayName, textX, textY, fs, certType.fontFamily, certType.fontBold, certType.fontItalic, certType.fontColor)
     }
@@ -165,12 +155,12 @@ export async function GET(request: NextRequest) {
     if (certType.customFields) {
       for (const field of certType.customFields) {
         // Built-in fields and Excel columns (see lib/certificate-fields); REG_NO falls back to the id
-        const value = fieldValue(field.variable, {
+        const value = applyTextCase(fieldValue(field.variable, {
           email: recipient.email,
           mobile: recipient.mobile,
           regNo: recipient.regNo || String(recipient._id),
           customFields: recipient.customFields
-        })
+        }), field.textCase)
 
         if (value) {
           renderText(
