@@ -28,8 +28,9 @@ const buildPlanDetails = (plans: typeof DEFAULT_PLAN_CONFIG) => {
     color: string
     features: string[]
   }>>((acc, plan) => {
-    const meta = planMeta[plan.id]
-    if (!meta) return acc
+    if (!(plan.price > 0)) return acc
+    // Plans added in Admin > Plans get a neutral look
+    const meta = planMeta[plan.id] || { icon: Crown, color: "from-neutral-800 to-neutral-950" }
     acc[plan.id] = {
       name: plan.name,
       price: formatRupees(plan.price),
@@ -51,6 +52,7 @@ function PaymentPageContent() {
   const [userEmail, setUserEmail] = useState<string>("")
   const [userName, setUserName] = useState<string>("")
   const [planDetails, setPlanDetails] = useState(() => buildPlanDetails(DEFAULT_PLAN_CONFIG))
+  const [plansLoaded, setPlansLoaded] = useState(false)
 
   const { initiatePayment, isLoading, isProcessing } = useRazorpay({
     onSuccess: async (data) => {
@@ -105,18 +107,20 @@ function PaymentPageContent() {
           setPlanDetails(buildPlanDetails(merged))
           localStorage.setItem("plan_config", JSON.stringify(data.plans))
         }
-      } catch { }
+      } catch { } finally {
+        setPlansLoaded(true)
+      }
     }
 
     loadPlans()
   }, [])
 
-  // Redirect if no plan or invalid plan
+  // Leave if there is no plan, or it isn't on sale (checked against the live plan list)
   useEffect(() => {
-    if (!plan || !planDetails[plan]) {
-      router.push("/signup")
+    if (!plan || (plansLoaded && !planDetails[plan])) {
+      router.push(plan ? "/client/upgrade" : "/signup")
     }
-  }, [plan, router])
+  }, [plan, plansLoaded, planDetails, router])
 
   if (status === "loading" || !plan || !planDetails[plan]) {
     return (

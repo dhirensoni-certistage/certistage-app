@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { sendPlanPaymentEmails } from "@/lib/plan-payment-emails.server"
 import crypto from "crypto"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
@@ -137,6 +138,7 @@ async function handlePaymentCaptured(payment: any) {
         })
       }
     }
+    await sendPlanPaymentEmails(orderId)
   } else if (notes?.userId && notes?.plan) {
     // Create new payment record from webhook (backup if client verification failed)
     const planStartDate = new Date()
@@ -169,6 +171,7 @@ async function handlePaymentCaptured(payment: any) {
       userId: notes.userId,
       plan: notes.plan
     })
+    await sendPlanPaymentEmails(orderId)
   }
 }
 
@@ -249,6 +252,7 @@ async function handleOrderPaid(order: any, payment?: any) {
   })
   
   console.log("Webhook: Order paid processed", { orderId, userId: notes.userId, plan: notes.plan })
+  await sendPlanPaymentEmails(orderId)
 }
 
 async function handleRefundCreated(refund: any) {
