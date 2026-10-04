@@ -183,6 +183,18 @@ export default function RecipientsPage() {
     refreshData(true)
   }, [])
 
+  // ?type=<certificate id> (the editor's "Go to Recipients" link) selects that certificate
+  const urlTypeRef = useRef<string | null>(null)
+  useEffect(() => {
+    urlTypeRef.current = new URLSearchParams(window.location.search).get("type")
+  }, [])
+  useEffect(() => {
+    const wanted = urlTypeRef.current
+    if (!wanted || !event) return
+    urlTypeRef.current = null
+    if (event.certificateTypes.some((ct) => ct.id === wanted)) setSelectedTypeId(wanted)
+  }, [event])
+
   // Refresh when the tab comes back into view, plus a slow safety interval
   useRefreshOnFocus(() => { if (eventId) fetchEventData(eventId) }, 60_000, !!eventId)
 
@@ -414,9 +426,9 @@ export default function RecipientsPage() {
   const openAddDialog = () => {
     resetForm()
     setFormRegNo(generateRegNo())
-    // Default to first certificate type if available
+    // Default to the certificate chosen in the filter, else the first one
     if (event && event.certificateTypes.length > 0) {
-      setAddToTypeId(event.certificateTypes[0].id)
+      setAddToTypeId(selectedTypeId !== "all" ? selectedTypeId : event.certificateTypes[0].id)
     }
     setIsAddDialogOpen(true)
   }
@@ -706,17 +718,20 @@ export default function RecipientsPage() {
     "Employee ID": ["EMP-1042", "EMP-1043", "EMP-1050"],
   }
 
-  // Columns: the six standard ones, then this event's suggested columns, then any the selected
-  // certificate already uses (see lib/event-categories and lib/certificate-fields)
+  // Columns: the six standard ones, then the columns placed on the certificate design, this
+  // event's suggested columns and any already imported (the columns API returns them in that
+  // order). With "All certificates" selected, every certificate's columns are included.
   const downloadSampleExcel = async () => {
-    let existing: string[] = []
-    if (selectedTypeId !== "all") {
+    const typeIds = selectedTypeId !== "all" ? [selectedTypeId] : (event?.certificateTypes || []).map((ct) => ct.id)
+    const lists = await Promise.all(typeIds.map(async (id) => {
       try {
-        const res = await fetch(`/api/client/certificate-types/columns?typeId=${selectedTypeId}`)
-        if (res.ok) existing = ((await res.json()).columns || []).map((c: { heading: string }) => c.heading)
-      } catch {}
-    }
-    const extra = Array.from(new Set([...categoryColumns(event?.category), ...existing]))
+        const res = await fetch(`/api/client/certificate-types/columns?typeId=${id}`)
+        return res.ok ? ((await res.json()).columns || []).map((c: { heading: string }) => c.heading) as string[] : []
+      } catch {
+        return []
+      }
+    }))
+    const extra = Array.from(new Set([...lists.flat(), ...categoryColumns(event?.category)]))
     const people = [
       ["Mr.", "John", "Doe", "john@example.com", "+91-9876543210", "REG-001"],
       ["Ms.", "Jane", "Smith", "jane@example.com", "+91-9876543211", "REG-002"],
@@ -732,7 +747,7 @@ export default function RecipientsPage() {
       ["How to fill this sheet"],
       ["1. Keep the first six columns in this order: Prefix, First Name, Last Name, Email, Mobile, Registration No."],
       ["2. Row 1 holds the column names. Add more columns after \"Registration No\" with a name in row 1 (e.g. Credit Hours, Designation, College)."],
-      ["3. Every extra column can be placed on the certificate from the editor's Fields tab."],
+      ["3. Columns already on your certificate design are included. Any new column can be placed on the certificate from the editor's Fields tab."],
       ["4. Delete the example rows, add one row per recipient, and import the \"Recipients\" sheet."],
     ])
     help["!cols"] = [{ wch: 110 }]

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isTextCase } from "@/lib/certificate-fields"
 import connectDB from "@/lib/mongodb"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
@@ -253,13 +254,14 @@ export async function PUT(request: NextRequest) {
     }
     if (body.textPosition !== undefined) updateData.textPosition = body.textPosition
     if (body.showNameField !== undefined) updateData.showNameField = body.showNameField
-    if (body.textCase !== undefined) updateData.textCase = body.textCase
+    if (body.textCase !== undefined) updateData.textCase = isTextCase(body.textCase) ? body.textCase : "none"
     if (body.customFields !== undefined) {
       updateData.customFields = Array.isArray(body.customFields)
         ? body.customFields.map((field: any) => {
-            if (field?.fontColor === undefined) return field
-            const color = normalizeHexColor(field.fontColor)
-            return color ? { ...field, fontColor: color } : { ...field, fontColor: "#000000" }
+            const cased = field && field.textCase !== undefined && !isTextCase(field.textCase) ? { ...field, textCase: "none" } : field
+            if (cased?.fontColor === undefined) return cased
+            const color = normalizeHexColor(cased.fontColor)
+            return color ? { ...cased, fontColor: color } : { ...cased, fontColor: "#000000" }
           })
         : body.customFields
     }

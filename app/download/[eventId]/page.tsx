@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import { Award, Download, Check, AlertCircle, Loader2, Search, ArrowLeft, FileText, User, Mail, Phone, Hash } from "lucide-react"
-import { fieldValue } from "@/lib/certificate-fields"
+import { applyTextCase, fieldValue } from "@/lib/certificate-fields"
 import { useTemplateTextScale } from "@/lib/certificate-text"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -68,24 +68,6 @@ export default function EventDownloadPage() {
   const [certTypes, setCertTypes] = useState<CertificateType[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  // Transform text based on textCase setting
-  const transformText = (text: string, textCase?: string): string => {
-    if (!textCase || textCase === "none") return text
-    
-    switch (textCase) {
-      case "uppercase":
-        return text.toUpperCase()
-      case "lowercase":
-        return text.toLowerCase()
-      case "capitalize":
-        return text.split(" ").map(word => 
-          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-        ).join(" ")
-      default:
-        return text
-    }
-  }
-
   const [step, setStep] = useState<Step>("select-type")
   const [selectedType, setSelectedType] = useState<CertificateType | null>(null)
   const [searchField, setSearchField] = useState<string>("name")
@@ -99,7 +81,6 @@ export default function EventDownloadPage() {
   const [downloaded, setDownloaded] = useState(false)
   // Same text-size rule as the editor and the PDF (see lib/certificate-text)
   const { ref: previewImgRef, scale: textScale } = useTemplateTextScale()
-
 
   // Load event and certificate types
   useEffect(() => {
@@ -686,14 +667,14 @@ export default function EventDownloadPage() {
                             color: selectedType.fontColor || "#000"
                           }}
                         >
-                          {transformText(selectedRecipient.name, selectedType.textCase)}
+                          {applyTextCase(selectedRecipient.name, selectedType.textCase)}
                         </span>
                       </div>
                     )}
 
                     {/* Custom Fields */}
                     {selectedType.customFields?.map((field: any, i: number) => {
-                      const value = fieldValue(field.variable, selectedRecipient)
+                      const value = applyTextCase(fieldValue(field.variable, selectedRecipient), field.textCase)
                       if (!value) return null
 
                       return (

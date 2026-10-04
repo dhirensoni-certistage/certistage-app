@@ -25,6 +25,7 @@ export interface ICustomField {
   fontBold: boolean
   fontItalic: boolean
   fontColor?: string
+  textCase?: TextCase
 }
 
 export interface ISearchFields {
@@ -87,7 +88,8 @@ const CustomFieldSchema = new Schema<ICustomField>({
   fontFamily: { type: String, default: "Arial" },
   fontBold: { type: Boolean, default: false },
   fontItalic: { type: Boolean, default: false },
-  fontColor: { type: String, default: "#000000" }
+  fontColor: { type: String, default: "#000000" },
+  textCase: { type: String, enum: ["none", "uppercase", "lowercase", "capitalize"], default: "none" }
 }, { _id: false })
 
 const CertificateTypeSchema = new Schema<ICertificateType>(

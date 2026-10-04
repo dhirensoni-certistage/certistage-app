@@ -68,7 +68,8 @@ import {
   Bold, Italic, Link as LinkIcon, Copy, Users, Download, Settings, PenTool, X, Crown, Award, Lock, Search, Loader2, MoreHorizontal, ExternalLink, Pencil
 } from "lucide-react"
 import { toast } from "sonner"
-import { columnHeading, columnVariable, fieldLabel } from "@/lib/certificate-fields"
+import { applyTextCase, columnHeading, columnKey, columnVariable, fieldLabel } from "@/lib/certificate-fields"
+import { STANDARD_COLUMNS } from "@/lib/event-categories"
 import { cn } from "@/lib/utils"
 import { useRefreshOnFocus } from "@/hooks/use-refresh-on-focus"
 
@@ -819,10 +820,12 @@ export default function CertificatesPage() {
               onSelectField={setSelectedFieldId}
               onAddCustomField={async (variable) => {
                 if (eventId && selectedTypeId) {
+                  // Stack new fields below the name instead of on top of each other
+                  const stackY = Math.min(90, 60 + 8 * ((selectedType.customFields || []).length + 1))
                   const newField: TextField = {
                     id: `field_${Date.now()}`,
                     variable,
-                    position: { x: 50, y: 50 },
+                    position: { x: 50, y: stackY },
                     fontSize: selectedType.fontSize,
                     fontFamily: selectedType.fontFamily,
                     fontBold: selectedType.fontBold,
@@ -1240,8 +1243,23 @@ function TemplateEditor({
     setSidebarTab("design")
   }
   const [fieldSearch, setFieldSearch] = useState("")
-  // Extra Excel columns imported for this certificate (e.g. Credit Hours), offered as fields
-  const [excelColumns, setExcelColumns] = useState<{ heading: string; sample: string }[]>([])
+  // Extra Excel columns offered as fields before anything is imported: the ones on this design,
+  // the event type's suggestions and headings from imported recipients (see the columns API)
+  const [excelColumns, setExcelColumns] = useState<{ heading: string; sample: string; source?: string }[]>([])
+  const [ownField, setOwnField] = useState("")
+  const addOwnField = () => {
+    const heading = columnKey(ownField)
+    if (!heading) return
+    const lower = heading.toLowerCase()
+    if (lower === "name" || STANDARD_COLUMNS.some((c) => c.toLowerCase() === lower)) {
+      toast.error(`"${heading}" is already a standard column. Use Recipient Name or the Standard fields.`)
+      return
+    }
+    onAddCustomField(columnVariable(heading))
+    // Keep it in the list so it can be added back after being removed
+    setExcelColumns((prev) => prev.some((c) => c.heading === heading) ? prev : [...prev, { heading, sample: "", source: "certificate" }])
+    setOwnField("")
+  }
   useEffect(() => {
     let cancelled = false
     fetch(`/api/client/certificate-types/columns?typeId=${certType.id}`)
@@ -1407,10 +1425,9 @@ function TemplateEditor({
                         fontWeight: certType.fontBold ? 'bold' : 'normal',
                         fontStyle: certType.fontItalic ? 'italic' : 'normal',
                         color: certType.fontColor || '#000000',
-                        textTransform: certType.textCase === 'uppercase' ? 'uppercase' : certType.textCase === 'lowercase' ? 'lowercase' : certType.textCase === 'capitalize' ? 'capitalize' : 'none',
                         textShadow: '0px 0px 1px rgba(0,0,0,0.1)'
                       }}
-                    >John Doe</span>
+                    >{applyTextCase("John Doe", certType.textCase)}</span>
                   )}
                 </div>
               )}
@@ -1458,7 +1475,7 @@ function TemplateEditor({
                               color: field.fontColor || '#000000'
                             }}
                           >
-                            {`{{${fieldLabel(field.variable)}}}`}
+                            {`{{${applyTextCase(fieldLabel(field.variable), field.textCase)}}}`}
                           </span>
                         </div>
 
@@ -1481,9 +1498,12 @@ function TemplateEditor({
                           color: field.fontColor || '#000000'
                         }}
                       >
-                        {field.variable === 'EMAIL' ? 'john@example.com' :
-                          field.variable === 'MOBILE' ? '+91 98765 43210' :
-                            field.variable === 'REG_NO' ? 'REG-2024-001' : (columnSample(field.variable) ?? field.variable)}
+                        {applyTextCase(
+                          field.variable === 'EMAIL' ? 'john@example.com' :
+                            field.variable === 'MOBILE' ? '+91 98765 43210' :
+                              field.variable === 'REG_NO' ? 'REG-2024-001' : (columnSample(field.variable) ?? field.variable),
+                          field.textCase
+                        )}
                       </span>
                     )}
                   </div>
@@ -1625,10 +1645,10 @@ function TemplateEditor({
                         )
                       })()}
 
-                      {/* Style & Casing Grid */}
-                      <div className="grid grid-cols-2 gap-3">
+                      {/* Style, then letter case on its own row so the four options fit */}
+                      <div className="space-y-4">
                         {/* Font Style */}
-                        <div>
+                        <div className="w-1/2 pr-1.5">
                           <Label className="text-[11px] font-medium text-[#444] mb-2 block">Style</Label>
                           <div className="flex bg-[#F5F5F7] p-1 rounded-md h-9 items-center">
                             <button
@@ -1655,34 +1675,30 @@ function TemplateEditor({
                           </div>
                         </div>
 
-                        {/* Text Casing */}
-                        {selectedFieldId === "NAME" && (
-                          <div>
-                            <Label className="text-[11px] font-medium text-[#444] mb-2 block">Casing</Label>
-                            <div className="flex bg-[#F5F5F7] p-1 rounded-md h-9 items-center">
-                              {[
-                                { value: 'none', label: 'Aa', title: 'As Entered' },
-                                { value: 'uppercase', label: 'AA', title: 'UPPERCASE' },
-                                { value: 'capitalize', label: 'Aa', title: 'Capitalize' }
-                              ].map((option) => (
-                                <button
-                                  key={option.value}
-                                  onClick={() => {
-                                    console.log('Casing button clicked:', option.value)
-                                    onFontChange({ textCase: option.value })
-                                  }}
-                                  className={cn(
-                                    "flex-1 h-full rounded text-[10px] font-medium text-[#666] hover:text-[#333] flex items-center justify-center transition-all",
-                                    ((certType.textCase || 'none') === option.value) && "bg-white text-black shadow-sm"
-                                  )}
-                                  title={option.title}
-                                >
-                                  {option.label}
-                                </button>
-                              ))}
-                            </div>
+                        {/* Text casing, for the name and every other field */}
+                        <div>
+                          <Label className="text-[11px] font-medium text-[#444] mb-2 block">Letter case</Label>
+                          <div className="flex bg-[#F5F5F7] p-1 rounded-md h-9 items-center">
+                            {[
+                              { value: 'none', label: 'Normal', title: 'As typed in your Excel' },
+                              { value: 'uppercase', label: 'UPPER', title: 'ALL CAPITALS' },
+                              { value: 'lowercase', label: 'lower', title: 'all small letters' },
+                              { value: 'capitalize', label: 'Title', title: 'First Letter Of Each Word Capital' }
+                            ].map((option) => (
+                              <button
+                                key={option.value}
+                                onClick={() => onFontChange({ textCase: option.value })}
+                                className={cn(
+                                  "flex-1 h-full rounded text-[11px] font-medium text-[#666] hover:text-[#333] flex items-center justify-center transition-all",
+                                  ((selectedField.textCase || 'none') === option.value) && "bg-white text-black shadow-sm"
+                                )}
+                                title={option.title}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
                           </div>
-                        )}
+                        </div>
                       </div>
 
                       {/* Text Color */}
@@ -1717,6 +1733,9 @@ function TemplateEditor({
                   ...(certType.showNameField !== false ? [{ id: "NAME", label: "Recipient Name", size: certType.fontSize || 24 }] : []),
                   ...(certType.customFields || []).map((f) => ({ id: f.id, label: fieldLabel(f.variable), size: f.fontSize || 24 }))
                 ]
+                const designColumns = (certType.customFields || [])
+                  .map((f) => columnHeading(f.variable))
+                  .filter((h): h is string => !!h)
                 const q = fieldSearch.trim().toLowerCase()
                 const matches = (label: string) => !q || label.toLowerCase().includes(q)
                 const excelOptions = excelColumns
@@ -1759,6 +1778,21 @@ function TemplateEditor({
                           ))}
                         </div>
                       )}
+                      {/* Shown while nobody is imported yet: design first, then the matching sample Excel */}
+                      {designColumns.length > 0 && !certType.stats?.total && (
+                        <div className="mt-3 rounded-md border border-blue-100 bg-blue-50/60 px-3 py-2.5">
+                          <p className="text-[11px] text-[#333] leading-relaxed">
+                            <span className="font-medium">Next:</span> the sample Excel on the Recipients page has a column for{" "}
+                            {designColumns.join(", ")}. Fill it in and import it.
+                          </p>
+                          <a
+                            href={`/client/recipients?type=${certType.id}`}
+                            className="inline-block mt-1.5 text-[11px] font-medium text-blue-600 hover:underline"
+                          >
+                            Go to Recipients &rarr;
+                          </a>
+                        </div>
+                      )}
                     </section>
 
                     <section>
@@ -1780,20 +1814,45 @@ function TemplateEditor({
                           <div className="space-y-1.5">{optionRow("NAME", "Recipient Name", "", onRestoreNameField)}</div>
                         )}
 
-                        {/* Columns after "Registration No" in the imported Excel */}
+                        {/* Extra Excel columns: the event type's suggestions, imported ones, or the organiser's own */}
                         <div>
-                          <p className="text-[10px] font-medium text-[#888] mb-1.5">From your Excel</p>
+                          <p className="text-[10px] font-medium text-[#888] mb-1.5">Excel columns</p>
                           {excelColumns.length === 0 ? (
-                            <p className="text-[11px] text-[#888] leading-relaxed">
-                              Add columns after &ldquo;Registration No&rdquo; in your Excel (for example Credit Hours, Designation or College) and import it; they appear here.
+                            <p className="text-[11px] text-[#888] leading-relaxed mb-2">
+                              Need something like Credit Hours, Designation or College? Type its name below.
                             </p>
                           ) : excelOptions.length === 0 ? (
-                            <p className="text-[11px] text-[#888]">{q ? "No matching column." : "All Excel columns are on the certificate."}</p>
+                            <p className="text-[11px] text-[#888] mb-2">{q ? "No matching column." : "All these columns are on the certificate."}</p>
                           ) : (
-                            <div className="space-y-1.5">
-                              {excelOptions.map((c) => optionRow(c.heading, c.heading, c.sample ? `e.g. ${c.sample}` : "", () => onAddCustomField(columnVariable(c.heading))))}
+                            <div className="space-y-1.5 mb-2">
+                              {excelOptions.map((c) => optionRow(
+                                c.heading,
+                                c.heading,
+                                c.sample ? `e.g. ${c.sample}` : c.source === "event" ? "Suggested for this event type" : "",
+                                () => onAddCustomField(columnVariable(c.heading))
+                              ))}
                             </div>
                           )}
+                          <form
+                            onSubmit={(e) => { e.preventDefault(); addOwnField() }}
+                            className="flex items-center gap-1.5"
+                          >
+                            <input
+                              value={ownField}
+                              onChange={(e) => setOwnField(e.target.value)}
+                              maxLength={50}
+                              placeholder="Add your own, e.g. Hospital Name"
+                              aria-label="Add your own field"
+                              className="flex-1 min-w-0 h-8 px-2.5 rounded-md border border-[#E5E5E5] text-xs outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            />
+                            <button
+                              type="submit"
+                              disabled={!columnKey(ownField)}
+                              className="h-8 px-3 rounded-md bg-black text-white text-xs font-medium hover:bg-[#222] disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              Add
+                            </button>
+                          </form>
                         </div>
 
                         <div>

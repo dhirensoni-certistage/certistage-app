@@ -10,7 +10,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { useTemplateTextScale } from "@/lib/certificate-text"
 import { individualCertificateUrl } from "@/lib/linkedin"
-import { fieldValue } from "@/lib/certificate-fields"
+import { applyTextCase, fieldValue } from "@/lib/certificate-fields"
 import { LinkedInAddButton } from "@/components/download/linkedin-add-button"
 
 interface SearchFields {
@@ -52,6 +52,7 @@ interface CertificateType {
     fontBold: boolean
     fontItalic: boolean
     fontColor?: string
+    textCase?: string
   }>
   signatures?: Array<{
     image: string
@@ -76,15 +77,6 @@ const FIELD_META: Record<SearchKey, { label: string; placeholder: string; inputM
   email: { label: "Email", placeholder: "you@example.com", inputMode: "email" },
   mobile: { label: "Mobile number", placeholder: "Registered mobile number", inputMode: "tel" },
   regNo: { label: "Registration number", placeholder: "e.g. DEL-0042", inputMode: "text" }
-}
-
-const transformText = (text: string, textCase?: string): string => {
-  switch (textCase) {
-    case "uppercase": return text.toUpperCase()
-    case "lowercase": return text.toLowerCase()
-    case "capitalize": return text.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ")
-    default: return text
-  }
 }
 
 // Wait at most this long for the design before showing the preview anyway (slow networks)
@@ -506,11 +498,11 @@ export default function CertTypeDownloadPage() {
                             color: certType.fontColor || "#000"
                           }}
                         >
-                          {transformText(selectedRecipient?.name || "", certType.textCase)}
+                          {applyTextCase(selectedRecipient?.name || "", certType.textCase)}
                         </span>
                       </div>
                       {certType.customFields?.map((field, i) => {
-                        const value = fieldValue(field.variable, selectedRecipient)
+                        const value = applyTextCase(fieldValue(field.variable, selectedRecipient), field.textCase)
                         if (!value) return null
                         return (
                           <div key={i} className="absolute pointer-events-none" style={{ left: `${field.position.x}%`, top: `${field.position.y}%`, transform: "translate(-50%, -50%)" }}>
