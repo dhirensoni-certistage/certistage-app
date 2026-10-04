@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import Image from "next/image"
 import { toast } from "sonner"
-import { jsPDF } from "jspdf"
+import { useTemplateTextScale } from "@/lib/certificate-text"
 import { LinkedInAddButton } from "@/components/download/linkedin-add-button"
 
 interface Recipient {
@@ -38,6 +38,7 @@ interface CertificateType {
   showNameField: boolean
   textCase?: "none" | "uppercase" | "lowercase" | "capitalize"
   customFields?: any[]
+  signatures?: Array<{ image: string; position?: { x: number; y: number }; x?: number; y?: number; width: number }>
 }
 
 interface EventData {
@@ -59,6 +60,8 @@ export default function DownloadPage() {
   const [event, setEvent] = useState<EventData | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
+  // Same text-size rule as the editor and the PDF (see lib/certificate-text)
+  const { ref: previewImgRef, scale: textScale } = useTemplateTextScale()
 
   // Load Google Font if needed
   useEffect(() => {
@@ -145,74 +148,40 @@ export default function DownloadPage() {
     fetchData()
   }, [eventId, certId])
 
+  // The PDF comes from the server, the same file every other download page gives, so the
+  // position and size set in the editor are exactly what the recipient gets
   const handleDownload = async () => {
-    if (!certType?.templateImage || !eventId || !certId || !recipient) return
+    if (!recipient) return
     setIsDownloading(true)
-    try {
-      const canvas = document.createElement("canvas")
-      const ctx = canvas.getContext("2d")
-      if (!ctx) throw new Error("Could not get canvas context")
-      const img = new window.Image()
-      img.crossOrigin = "anonymous"
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve()
-        img.onerror = reject
-        img.src = certType.templateImage!
-      })
-      canvas.width = img.width
-      canvas.height = img.height
-      ctx.drawImage(img, 0, 0)
-      const scaleBase = canvas.width >= canvas.height ? canvas.width : canvas.height
-      if (certType.showNameField !== false) {
-        const textX = (certType.textPosition.x / 100) * canvas.width
-        const textY = (certType.textPosition.y / 100) * canvas.height
-        // Keep landscape output unchanged, but make portrait scale against the longer side.
-        const fontSize = Math.max(10, ((certType.fontSize || 24) / 10 / 100) * scaleBase)
-
-        ctx.font = `${certType.fontBold ? "bold" : "normal"} ${certType.fontItalic ? "italic" : "normal"} ${fontSize}px ${certType.fontFamily || "Arial"}, sans-serif`
-        ctx.fillStyle = certType.fontColor || "#000000"
-        ctx.textAlign = "center"
-        ctx.textBaseline = "middle"
-        
-        // Apply text transformation
-        const displayName = transformText(recipient.name, certType.textCase)
-        ctx.fillText(displayName, textX, textY)
-      }
-
-      if (certType.customFields) {
-        certType.customFields.forEach((field: any) => {
-          const fieldX = (field.position.x / 100) * canvas.width
-          const fieldY = (field.position.y / 100) * canvas.height
-          const fieldFontSize = Math.max(10, ((field.fontSize || 24) / 10 / 100) * scaleBase)
-
-          ctx.font = `${field.fontBold ? "bold" : "normal"} ${field.fontItalic ? "italic" : "normal"} ${fieldFontSize}px ${field.fontFamily || "Arial"}, sans-serif`
-          ctx.fillStyle = field.fontColor || "#000000"
-          ctx.textAlign = "center"
-          ctx.textBaseline = "middle"
-
-          const value = fieldValue(field.variable, recipient)
-          if (value) ctx.fillText(value, fieldX, fieldY)
-        })
-      }
-
-      const pdfWidth = canvas.width >= canvas.height ? 297 : 210
-      const pdfHeight = (canvas.height / canvas.width) * pdfWidth
-      const pdf = new jsPDF({
-        orientation: pdfWidth > pdfHeight ? "landscape" : "portrait",
-        unit: "mm",
-        format: [pdfWidth, pdfHeight],
-      })
-      const imgData = canvas.toDataURL("image/jpeg", 1.0)
-      pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight)
-      pdf.save(`certificate-${certId}.pdf`)
-      await fetch("/api/download", {
+    const pdfUrl = `/api/download/pdf?recipientId=${recipient.id}`
+    const track = () =>
+      fetch("/api/download", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recipientId: recipient.id })
-      })
+      }).catch(() => {})
+    try {
+      if (/android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)) {
+        window.open(pdfUrl, "_blank")
+        await track()
+        setDownloaded(true)
+        return
+      }
+      const response = await fetch(pdfUrl)
+      if (!response.ok) throw new Error("Download failed")
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${certType?.name || "certificate"}-${certId}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      await track()
       setDownloaded(true)
       toast.success("Certificate downloaded successfully!")
-    } catch (error) {
+    } catch {
       toast.error("Failed to download certificate. Please try again.")
     } finally {
       setIsDownloading(false)
@@ -265,6 +234,7 @@ export default function DownloadPage() {
               <div className="w-full flex justify-center">
                 <div className="relative inline-block max-w-full">
                 <img
+                  ref={previewImgRef}
                   src={certType.templateImage}
                   alt="Certificate"
                   className="block w-auto max-w-full h-auto mx-auto rounded-lg"
@@ -291,7 +261,7 @@ export default function DownloadPage() {
                       <span
                         className="whitespace-nowrap leading-none select-none"
                         style={{
-                        fontSize: `clamp(8px, ${(certType.fontSize || 24) * 0.04}cqw, ${(certType.fontSize || 24) * 0.7}px)`,
+                        fontSize: `${(certType.fontSize || 24) * textScale}px`,
                         fontFamily: `"${certType.fontFamily || 'Arial'}", sans-serif`,
                         fontWeight: certType.fontBold ? 'bold' : 'normal',
                         fontStyle: certType.fontItalic ? 'italic' : 'normal',
@@ -321,7 +291,7 @@ export default function DownloadPage() {
                       <span
                         className="whitespace-nowrap leading-none select-none"
                         style={{
-                          fontSize: `clamp(6px, ${(field.fontSize || 24) * 0.04}cqw, ${(field.fontSize || 24) * 0.7}px)`,
+                          fontSize: `${(field.fontSize || 24) * textScale}px`,
                           fontFamily: `"${field.fontFamily || 'Arial'}", sans-serif`,
                           fontWeight: field.fontBold ? 'bold' : 'normal',
                           fontStyle: field.fontItalic ? 'italic' : 'normal',
@@ -330,6 +300,16 @@ export default function DownloadPage() {
                       >
                         {value}
                       </span>
+                    </div>
+                  )
+                })}
+
+                {/* Signatures, as on the PDF */}
+                {certType.signatures?.map((sig, i) => {
+                  const pos = sig.position || { x: sig.x ?? 50, y: sig.y ?? 50 }
+                  return (
+                    <div key={`sig-${i}`} className="absolute pointer-events-none" style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: "translate(-50%, -50%)", width: `${sig.width || 20}%` }}>
+                      <img src={sig.image} alt="" className="w-full h-auto object-contain select-none" draggable={false} />
                     </div>
                   )
                 })}
