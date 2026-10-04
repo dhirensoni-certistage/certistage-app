@@ -288,7 +288,8 @@ function otpEmail({ code, subject, heading, intro, note, preheader }: { code: st
   return { subject, html: emailLayout({ preheader, body, footerNote: 'You received this email because this address was used on CertiStage.' }) }
 }
 
-const inr = (paise: number) => `Rs ${(paise / 100).toLocaleString('en-IN')}`
+const inr = (paise: number) => `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+const planTitle = (name: string) => (/\bplan$/i.test(String(name).trim()) ? String(name).trim() : `${String(name).trim()} plan`)
 
 export const emailTemplates = {
   welcome: (name: string) => ({
@@ -352,10 +353,10 @@ export const emailTemplates = {
     const title = type === 'signup' ? 'New signup' : 'New payment'
     const rows: Array<[string, unknown]> = type === 'signup'
       ? [['Name', data.name], ['Email', data.email], ['Phone', data.phone], ['Organization', data.organization]]
-      : [['User', `${data.userName} (${data.userEmail})`], ['Plan', data.plan], ['Amount', inr(Number(data.amount) || 0)], ['Payment ID', data.paymentId]]
+      : [['Customer', `${data.userName} (${data.userEmail})`], ['Plan', planTitle(data.plan || '')], ['Amount', inr(Number(data.amount) || 0)], ['Receipt', data.invoiceNumber], ['Payment ID', data.paymentId]]
     rows.push(['Time', new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })])
     return {
-      subject: type === 'signup' ? `New signup: ${data.name || data.email}` : `New payment: ${data.plan} from ${data.userName || data.userEmail}`,
+      subject: type === 'signup' ? `New signup: ${data.name || data.email}` : `New payment: ${inr(Number(data.amount) || 0)} · ${planTitle(data.plan || '')} · ${data.userName || data.userEmail}`,
       html: emailLayout({
         body: `
           ${h1(title)}
@@ -385,37 +386,55 @@ export const emailTemplates = {
     const fmt = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
     const showGatewayFee = process.env.SHOW_GATEWAY_FEE_INVOICE === 'true' && !!data.gatewayFee
     const org = String(data.customerOrganization || '').trim()
-    const showOrg = org.length > 0 && !['certistage', 'certistage.com', 'certificate generation platform'].includes(org.toLowerCase())
+    const showOrg = org.length > 0 && !['certistage', 'certistage.com', 'certificate generation platform', String(data.customerName || '').trim().toLowerCase()].includes(org.toLowerCase())
     const b = EMAIL_BRAND
-    const line = (label: string, value: string, strong = false) => `<tr>
-      <td style="padding:10px 0;font-family:${FONT};font-size:${strong ? 16 : 14}px;color:${strong ? b.ink : b.muted};font-weight:${strong ? 600 : 400};border-top:1px solid ${b.line};">${label}</td>
-      <td align="right" style="padding:10px 0;font-family:${FONT};font-size:${strong ? 16 : 14}px;color:${b.ink};font-weight:${strong ? 600 : 400};border-top:1px solid ${b.line};">${value}</td>
+    const plan = planTitle(data.planName)
+    const cell = `font-family:${FONT};font-size:14px;line-height:1.5;`
+    const detail = (label: string, value: string) => `<tr>
+      <td style="padding:7px 0;${cell}color:${b.muted};" valign="top">${label}</td>
+      <td align="right" style="padding:7px 0;${cell}color:${b.ink};" valign="top">${value}</td>
+    </tr>`
+    const money = (label: string, value: string, opts: { strong?: boolean; top?: boolean } = {}) => `<tr>
+      <td style="padding:${opts.strong ? '14px' : '12px'} 0;${cell}font-size:${opts.strong ? 16 : 14}px;font-weight:${opts.strong ? 600 : 400};color:${opts.strong ? b.ink : b.text};${opts.top ? `border-top:1px solid ${b.line};` : ''}">${label}</td>
+      <td align="right" style="padding:${opts.strong ? '14px' : '12px'} 0;${cell}font-size:${opts.strong ? 16 : 14}px;font-weight:${opts.strong ? 600 : 400};color:${b.ink};${opts.top ? `border-top:1px solid ${b.line};` : ''}">${value}</td>
     </tr>`
     return {
-      subject: `Receipt ${data.invoiceNumber}: CertiStage ${data.planName} plan`,
+      subject: `Your CertiStage receipt ${data.invoiceNumber} · ${plan}`,
       html: emailLayout({
-        preheader: `Payment of ${inr(data.totalAmount)} received. Your ${data.planName} plan is active.`,
+        preheader: `Payment of ${inr(data.totalAmount)} received. Your ${plan} is active until ${fmt(data.validUntil)}. PDF receipt attached.`,
         body: `
-          ${h1('Payment received')}
-          ${para(`Thank you, ${esc(data.customerName)}. Your <strong style="color:${b.ink};">${esc(data.planName)}</strong> plan is active until ${fmt(data.validUntil)}.`)}
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 4px;">
-            <tr>
-              <td style="padding:0 0 8px;font-family:${FONT};font-size:11px;letter-spacing:1px;text-transform:uppercase;color:${b.muted};">Receipt</td>
-              <td align="right" style="padding:0 0 8px;font-family:${FONT};font-size:13px;color:${b.ink};">${esc(data.invoiceNumber)}</td>
-            </tr>
-            ${line('Billed to', `${esc(data.customerName)}${showOrg ? `, ${esc(org)}` : ''}<br><span style="color:${b.muted};font-size:13px;">${esc(data.customerEmail)}${data.customerPhone ? ` &middot; ${esc(data.customerPhone)}` : ''}</span>`)}
-            ${line('Date', fmt(data.paymentDate))}
-            ${line('Payment ID', `<span style="font-family:${MONO};font-size:12px;">${esc(data.paymentId)}</span>`)}
-            ${line(`${esc(data.planName)} plan, 1 year`, inr(data.amount))}
-            ${showGatewayFee ? line('Processing fee', inr(data.gatewayFee || 0)) : ''}
-            ${line('Total paid', inr(data.totalAmount), true)}
+          <p style="margin:0 0 6px;font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:${b.gold};">Payment received</p>
+          <p style="margin:0;font-family:${FONT};font-size:34px;line-height:1.15;font-weight:600;letter-spacing:-0.6px;color:${b.ink};">${inr(data.totalAmount)}</p>
+          <p style="margin:6px 0 24px;font-family:${FONT};font-size:14px;color:${b.muted};">Paid on ${fmt(data.paymentDate)}</p>
+          ${para(`Hi ${esc(data.customerName)}, thank you for your payment. Your <strong style="color:${b.ink};">${esc(plan)}</strong> is active until <strong style="color:${b.ink};">${fmt(data.validUntil)}</strong>. Your receipt is attached to this email as a PDF.`)}
+
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${b.page}" style="background:${b.page};border-radius:10px;margin:8px 0 0;">
+            <tr><td style="padding:16px 20px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                ${detail('Receipt number', `<span style="font-family:${MONO};font-size:13px;">${esc(data.invoiceNumber)}</span>`)}
+                ${detail('Billed to', `${esc(data.customerName)}${showOrg ? `<br>${esc(org)}` : ''}<br><span style="color:${b.muted};">${esc(data.customerEmail)}</span>`)}
+                ${detail('Payment ID', `<span style="font-family:${MONO};font-size:13px;">${esc(data.paymentId)}</span>`)}
+                ${detail('Paid with', 'Razorpay')}
+              </table>
+            </td></tr>
           </table>
-          ${button(`${APP_URL}/client/dashboard`, 'Go to dashboard')}
-          ${data.invoiceUrl ? small(`<a href="${data.invoiceUrl}" style="color:${b.ink};">Download PDF receipt</a>`) : ''}
+
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 0;">
+            <tr>
+              <td style="padding:0 0 8px;font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:${b.muted};">Description</td>
+              <td align="right" style="padding:0 0 8px;font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:${b.muted};">Amount</td>
+            </tr>
+            ${money(`${esc(plan)}<br><span style="font-size:13px;color:${b.muted};">1 year · ${fmt(data.paymentDate)} to ${fmt(data.validUntil)}</span>`, inr(data.amount), { top: true })}
+            ${showGatewayFee ? money('Processing fee', inr(data.gatewayFee || 0), { top: true }) : ''}
+            ${money('Total paid', inr(data.totalAmount), { strong: true, top: true })}
+          </table>
+
+          ${button(`${APP_URL}/client/events`, 'Start issuing certificates')}
+          ${small(`Need this receipt again? Download it anytime from <a href="${APP_URL}/client/billing" style="color:${b.ink};">Billing</a> in your account.`)}
           ${divider()}
-          ${small('CertiStage &middot; support@certistage.com &middot; Keep this email as your payment record.')}
+          ${small('Questions about this payment? Just reply to this email or write to support@certistage.com.')}
         `,
-        footerNote: 'You received this email because a payment was made on your CertiStage account.'
+        footerNote: 'You received this email because a payment was made on your CertiStage account. This receipt is computer-generated and needs no signature.'
       })
     }
   }
