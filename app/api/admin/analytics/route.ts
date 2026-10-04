@@ -3,6 +3,7 @@ import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import Event from "@/models/Event"
 import Recipient from "@/models/Recipient"
+import CertificateType from "@/models/CertificateType"
 
 export async function GET(request: NextRequest) {
   try {
@@ -64,6 +65,13 @@ export async function GET(request: NextRequest) {
 
     const downloadRate = totalRecipients > 0 ? Math.round((downloadedRecipients / totalRecipients) * 100) : 0
 
+    // Growth loop on the public download pages (all time; the counters carry no dates)
+    const [linkedinRecipients, whatsappAgg, ctaAgg] = await Promise.all([
+      Recipient.countDocuments({ linkedinClicks: { $gt: 0 } }),
+      Recipient.aggregate([{ $group: { _id: null, total: { $sum: { $ifNull: ["$whatsappShares", 0] } } } }]),
+      CertificateType.aggregate([{ $group: { _id: null, total: { $sum: { $ifNull: ["$ctaClicks", 0] } } } }])
+    ])
+
     return NextResponse.json({
       certificateTrends,
       topUsers,
@@ -73,6 +81,11 @@ export async function GET(request: NextRequest) {
         downloaded: downloadedRecipients,
         pending: totalRecipients - downloadedRecipients,
         downloadRate
+      },
+      growthLoop: {
+        linkedinRecipients,
+        whatsappShares: whatsappAgg[0]?.total ?? 0,
+        ctaClicks: ctaAgg[0]?.total ?? 0
       }
     })
   } catch (error) {

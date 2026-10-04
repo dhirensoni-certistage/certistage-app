@@ -14,6 +14,7 @@ export interface IRecipient extends Document {
   lastDownloadAt?: Date
   linkedinClicks: number // times "Add to LinkedIn profile" was opened
   lastLinkedinClickAt?: Date
+  whatsappShares: number // times "Share on WhatsApp" was opened from the download page
   customFields?: Record<string, string>
   createdAt: Date
   updatedAt: Date
@@ -34,6 +35,7 @@ const RecipientSchema = new Schema<IRecipient>(
     lastDownloadAt: { type: Date },
     linkedinClicks: { type: Number, default: 0 },
     lastLinkedinClickAt: { type: Date },
+    whatsappShares: { type: Number, default: 0 },
     customFields: { type: Map, of: String }
   },
   { timestamps: true }

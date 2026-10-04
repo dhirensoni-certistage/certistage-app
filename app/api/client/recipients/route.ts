@@ -4,6 +4,7 @@ import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 import { canUserAddRecipients, verifyEventOwnership, canUserUseFeature, recordCertificatesIssued } from "@/lib/plan-limits"
+import { cleanCustomFields } from "@/lib/certificate-fields"
 import { requireClientUser } from "@/lib/client-auth.server"
 import { trashRecipients } from "@/lib/trash.server"
 import { logAudit } from "@/lib/audit-logger"
@@ -159,7 +160,7 @@ export async function POST(request: NextRequest) {
         certificateTypeId,
         eventId,
         downloadCount: 0,
-        customFields: r.customFields || {}
+        customFields: cleanCustomFields(r.customFields)
       }
     })
 

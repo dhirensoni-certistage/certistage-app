@@ -3,6 +3,7 @@ import connectDB from "@/lib/mongodb"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
+import { fieldValue } from "@/lib/certificate-fields"
 
 // Convert a #RRGGBB / #RGB hex color to an RGB triple; anything else falls back to black
 function hexToRgb(hex?: string): [number, number, number] {
@@ -163,13 +164,13 @@ export async function GET(request: NextRequest) {
     // Render Custom Fields
     if (certType.customFields) {
       for (const field of certType.customFields) {
-        let value = ""
-        switch (field.variable) {
-          case "EMAIL": value = recipient.email || ""; break
-          case "MOBILE": value = recipient.mobile || ""; break
-          case "REG_NO": value = recipient.regNo || recipient._id || ""; break // Match recipient model
-          default: value = `{{${field.variable}}}` // Fallback
-        }
+        // Built-in fields and Excel columns (see lib/certificate-fields); REG_NO falls back to the id
+        const value = fieldValue(field.variable, {
+          email: recipient.email,
+          mobile: recipient.mobile,
+          regNo: recipient.regNo || String(recipient._id),
+          customFields: recipient.customFields
+        })
 
         if (value) {
           renderText(

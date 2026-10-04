@@ -68,6 +68,7 @@ import {
   Bold, Italic, Link as LinkIcon, Copy, Users, Download, Settings, PenTool, X, Crown, Award, Lock, Search, Loader2, MoreHorizontal, ExternalLink, Pencil
 } from "lucide-react"
 import { toast } from "sonner"
+import { columnHeading, columnVariable, fieldLabel } from "@/lib/certificate-fields"
 import { cn } from "@/lib/utils"
 import { useRefreshOnFocus } from "@/hooks/use-refresh-on-focus"
 
@@ -782,7 +783,7 @@ export default function CertificatesPage() {
                   }
                   const currentFields = selectedType.customFields || []
                   if (currentFields.find(f => f.variable === variable)) {
-                    toast.error(`{{${variable}}} already added`)
+                    toast.error(`{{${fieldLabel(variable)}}} already added`)
                     return
                   }
                   const updatedFields = [...currentFields, newField]
@@ -792,7 +793,7 @@ export default function CertificatesPage() {
                   // Immediate API call for add/remove operations
                   const success = await updateCertTypeAPI(selectedTypeId, { customFields: updatedFields })
                   if (success) {
-                    toast.success(`{{${variable}}} added! Drag it to position.`)
+                    toast.success(`{{${fieldLabel(variable)}}} added! Drag it to position.`)
                   } else {
                     // Revert on failure
                     toast.error("Failed to add field")
@@ -1184,6 +1185,21 @@ function TemplateEditor({
 }) {
   // Scale stored font sizes (PDF points) to the on-screen image so the canvas matches the PDF
   const { ref: templateImgRef, scale: textScale } = useTemplateTextScale()
+  // Extra Excel columns imported for this certificate (e.g. Credit Hours), offered as fields
+  const [excelColumns, setExcelColumns] = useState<{ heading: string; sample: string }[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/client/certificate-types/columns?typeId=${certType.id}`)
+      .then((res) => (res.ok ? res.json() : { columns: [] }))
+      .then((data) => { if (!cancelled) setExcelColumns(data.columns || []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [certType.id, certType.stats?.total])
+  const columnSample = (variable: string) => {
+    const heading = columnHeading(variable)
+    if (heading === null) return null
+    return excelColumns.find((c) => c.heading === heading)?.sample || heading
+  }
   // Size the template to the visible canvas area so the whole design is always on screen
   const canvasAreaRef = useRef<HTMLDivElement>(null)
   const [canvasMax, setCanvasMax] = useState<{ w: number; h: number } | null>(null)
@@ -1384,7 +1400,7 @@ function TemplateEditor({
                               color: field.fontColor || '#000000'
                             }}
                           >
-                            {`{{${field.variable}}}`}
+                            {`{{${fieldLabel(field.variable)}}}`}
                           </span>
                         </div>
 
@@ -1408,7 +1424,7 @@ function TemplateEditor({
                       >
                         {field.variable === 'EMAIL' ? 'john@example.com' :
                           field.variable === 'MOBILE' ? '+91 98765 43210' :
-                            field.variable === 'REG_NO' ? 'REG-2024-001' : field.variable}
+                            field.variable === 'REG_NO' ? 'REG-2024-001' : (columnSample(field.variable) ?? field.variable)}
                       </span>
                     )}
                   </div>
@@ -1439,7 +1455,7 @@ function TemplateEditor({
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-[#666]">Typography</h3>
                   {selectedFieldId && (
                     <span className="text-[10px] font-medium px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-100 truncate max-w-[120px]">
-                      {selectedFieldId === "NAME" ? "Name Field" : certType.customFields?.find(f => f.id === selectedFieldId)?.variable || "Custom"}
+                      {selectedFieldId === "NAME" ? "Name Field" : fieldLabel(certType.customFields?.find(f => f.id === selectedFieldId)?.variable || "Custom")}
                     </span>
                   )}
                 </div>
@@ -1618,6 +1634,33 @@ function TemplateEditor({
                       <Plus className="h-4 w-4 text-[#CCC] group-hover:text-black" />
                     </button>
                   ))}
+
+                  {/* Columns after "Registration No" in the imported Excel */}
+                  <div className="pt-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#666] mb-2">From your Excel</p>
+                    {excelColumns.length === 0 ? (
+                      <p className="text-[11px] text-[#888] leading-relaxed">
+                        Add more columns after &ldquo;Registration No&rdquo; in your Excel (for example Credit Hours, Designation or College), import it, and they appear here to place on the certificate.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {excelColumns.filter((c) => !certType.customFields?.find((f) => f.variable === columnVariable(c.heading))).map((c) => (
+                          <button key={c.heading} onClick={() => onAddCustomField(columnVariable(c.heading))} className="w-full flex items-center justify-between p-3 rounded-lg border border-[#E5E5E5] bg-white hover:border-black/30 hover:shadow-sm transition-all group text-left">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="h-8 w-8 shrink-0 rounded-full bg-[#F5F5F7] flex items-center justify-center group-hover:bg-[#EBEBEB]">
+                                <span className="text-xs font-bold text-[#444]">{c.heading.charAt(0).toUpperCase()}</span>
+                              </div>
+                              <div className="min-w-0">
+                                <span className="block text-xs font-semibold text-[#222] truncate">{c.heading}</span>
+                                <span className="block text-[10px] text-[#888] truncate mt-0.5">e.g. {c.sample}</span>
+                              </div>
+                            </div>
+                            <Plus className="h-4 w-4 shrink-0 text-[#CCC] group-hover:text-black" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   {certType.showNameField !== false && AVAILABLE_VARIABLES.filter(v => v.key !== 'NAME').every(v => certType.customFields?.find(f => f.variable === v.key)) && (
                     <div className="text-center py-8 text-[#999] text-xs">

@@ -53,6 +53,7 @@ export interface ICertificateType extends Document {
   customFields: ICustomField[]
   isActive: boolean
   shortCode?: string
+  ctaClicks?: number // clicks on the CertiStage links on this certificate's download page
   // Search configuration for download page
   searchFields: ISearchFields
   createdAt: Date
@@ -110,6 +111,7 @@ const CertificateTypeSchema = new Schema<ICertificateType>(
     customFields: [CustomFieldSchema],
     isActive: { type: Boolean, default: true },
     shortCode: { type: String, unique: true, sparse: true },
+    ctaClicks: { type: Number, default: 0 },
     // Search configuration for download page
     searchFields: {
       name: { type: Boolean, default: true },

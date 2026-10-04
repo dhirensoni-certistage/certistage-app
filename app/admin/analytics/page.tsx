@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Award, Download, Clock, Percent, User, Calendar } from "lucide-react"
+import { Award, Download, Clock, Percent, User, Calendar, Linkedin, MessageCircle, MousePointerClick } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts"
 import { Breadcrumbs } from "@/components/admin/breadcrumbs"
 
@@ -16,6 +16,7 @@ interface AnalyticsData {
   topUsers: Array<{ user: { _id: string; name: string; email: string }; eventsCount: number; recipientsCount: number }>
   topEvents: Array<{ event: { _id: string; name: string }; owner: { name: string; email: string }; recipientsCount: number }>
   downloadStats: { total: number; downloaded: number; pending: number; downloadRate: number }
+  growthLoop?: { linkedinRecipients: number; whatsappShares: number; ctaClicks: number }
 }
 
 export default function AnalyticsPage() {
@@ -87,6 +88,16 @@ export default function AnalyticsPage() {
             <MetricCard title="Downloaded" value={data?.downloadStats.downloaded ?? 0} icon={Download} loading={loading} />
             <MetricCard title="Pending" value={data?.downloadStats.pending ?? 0} icon={Clock} loading={loading} />
             <MetricCard title="Download Rate" value={`${data?.downloadStats.downloadRate ?? 0}%`} icon={Percent} loading={loading} />
+          </div>
+
+          {/* Growth loop: what recipients do on the public download pages (all time) */}
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Download page sharing (all time)</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <MetricCard title="Recipients who opened LinkedIn" value={data?.growthLoop?.linkedinRecipients ?? 0} icon={Linkedin} loading={loading} />
+              <MetricCard title="WhatsApp shares" value={data?.growthLoop?.whatsappShares ?? 0} icon={MessageCircle} loading={loading} />
+              <MetricCard title="Clicks to certistage.com" value={data?.growthLoop?.ctaClicks ?? 0} icon={MousePointerClick} loading={loading} />
+            </div>
           </div>
 
           {/* Certificate Trends Chart - Fixed with proper colors */}
