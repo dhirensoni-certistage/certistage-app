@@ -5,7 +5,7 @@ const BASE = "https://www.certistage.com"
 // Update a date when that page's content changes. Google uses lastmod only
 // when it is accurate, and ignores priority and changefreq.
 const PAGES: Array<{ path: string; updated: string }> = [
-  { path: "/", updated: "2026-10-03" },
+  { path: "/", updated: "2026-10-06" },
   { path: "/about", updated: "2026-09-20" },
   { path: "/contact", updated: "2026-09-20" },
   { path: "/signup", updated: "2026-09-28" },

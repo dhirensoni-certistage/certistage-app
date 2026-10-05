@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Ticket, ArrowRight, Shield, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles, Award, Download, Search, FileSpreadsheet, Quote, ChevronDown } from "lucide-react"
+import { Ticket, ArrowRight, Shield, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles, Award, Download, Search, FileSpreadsheet, Quote, ChevronDown, Mail, Linkedin, Building2, PackagePlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
+import { mergePlanConfigWithDefaults, isOneTimePlan, planValidityDays, type PlanConfig } from "@/lib/plan-config"
 import { formatApproxCount, type PublicStats } from "@/lib/public-stats"
 import { Reveal } from "@/components/landing/reveal"
 import { SiteHeader } from "@/components/landing/site-header"
@@ -45,7 +45,15 @@ const FAQS: { q: string; a: string; href?: string; linkText?: string }[] = [
   },
   {
     q: "How do recipients get their certificate?",
-    a: "You share one link. Recipients search by name, email, mobile or registration number and download their PDF. Nothing is emailed one by one."
+    a: "Two ways, and you can use both. Share one link: recipients search by name, email, mobile or registration number and download their PDF. Or click Email certificates and every person gets their own download link in their inbox, with an \"Add to LinkedIn profile\" button."
+  },
+  {
+    q: "Can I see who opened the email?",
+    a: "Yes. The Email log shows sent, delivered, opened, clicked, bounced and failed for every email, and whether the person has downloaded. Send reminders only to those who haven't."
+  },
+  {
+    q: "Does the download page show my branding?",
+    a: "Yes, on every plan. Upload your logo in Settings and it appears with your organisation name at the top of every download page. Annual plans can also remove CertiStage branding from the download pages entirely."
   },
   {
     q: "Can colleges and training institutes use it?",
@@ -54,6 +62,14 @@ const FAQS: { q: string; a: string; href?: string; linkText?: string }[] = [
   {
     q: "Can I try it before paying?",
     a: "Yes. The Free plan lets you set up one event and issue up to 50 certificates so you can test the full flow."
+  },
+  {
+    q: "What is the One event plan?",
+    a: "A single payment of ₹799 for one event: up to 1,000 certificates, 3 certificate designs, Excel import and email delivery, with 60 days of organiser access. Recipients can keep downloading after that. If you later move to an annual plan within 180 days, the ₹799 is credited."
+  },
+  {
+    q: "What if I need more certificates than my plan includes?",
+    a: "Buy a one-time pack of extra certificates from Add-ons; they never expire and are used after your plan's quota. Extra email packs work the same way."
   },
   {
     q: "Is there a refund?",
@@ -67,7 +83,7 @@ const FAQS: { q: string; a: string; href?: string; linkText?: string }[] = [
   },
   {
     q: "How do I pay?",
-    a: "Online through Razorpay with UPI, cards or net banking. Prices are in INR and billed yearly."
+    a: "Online through Razorpay with UPI, cards or net banking. Prices are in INR: paid once for the One event plan, yearly for the others. No auto-renewal; we email you before a plan ends."
   }
 ]
 
@@ -81,22 +97,91 @@ const FEATURES = [
   {
     icon: Search,
     title: "Self-service download page",
-    desc: "Share one link. Recipients search by name, email, mobile or registration number and download their own PDF."
+    desc: "Share one link. Recipients search by name, email, mobile or registration number and download their own PDF. No email list needed."
+  },
+  {
+    icon: Mail,
+    title: "Email delivery with tracking",
+    desc: "One click emails every recipient their own download link. The Email log shows delivered, opened, clicked and bounced, and reminders go only to those who haven't downloaded."
+  },
+  {
+    icon: Linkedin,
+    title: "LinkedIn and WhatsApp sharing",
+    desc: "An \"Add to LinkedIn profile\" button on every download page and in every email, with your organisation as the issuer. WhatsApp share built in. Clicks counted on your dashboard."
   },
   {
     icon: FileSpreadsheet,
     title: "Excel import",
-    desc: "Import thousands of recipients from a single Excel sheet, with validation before anything is generated."
+    desc: "Import thousands of recipients from a single Excel sheet, with validation before anything is generated. Fix a typo by re-uploading; the next download is correct."
+  },
+  {
+    icon: Building2,
+    title: "Your brand, not ours",
+    desc: "Your logo and organisation name lead every download page, on every plan. Annual plans can remove CertiStage branding altogether."
   },
   {
     icon: BarChart3,
     title: "Live download tracking",
-    desc: "See who has downloaded and who is still pending, per certificate type, as it happens."
+    desc: "Who has downloaded, who is pending, downloads by day and by certificate, completion rate and LinkedIn adds, as it happens."
   },
   {
     icon: Shield,
     title: "Secure by default",
     desc: "Recipients only ever see their own certificate. Your account keeps an activity log of every change."
+  }
+]
+
+const n = (v: number) => v.toLocaleString("en-IN")
+
+/**
+ * What a plan includes, from its limits, so the cards stay true to what the plan enforces.
+ * Admin-written feature lines are added after, skipping ones that repeat a number shown here.
+ */
+function planHighlights(plan: PlanConfig): string[] {
+  const l = plan.limits
+  const oneTime = isOneTimePlan(plan)
+  const items: string[] = []
+  if (l.maxCertificates) items.push(l.maxCertificates === -1 ? "Unlimited certificates" : `${n(l.maxCertificates)} certificates${oneTime ? "" : " a year"}`)
+  if (l.maxEvents) items.push(l.maxEvents === -1 ? "Unlimited events" : `${n(l.maxEvents)} event${l.maxEvents === 1 ? "" : "s"}`)
+  if (l.maxCertificateTypes) items.push(l.maxCertificateTypes === -1 ? "Unlimited certificate designs" : `${n(l.maxCertificateTypes)} certificate design${l.maxCertificateTypes === 1 ? "" : "s"}`)
+  items.push(l.canImportData ? "Excel import and reports" : "Add recipients one by one")
+  items.push(plan.price > 0 ? "Email delivery with open and click tracking" : "Email delivery for your first recipients")
+  if (oneTime) items.push(`Organiser access for ${planValidityDays(plan)} days`)
+  if (l.canRemoveBranding) items.push("Remove CertiStage branding")
+  const seen = new Set(items.map((i) => i.toLowerCase()))
+  // Limits above already cover certificates, events, designs and import; admin lines add the rest
+  const repeats = (text: string) => /certificate|event|design|type|import|excel|template|email delivery/i.test(text)
+  for (const f of plan.features || []) {
+    const text = String(f || "").trim()
+    if (text && !seen.has(text.toLowerCase()) && !repeats(text) && items.length < 7) {
+      seen.add(text.toLowerCase())
+      items.push(text)
+    }
+  }
+  return items
+}
+
+// Who it is for: one card per segment, in the words organisers search with
+const USE_CASES: { title: string; desc: string; tags: string[] }[] = [
+  {
+    title: "Medical conferences and CME",
+    desc: "Participation and CME attendance certificates for delegates, with credit hours, accreditation number and co-signatories printed. Delegates search by registration number; the council can see who attended.",
+    tags: ["IMA branches", "state chapters", "PCOs"]
+  },
+  {
+    title: "Colleges, universities and NAAC",
+    desc: "Convocations, value-added courses, FDPs, NSS camps and workshops. Every batch in one place, with recipient lists and download reports for NAAC and IQAC files.",
+    tags: ["convocation", "FDP", "value-added courses"]
+  },
+  {
+    title: "Training institutes and coaching",
+    desc: "Course completion certificates for every batch, issued the day the course ends. Learners add them to LinkedIn with your institute as the issuer.",
+    tags: ["course completion", "internship", "skill programs"]
+  },
+  {
+    title: "Hackathons, fests and corporate events",
+    desc: "Thousands of one-time participants, messy email lists and a deadline. Import the sheet, share one link, done. Winners and volunteers get their own designs.",
+    tags: ["participation", "winner", "volunteer"]
   }
 ]
 
@@ -194,8 +279,16 @@ export default function HomePage() {
     ]
   }, [publicStats])
 
+  // FAQ rich results: the same questions as the accordion below
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQS.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } }))
+  }
+
   return (
     <div className="min-h-screen bg-white dark:bg-[#0a0a0a]">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       {/* Simple Header */}
       <SiteHeader />
 
@@ -205,7 +298,7 @@ export default function HomePage() {
           <Reveal y={12}>
             <p className="inline-flex items-center gap-2 text-xs font-medium text-gold-deep dark:text-gold-light bg-gold-soft dark:bg-gold/10 border border-gold/30 dark:border-gold/30 rounded-full px-3 py-1 mb-6">
               <Award className="h-3.5 w-3.5" />
-              <span>For events, colleges, institutes and training programs</span>
+              <span>Bulk certificate generator for events, colleges, institutes and training programs</span>
             </p>
           </Reveal>
           <Reveal delay={0.08}>
@@ -218,7 +311,7 @@ export default function HomePage() {
 
           <Reveal delay={0.16}>
             <p className="text-lg md:text-xl text-neutral-600 dark:text-neutral-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Upload your certificate design and an Excel sheet of names. Every attendee, student or participant finds and downloads their own certificate. No designer, no manual emailing.
+              Upload your certificate design and an Excel sheet of names. Every attendee, student or participant finds and downloads their own certificate, or gets it by email with one click. Add to LinkedIn built in.
             </p>
           </Reveal>
 
@@ -392,6 +485,33 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Who it is for */}
+      <section id="use-cases" className="py-24 px-6 scroll-mt-16">
+        <div className="max-w-6xl mx-auto">
+          <Reveal className="text-center mb-14">
+            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
+              Certificates for every kind of organiser
+            </h2>
+            <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
+              Conference secretaries, IQAC coordinators, training heads and student committees use the same three steps.
+            </p>
+          </Reveal>
+          <div className="grid md:grid-cols-2 gap-4">
+            {USE_CASES.map((u, i) => (
+              <Reveal key={u.title} delay={i * 0.06} className="p-7 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-gold/50 transition-colors">
+                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">{u.title}</h3>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">{u.desc}</p>
+                <ul className="mt-4 flex flex-wrap gap-2">
+                  {u.tags.map((t) => (
+                    <li key={t} className="rounded-full border border-neutral-200 dark:border-neutral-800 px-2.5 py-0.5 text-[11.5px] text-neutral-600 dark:text-neutral-400">{t}</li>
+                  ))}
+                </ul>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* How it Works - Simple Steps */}
       <section id="how-it-works" className="py-24 px-6 bg-neutral-50 dark:bg-neutral-950 scroll-mt-16">
         <div className="max-w-5xl mx-auto">
@@ -408,7 +528,7 @@ export default function HomePage() {
             {[
               { step: "01", title: "Create an event or batch", icon: PenTool, desc: "A conference, a course, a convocation or a training program" },
               { step: "02", title: "Upload design and Excel", icon: LayoutTemplate, desc: "Place the name and other fields on your certificate design" },
-              { step: "03", title: "Share the link", icon: Check, desc: "Recipients find and download their certificate instantly" }
+              { step: "03", title: "Share the link or email everyone", icon: Check, desc: "Recipients find and download their certificate, or get it in their inbox with Add to LinkedIn" }
             ].map((item, i) => (
               <Reveal key={i} delay={i * 0.1} className="text-center">
                 <div className="inline-flex w-12 h-12 rounded-full bg-white dark:bg-neutral-900 border border-gold/30 dark:border-gold/30 items-center justify-center text-gold-deep dark:text-gold-light mb-6">
@@ -458,7 +578,7 @@ export default function HomePage() {
               Simple, transparent pricing
             </h2>
             <p className="text-lg text-neutral-600 dark:text-neutral-400">
-              Choose the plan that fits your needs
+              Pay once for a single event, or yearly for more. Prices in INR, UPI accepted.
             </p>
           </Reveal>
           <div className={`grid sm:grid-cols-2 gap-4 ${visiblePlans.length >= 5 ? "lg:grid-cols-3 xl:grid-cols-5" : "lg:grid-cols-4"}`}>
@@ -467,12 +587,12 @@ export default function HomePage() {
               const badge = plan.badge || (plan.highlight ? "Popular" : "")
               const priceLabel = formatPrice(plan.price, plan.currency || "INR")
               const periodLabel = plan.price <= 0 ? "" : plan.billingPeriod === "one-time" ? "once" : `/${plan.billingPeriod || "year"}`
-              const features = (plan.features || []).slice(0, 4)
+              const features = planHighlights(plan)
               const ctaLabel = plan.price === 0
-                ? "Start Free"
+                ? "Start free"
                 : plan.limits?.canUpgrade === false
-                  ? "Contact Sales"
-                  : "Get Started"
+                  ? "Contact sales"
+                  : "Get started"
               const ctaHref = plan.price === 0
                 ? "/signup?plan=free"
                 : plan.limits?.canUpgrade === false
@@ -483,18 +603,18 @@ export default function HomePage() {
                 <Reveal
                   key={plan.id}
                   delay={i * 0.07}
-                  className={`p-6 rounded-xl border ${plan.highlight
+                  className={`h-full flex flex-col p-6 rounded-xl border ${plan.highlight
                     ? "border-gold dark:border-gold-light shadow-lg shadow-gold/10"
                     : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700"
                     } bg-white dark:bg-neutral-950 hover:-translate-y-0.5 transition-[border-color,transform] duration-300 relative`}
                 >
                   {badge && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gold text-neutral-900 text-[10px] font-semibold rounded-full uppercase tracking-wide">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gold text-neutral-900 text-[10px] font-semibold rounded-full uppercase tracking-wide whitespace-nowrap">
                       {badge}
                     </div>
                   )}
 
-                  <div className="mb-6">
+                  <div className="mb-5">
                     <Icon className="w-8 h-8 text-gold-deep dark:text-gold-light mb-4" />
                     <h3 className="font-semibold text-lg text-neutral-900 dark:text-white mb-1">{plan.name}</h3>
                     <div className="flex items-baseline gap-1">
@@ -503,9 +623,11 @@ export default function HomePage() {
                         <span className="text-sm text-neutral-500 dark:text-neutral-500">{periodLabel}</span>
                       )}
                     </div>
+                    <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-500 min-h-[32px] leading-snug">{plan.description}</p>
                   </div>
 
-                  <ul className="space-y-2.5 mb-6">
+                  {/* The list grows, the button stays on one line across the row */}
+                  <ul className="space-y-2.5 mb-6 flex-1">
                     {features.map((feature, idx) => (
                       <li key={`${plan.id}-feature-${idx}`} className="flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-400">
                         <Check className="w-4 h-4 text-gold-deep dark:text-gold-light shrink-0 mt-0.5" />
@@ -516,7 +638,7 @@ export default function HomePage() {
 
                   <Button
                     variant={plan.highlight ? "default" : "outline"}
-                    className="w-full text-sm h-9"
+                    className="w-full text-sm h-10 mt-auto"
                     asChild
                   >
                     <Link href={ctaHref}>{ctaLabel}</Link>
@@ -525,6 +647,21 @@ export default function HomePage() {
               )
             })}
           </div>
+
+          <Reveal delay={0.2} className="mt-6 grid gap-3 md:grid-cols-3 text-sm text-neutral-600 dark:text-neutral-400">
+            <p className="flex items-start gap-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
+              <PackagePlus className="h-4 w-4 mt-0.5 shrink-0 text-gold-deep dark:text-gold-light" />
+              <span>Need more? One-time packs of extra certificates and emails on every plan. They never expire.</span>
+            </p>
+            <p className="flex items-start gap-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
+              <Ticket className="h-4 w-4 mt-0.5 shrink-0 text-gold-deep dark:text-gold-light" />
+              <span>Start with One event; move to an annual plan within 180 days and the ₹799 is credited.</span>
+            </p>
+            <p className="flex items-start gap-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
+              <Shield className="h-4 w-4 mt-0.5 shrink-0 text-gold-deep dark:text-gold-light" />
+              <span>No auto-renewal. Paid through Razorpay with UPI, cards or net banking; receipt by email.</span>
+            </p>
+          </Reveal>
         </div>
       </section>
 
