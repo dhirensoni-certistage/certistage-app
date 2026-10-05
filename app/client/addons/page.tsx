@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { Mail, MessageCircle, Award, EyeOff, Check, ArrowRight, Receipt, Infinity as InfinityIcon } from "lucide-react"
+import { Mail, MessageCircle, Award, EyeOff, Check, ArrowRight, Receipt, Infinity as InfinityIcon, Loader2, CheckCircle2 } from "lucide-react"
+import { toast } from "sonner"
 import { ADDONS, emailPackName } from "@/lib/addons"
 import { formatInr } from "@/lib/plan-config"
 import { EmailPacks } from "@/components/client/email-packs"
@@ -45,6 +46,9 @@ const n = (v: number) => v.toLocaleString("en-IN")
 export default function AddonsPage() {
   const [quota, setQuota] = useState<Quota | null>(null)
   const [purchases, setPurchases] = useState<Purchase[]>([])
+  // Early-access requests already made (from the server) and the one being sent right now
+  const [requested, setRequested] = useState<Record<string, string>>({})
+  const [requesting, setRequesting] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -53,8 +57,30 @@ export default function AddonsPage() {
       const data = await res.json()
       setQuota(data.quota)
       setPurchases(data.purchases || [])
+      const map: Record<string, string> = {}
+      for (const r of data.requests || []) if (r?.addonId) map[r.addonId] = r.requestedAt
+      setRequested(map)
     } catch {}
   }, [])
+
+  const requestAccess = async (addonId: string) => {
+    setRequesting(addonId)
+    try {
+      const res = await fetch("/api/client/addons/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addonId })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(data.error || "Could not send the request"); return }
+      setRequested((prev) => ({ ...prev, [addonId]: data.requestedAt || new Date().toISOString() }))
+      toast.success(data.alreadyRequested ? "You already asked for this one. We'll be in touch." : "Request submitted. We'll email you when it's ready.")
+    } catch {
+      toast.error("Could not send the request")
+    } finally {
+      setRequesting(null)
+    }
+  }
 
   useEffect(() => { load() }, [load])
 
@@ -170,13 +196,20 @@ export default function AddonsPage() {
                   <Link href={addon.href} className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-neutral-900 hover:underline underline-offset-4">
                     {addon.cta || "Open"} <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
+                ) : requested[addon.id] ? (
+                  <p className="mt-4 inline-flex items-start gap-1.5 text-[13px] text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 mt-px" />
+                    <span>Request submitted{requested[addon.id] ? ` on ${new Date(requested[addon.id]).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : ""}. We&apos;ll email you when it&apos;s ready.</span>
+                  </p>
                 ) : (
-                  <a
-                    href={`mailto:support@certistage.com?subject=${encodeURIComponent(`Early access: ${addon.title}`)}`}
-                    className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-neutral-900 hover:underline underline-offset-4"
+                  <button
+                    type="button"
+                    onClick={() => requestAccess(addon.id)}
+                    disabled={requesting === addon.id}
+                    className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-neutral-900 hover:underline underline-offset-4 disabled:opacity-60"
                   >
-                    Request early access <ArrowRight className="h-3.5 w-3.5" />
-                  </a>
+                    {requesting === addon.id ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending…</> : <>Request early access <ArrowRight className="h-3.5 w-3.5" /></>}
+                  </button>
                 )}
               </div>
             )

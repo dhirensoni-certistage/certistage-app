@@ -30,6 +30,8 @@ export interface IUser extends Document {
   }
   /** Extra certificate emails bought as an add-on; used after the plan's emails, never expire */
   emailCredits?: number
+  /** "Request early access" clicks on upcoming add-ons (Add-ons page); one entry per add-on */
+  addonRequests?: { addonId: string; requestedAt: Date }[]
   isActive: boolean
   isEmailVerified: boolean
   hidePoweredBy?: boolean // hide "Powered by CertiStage" on download pages; honoured only on an active paid plan
@@ -65,6 +67,7 @@ const UserSchema = new Schema<IUser>(
       sent: { type: Number, default: 0 }
     },
     emailCredits: { type: Number, default: 0 },
+    addonRequests: [{ addonId: { type: String, required: true }, requestedAt: { type: Date, default: Date.now } }],
     isActive: { type: Boolean, default: true },
     isEmailVerified: { type: Boolean, default: false },
     hidePoweredBy: { type: Boolean, default: false }
