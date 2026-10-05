@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Loader2, Check, Download } from "lucide-react"
+import { Loader2, Check, Download, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
@@ -23,6 +24,8 @@ interface UserProfile {
   plan: string
   planExpiresAt?: string
   createdAt?: string
+  hidePoweredBy?: boolean
+  canHidePoweredBy?: boolean
 }
 
 export default function SettingsPage() {
@@ -37,6 +40,7 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [profileForm, setProfileForm] = useState({ name: "", phone: "", organization: "" })
   const [usage, setUsage] = useState<{ events: number; certificateTypes: number; certificates: number } | null>(null)
+  const [isSavingBranding, setIsSavingBranding] = useState(false)
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -79,6 +83,27 @@ export default function SettingsPage() {
       } else { toast.error(data.error || "Failed to update profile") }
     } catch { toast.error("Something went wrong") }
     setIsSavingProfile(false)
+  }
+
+  // "Powered by CertiStage" on download pages: off only on an active paid plan (server enforces it)
+  const handlePoweredByToggle = async (show: boolean) => {
+    if (!profile) return
+    setIsSavingBranding(true)
+    try {
+      const res = await fetch("/api/client/profile", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hidePoweredBy: !show })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        invalidateClientProfile()
+        setProfile({ ...profile, ...data.user })
+        toast.success(show ? "\"Powered by CertiStage\" is back on your download pages" : "\"Powered by CertiStage\" hidden on your download pages")
+      } else {
+        toast.error(data.error || "Could not save")
+      }
+    } catch { toast.error("Something went wrong") }
+    setIsSavingBranding(false)
   }
 
   const handleLogout = () => { localStorage.removeItem("clientSession"); toast.success("Logged out"); router.push("/client/login") }
@@ -166,6 +191,36 @@ export default function SettingsPage() {
             </Button>
           </div>
         </form>
+      )}
+
+      {activeTab === "profile" && (
+        <div className="mt-4 rounded-xl border border-neutral-200 bg-white p-5 md:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-[15px] font-semibold text-neutral-900">Download page branding</h2>
+              <p className="text-[13px] text-neutral-500 mt-0.5">
+                Your organisation name is always the hero on download pages. The small &quot;Powered by CertiStage&quot; line in the footer can be switched off on a paid plan.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <Label htmlFor="powered-by" className="text-[13px] font-medium text-neutral-700 whitespace-nowrap">
+                Show &quot;Powered by CertiStage&quot;
+              </Label>
+              <Switch
+                id="powered-by"
+                checked={!(profile.hidePoweredBy && profile.canHidePoweredBy)}
+                disabled={isSavingBranding || !profile.canHidePoweredBy}
+                onCheckedChange={(checked) => handlePoweredByToggle(checked)}
+              />
+            </div>
+          </div>
+          {!profile.canHidePoweredBy && (
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 py-2.5 text-[12.5px] text-neutral-600">
+              <span className="flex items-center gap-2"><Lock className="h-3.5 w-3.5 text-neutral-400" /> Removing the line is included with every paid plan.</span>
+              <Link href="/client/upgrade" className="font-medium text-neutral-900 hover:underline underline-offset-4 whitespace-nowrap">See plans</Link>
+            </div>
+          )}
+        </div>
       )}
 
       {activeTab === "profile" && (

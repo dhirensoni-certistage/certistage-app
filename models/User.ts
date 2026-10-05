@@ -21,6 +21,7 @@ export interface IUser extends Document {
   }
   isActive: boolean
   isEmailVerified: boolean
+  hidePoweredBy?: boolean // hide "Powered by CertiStage" on download pages; honoured only on an active paid plan
   createdAt: Date
   updatedAt: Date
 }
@@ -45,7 +46,8 @@ const UserSchema = new Schema<IUser>(
       certificatesIssued: { type: Number, default: 0 }
     },
     isActive: { type: Boolean, default: true },
-    isEmailVerified: { type: Boolean, default: false }
+    isEmailVerified: { type: Boolean, default: false },
+    hidePoweredBy: { type: Boolean, default: false }
   },
   { timestamps: true }
 )

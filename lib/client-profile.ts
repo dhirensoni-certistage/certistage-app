@@ -22,6 +22,8 @@ export interface ClientProfile {
   planExpiresAt?: string
   isActive?: boolean
   createdAt?: string
+  hidePoweredBy?: boolean
+  canHidePoweredBy?: boolean
 }
 
 interface ProfileResult {

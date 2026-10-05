@@ -67,6 +67,7 @@ interface EventData {
   id: string
   name: string
   organization?: string | null
+  showPoweredBy?: boolean // false when the organiser hid the "Powered by" line on a paid plan
 }
 
 type Step = "search" | "select" | "preview"
@@ -328,7 +329,7 @@ export default function CertTypeDownloadPage() {
   // ---------- states ----------
   if (loading || autoOpening) {
     return (
-      <Shell>
+      <Shell showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name}>
         <div className="w-full max-w-md mx-auto rounded-lg border border-neutral-200 bg-white p-6 sm:p-8 space-y-4">
           <div className="h-3.5 w-40 rounded bg-neutral-100 animate-pulse" />
           <div className="h-6 w-56 rounded bg-neutral-200 animate-pulse" />
@@ -341,7 +342,7 @@ export default function CertTypeDownloadPage() {
 
   if (error || !certType) {
     return (
-      <Shell>
+      <Shell showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name}>
         <div className="w-full max-w-md mx-auto rounded-lg border border-neutral-200 bg-white p-6 sm:p-8">
           <h1 className="text-lg font-semibold text-neutral-900">This certificate link is not available</h1>
           <p className="text-sm text-neutral-600 mt-2">{error || "This certificate page could not be loaded."}</p>
@@ -355,7 +356,7 @@ export default function CertTypeDownloadPage() {
   const showPreview = step === "preview" && !!selectedRecipient
 
   return (
-    <Shell typeId={typeId}>
+    <Shell typeId={typeId} showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name}>
       <div className="w-full max-w-md mx-auto rounded-lg border border-neutral-200 bg-white p-6 sm:p-8">
           {step === "search" && (
             <form onSubmit={handleSearch} noValidate>
@@ -592,33 +593,41 @@ function trackClick(body: Record<string, string>) {
   }).catch(() => {})
 }
 
-function Shell({ children, typeId }: { children: React.ReactNode; typeId?: string }) {
+// showPoweredBy=false (organiser hid it on a paid plan): the header carries the organiser's
+// name instead of the CertiStage logo and the footer line is gone.
+function Shell({ children, typeId, showPoweredBy = true, brand }: { children: React.ReactNode; typeId?: string; showPoweredBy?: boolean; brand?: string | null }) {
   // Clicks on any CertiStage link here are how recipients become organisers; count them per certificate
   const recordCta = () => { if (typeId) trackClick({ kind: "cta", typeId }) }
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F6F4] text-neutral-900">
       <header>
         <div className="max-w-5xl mx-auto px-5 h-20 flex items-center justify-center">
-          <a href="https://www.certistage.com?utm_source=download_page&utm_medium=header" target="_blank" rel="noopener" onClick={recordCta} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-            <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
-            <span className="font-semibold text-[20px] tracking-tight">CertiStage</span>
-          </a>
+          {showPoweredBy ? (
+            <a href="https://www.certistage.com?utm_source=download_page&utm_medium=header" target="_blank" rel="noopener" onClick={recordCta} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+              <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
+              <span className="font-semibold text-[20px] tracking-tight">CertiStage</span>
+            </a>
+          ) : (
+            <span className="font-semibold text-[20px] tracking-tight text-center truncate max-w-full">{brand || ""}</span>
+          )}
         </div>
       </header>
       <main className="flex-1 flex items-start justify-center px-4 py-6 md:py-12">
         {children}
       </main>
-      <footer>
-        <div className="max-w-5xl mx-auto px-5 py-5 flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[13px] text-neutral-500">
-          <p>
-            Powered by{" "}
-            <a href="https://www.certistage.com?utm_source=download_page&utm_medium=footer" target="_blank" rel="noopener" onClick={recordCta} className="text-neutral-900 hover:underline underline-offset-4">CertiStage</a>
-          </p>
-          <a href="https://www.certistage.com?utm_source=download_page&utm_medium=footer_cta" target="_blank" rel="noopener" onClick={recordCta} className="hover:text-neutral-900">
-            Issue certificates for your own event or institute
-          </a>
-        </div>
-      </footer>
+      {showPoweredBy && (
+        <footer>
+          <div className="max-w-5xl mx-auto px-5 py-5 flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[13px] text-neutral-500">
+            <p>
+              Powered by{" "}
+              <a href="https://www.certistage.com?utm_source=download_page&utm_medium=footer" target="_blank" rel="noopener" onClick={recordCta} className="text-neutral-900 hover:underline underline-offset-4">CertiStage</a>
+            </p>
+            <a href="https://www.certistage.com?utm_source=download_page&utm_medium=footer_cta" target="_blank" rel="noopener" onClick={recordCta} className="hover:text-neutral-900">
+              Issue certificates for your own event or institute
+            </a>
+          </div>
+        </footer>
+      )}
     </div>
   )
 }

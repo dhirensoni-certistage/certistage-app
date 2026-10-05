@@ -42,6 +42,8 @@ interface EventData {
   id: string
   name: string
   description?: string
+  organization?: string | null
+  showPoweredBy?: boolean
 }
 
 interface Recipient {
@@ -407,7 +409,7 @@ export default function EventDownloadPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <Header />
+        <Header showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} />
         <main className="flex-1 flex items-center justify-center p-4">
           <Card className="max-w-md w-full">
             <CardContent className="py-12 text-center">
@@ -417,7 +419,7 @@ export default function EventDownloadPage() {
             </CardContent>
           </Card>
         </main>
-        <Footer />
+        <Footer show={event?.showPoweredBy !== false} />
       </div>
     )
   }
@@ -426,7 +428,7 @@ export default function EventDownloadPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header />
+      <Header showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} />
 
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="max-w-xl w-full space-y-6">
@@ -760,27 +762,34 @@ export default function EventDownloadPage() {
         </div>
       </main>
 
-      <Footer />
+      <Footer show={event?.showPoweredBy !== false} />
     </div>
   )
 }
 
-function Header() {
+// showPoweredBy=false (organiser hid it on a paid plan): the header shows the organiser's
+// name instead of the CertiStage mark and the footer line is gone.
+function Header({ showPoweredBy = true, brand }: { showPoweredBy?: boolean; brand?: string | null }) {
   return (
     <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
       <div className="container mx-auto px-4 h-16 flex items-center justify-center">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-            <Award className="h-5 w-5 text-primary-foreground" />
+        {showPoweredBy ? (
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+              <Award className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="font-semibold text-lg">CertiStage</span>
           </div>
-          <span className="font-semibold text-lg">CertiStage</span>
-        </div>
+        ) : (
+          <span className="font-semibold text-lg truncate max-w-full">{brand || ""}</span>
+        )}
       </div>
     </header>
   )
 }
 
-function Footer() {
+function Footer({ show = true }: { show?: boolean }) {
+  if (!show) return null
   return (
     <footer className="border-t border-border/50 bg-card/50 py-4">
       <div className="container mx-auto px-4 text-center">
@@ -791,4 +800,3 @@ function Footer() {
     </footer>
   )
 }
-
