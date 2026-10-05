@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf"
+import { addonItemName } from "@/lib/addons"
 import { getPlanById } from "@/lib/plan-config.server"
 import { isOneTimePlan, planExpiryFrom, planTermLabel } from "@/lib/plan-config"
 import { readFile } from "fs/promises"
@@ -211,7 +212,7 @@ export async function renderInvoicePdf(payment: any, user: InvoicePdfUser | null
   doc.setFontSize(11)
   doc.setTextColor(17, 24, 39)
   const isAddon = payment.kind === "addon"
-  doc.text(isAddon ? `${Number(payment.addonEmails || 0).toLocaleString("en-IN")} certificate emails` : planLabel(planName || capitalize(payment.plan)), margin + 12, y)
+  doc.text(isAddon ? addonItemName(payment) : planLabel(planName || capitalize(payment.plan)), margin + 12, y)
   doc.setFont("helvetica", "normal")
   doc.setFontSize(9)
   doc.setTextColor(107, 114, 128)

@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       emails: done?.addonEmails || payment.addonEmails || 0,
+      certificates: done?.addonCertificates || payment.addonCertificates || 0,
       invoiceNumber: done?.invoiceNumber || null,
       quota
     })

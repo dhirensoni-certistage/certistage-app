@@ -201,13 +201,29 @@ export async function getIssuedCertificates(user: any): Promise<number> {
   return issued
 }
 
-/** Record newly issued certificates against the user's current plan period. */
+/**
+ * Record newly issued certificates against the user's current plan period. Certificates beyond
+ * the plan's quota are paid for from add-on credits (User.certificateCredits), which never expire.
+ */
 export async function recordCertificatesIssued(userId: string, count: number): Promise<void> {
   if (count <= 0) return
   const user = await User.findById(userId)
   if (!user) return
-  await getIssuedCertificates(user)
-  await User.updateOne({ _id: user._id, "usage.key": usagePeriodKey(user) }, { $inc: { "usage.certificatesIssued": count } })
+  const before = await getIssuedCertificates(user)
+  const limits = await getPlanLimits(user.plan)
+  const overflow = limits.maxCertificates === -1
+    ? 0
+    : Math.max(0, before + count - limits.maxCertificates) - Math.max(0, before - limits.maxCertificates)
+  const spend = Math.min(overflow, Math.max(0, user.certificateCredits || 0))
+  await User.updateOne(
+    { _id: user._id, "usage.key": usagePeriodKey(user) },
+    { $inc: { "usage.certificatesIssued": count, ...(spend > 0 ? { certificateCredits: -spend } : {}) } }
+  )
+}
+
+/** Plan quota plus unused add-on certificates: what the account can still issue this period */
+export function effectiveCertificateLimit(limits: Pick<PlanLimits, "maxCertificates">, credits: number): number {
+  return limits.maxCertificates === -1 ? -1 : limits.maxCertificates + Math.max(0, credits || 0)
 }
 
 // Check if user can add more recipients/certificates
@@ -225,27 +241,29 @@ export async function canUserAddRecipients(userId: string, countToAdd: number = 
 
   const limits = await getPlanLimits(user.plan)
   const currentCount = await getIssuedCertificates(user)
+  // Add-on certificates extend the plan quota for this period
+  const maxAllowed = effectiveCertificateLimit(limits, user.certificateCredits || 0)
 
-  if (limits.maxCertificates === -1) {
+  if (maxAllowed === -1) {
     return { allowed: true, currentCount, maxAllowed: -1, availableSlots: -1 }
   }
 
-  const availableSlots = limits.maxCertificates - currentCount
+  const availableSlots = maxAllowed - currentCount
 
-  if (currentCount + countToAdd > limits.maxCertificates) {
+  if (currentCount + countToAdd > maxAllowed) {
     return {
       allowed: false,
       currentCount,
-      maxAllowed: limits.maxCertificates,
+      maxAllowed,
       availableSlots: Math.max(0, availableSlots),
-      reason: `Certificate limit reached (${currentCount}/${limits.maxCertificates} issued on your plan). Upgrade for more.`
+      reason: `Certificate limit reached (${currentCount}/${maxAllowed} issued on your plan). Upgrade, or buy a pack of extra certificates from Add-ons.`
     }
   }
 
   return {
     allowed: true,
     currentCount,
-    maxAllowed: limits.maxCertificates,
+    maxAllowed,
     availableSlots
   }
 }
@@ -255,6 +273,9 @@ export async function getUserUsageStats(userId: string): Promise<{
   plan: string
   planExpiresAt: string | null
   limits: PlanLimits
+  /** Unused add-on certificates (never expire) and the plan quota plus those credits */
+  certificateCredits: number
+  effectiveCertificates: number
   usage: {
     events: number
     certificateTypes: number
@@ -287,10 +308,15 @@ export async function getUserUsageStats(userId: string): Promise<{
   ])
   const remainingFor = (limit: number, used: number) => (limit === -1 ? -1 : Math.max(0, limit - used))
 
+  const certificateCredits = Math.max(0, user.certificateCredits || 0)
+  const effectiveCertificates = effectiveCertificateLimit(limits, certificateCredits)
+
   return {
     plan: user.plan,
     planExpiresAt: user.planExpiresAt ? new Date(user.planExpiresAt).toISOString() : null,
     limits,
+    certificateCredits,
+    effectiveCertificates,
     usage: {
       events: eventsCount,
       certificateTypes: certTypesCount,
@@ -300,7 +326,7 @@ export async function getUserUsageStats(userId: string): Promise<{
     remaining: {
       events: remainingFor(limits.maxEvents, eventsCount),
       certificateTypes: remainingFor(limits.maxCertificateTypes, certTypesCount),
-      certificates: remainingFor(limits.maxCertificates, issued)
+      certificates: remainingFor(effectiveCertificates, issued)
     }
   }
 }

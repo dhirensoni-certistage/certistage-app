@@ -311,6 +311,7 @@ async function createAddonPaymentFromNotes(orderId: string, paymentId: string | 
     kind: "addon",
     addonId: notes.addonId,
     addonEmails: Number(notes.emails) || 0,
+    addonCertificates: Number(notes.certificates) || 0,
     amount,
     currency: "INR",
     status,

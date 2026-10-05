@@ -13,6 +13,7 @@ export interface IPayment extends Document {
   kind?: "plan" | "addon"
   addonId?: string
   addonEmails?: number
+  addonCertificates?: number
   creditsGrantedAt?: Date
   amount: number
   currency: string
@@ -41,6 +42,7 @@ const PaymentSchema = new Schema<IPayment>(
     kind: { type: String, enum: ["plan", "addon"], default: "plan" },
     addonId: { type: String },
     addonEmails: { type: Number },
+    addonCertificates: { type: Number },
     creditsGrantedAt: { type: Date },
     amount: { type: Number, required: true },
     currency: { type: String, default: "INR" },

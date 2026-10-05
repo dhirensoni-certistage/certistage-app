@@ -7,6 +7,7 @@ import { ArrowRight, ChevronRight, Users, Download, Clock, Award, CalendarDays, 
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { QuotaNudge } from "@/components/client/quota-nudge"
 import { getClientSession, getPlanFeaturesMap, normalizePlanId } from "@/lib/auth"
 import { fetchClientProfile, applyProfileToSession } from "@/lib/client-profile"
 import { cn } from "@/lib/utils"
@@ -161,9 +162,6 @@ export default function ClientDashboard() {
   const planFeaturesMap = getPlanFeaturesMap()
   const planFeatures = planFeaturesMap[planId]
   const hasCertificateLimit = planFeatures.maxCertificates > 0
-  const certLimit = planFeatures.maxCertificates
-  const certUsed = issued ?? event.stats.total
-  const usagePercent = hasCertificateLimit ? Math.min(100, Math.round((certUsed / certLimit) * 100)) : 0
   const completionRate = event.stats.total > 0 ? Math.round((event.stats.downloaded / event.stats.total) * 100) : 0
   const linkedinCount = event.stats.linkedin ?? 0
   const linkedinRate = event.stats.downloaded > 0 ? Math.round((linkedinCount / event.stats.downloaded) * 100) : 0
@@ -310,20 +308,10 @@ export default function ClientDashboard() {
         ))}
       </div>
 
-      {/* Plan usage */}
+      {/* Plan usage, with the upgrade prompt from 80% (components/client/quota-nudge) */}
       {hasCertificateLimit && (
-        <motion.div {...fade(0.3)} className="rounded-xl border border-neutral-200 bg-white px-5 py-4">
-          <div className="flex items-center justify-between gap-4 text-[13px]">
-            <p className="text-neutral-600">
-              <span className="font-medium text-neutral-900">{certUsed.toLocaleString("en-IN")}</span> of {certLimit.toLocaleString("en-IN")} certificates issued on the {planFeatures.displayName} plan
-            </p>
-            {(usagePercent >= 80 || planId === "free") && (
-              <Link href="/client/upgrade" className="font-medium text-neutral-900 underline underline-offset-4 hover:text-gold-deep whitespace-nowrap">Upgrade</Link>
-            )}
-          </div>
-          <div className="h-1.5 w-full bg-neutral-100 rounded-full overflow-hidden mt-3">
-            <div className={cn("h-full rounded-full", usagePercent >= 90 ? "bg-red-500" : "bg-neutral-900")} style={{ width: `${usagePercent}%` }} />
-          </div>
+        <motion.div {...fade(0.3)}>
+          <QuotaNudge variant="bar" />
         </motion.div>
       )}
 

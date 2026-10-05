@@ -5,8 +5,11 @@ import { toast } from "sonner"
 import { loadRazorpayScript, type RazorpayPaymentResponse } from "@/lib/razorpay"
 import { getClientSession } from "@/lib/auth"
 
-/** Buys a pack of certificate emails (lib/addons) through Razorpay Checkout */
-export function useBuyEmails(onBought?: (emails: number) => void) {
+/**
+ * Buys an add-on pack (lib/addons: certificate emails or extra certificates) through Razorpay
+ * Checkout. `onBought` gets the number of emails or certificates added.
+ */
+export function useBuyEmails(onBought?: (count: number) => void) {
   const [busyPack, setBusyPack] = useState<string | null>(null)
 
   /** packId of a listed pack, or "custom" with a number of emails */
@@ -41,8 +44,10 @@ export function useBuyEmails(onBought?: (emails: number) => void) {
             })
             const result = await verify.json()
             if (!verify.ok) throw new Error(result.error || "Payment verification failed")
-            toast.success(`${Number(result.emails).toLocaleString("en-IN")} emails added to your account`, { description: "A receipt has been emailed to you." })
-            onBought?.(result.emails)
+            const certificates = Number(result.certificates) || 0
+            const added = certificates || Number(result.emails) || 0
+            toast.success(`${added.toLocaleString("en-IN")} ${certificates ? "extra certificates" : "emails"} added to your account`, { description: "A receipt has been emailed to you." })
+            onBought?.(added)
           } catch (error: any) {
             toast.error(error?.message || "Payment verification failed", { description: "If money was deducted, the emails will be added automatically within a few minutes." })
           } finally {

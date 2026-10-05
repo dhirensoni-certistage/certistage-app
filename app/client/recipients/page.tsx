@@ -44,6 +44,7 @@ import { getDownloadLink } from "@/lib/events"
 import { useRefreshOnFocus } from "@/hooks/use-refresh-on-focus"
 import { cn } from "@/lib/utils"
 import { toastDeleted } from "@/lib/client-trash"
+import { QuotaNudge } from "@/components/client/quota-nudge"
 
 // Types for API response
 interface EventRecipient {
@@ -131,7 +132,9 @@ export default function RecipientsPage() {
       if (res.ok) {
         const data = await res.json()
         if (typeof data.usage?.certificates === "number") setIssuedCount(data.usage.certificates)
-        if (typeof data.limits?.maxCertificates === "number") setMaxCertificates(data.limits.maxCertificates)
+        // Plan quota plus any add-on certificates (lib/plan-limits effectiveCertificateLimit)
+        if (typeof data.effectiveCertificates === "number") setMaxCertificates(data.effectiveCertificates)
+        else if (typeof data.limits?.maxCertificates === "number") setMaxCertificates(data.limits.maxCertificates)
       }
     } catch { }
   }
@@ -478,7 +481,7 @@ export default function RecipientsPage() {
     if (maxCertificates !== -1 && currentTotal >= maxCertificates) {
       const planFeatures = getCurrentPlanFeatures()
       toast.error(`Certificate limit reached (${maxCertificates})`, {
-        description: `Your ${planFeatures.displayName} plan includes ${maxCertificates} certificates. Issued certificates count even after they are deleted. Upgrade to add more.`,
+        description: `Your ${planFeatures.displayName} plan includes ${maxCertificates} certificates. Issued certificates count even after they are deleted. Upgrade, or buy a pack of extra certificates from Add-ons.`,
         action: {
           label: "Upgrade",
           onClick: () => window.location.href = "/client/upgrade"
@@ -532,7 +535,7 @@ export default function RecipientsPage() {
       if (availableSlots <= 0) {
         const planFeatures = getCurrentPlanFeatures()
         toast.error(`Certificate limit reached (${maxCertificates})`, {
-          description: `Your ${planFeatures.displayName} plan includes ${maxCertificates} certificates. Issued certificates count even after they are deleted. Upgrade to add more.`
+          description: `Your ${planFeatures.displayName} plan includes ${maxCertificates} certificates. Issued certificates count even after they are deleted. Upgrade, or buy a pack of extra certificates from Add-ons.`
         })
         return
       }
@@ -840,6 +843,9 @@ export default function RecipientsPage() {
           </div>
         )}
       </div>
+
+      {/* Upgrade prompt from 80% of the certificate quota */}
+      {isUserLogin && <QuotaNudge className="mb-4 flex-shrink-0" />}
 
       {/* Recipients Table with Filters */}
       {!showTableSkeleton && event?.certificateTypes.length === 0 ? (

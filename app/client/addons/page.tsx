@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { Mail, MessageCircle, Award, EyeOff, Check, ArrowRight, Receipt, Infinity as InfinityIcon, Loader2, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
-import { ADDONS, emailPackName } from "@/lib/addons"
+import { ADDONS, addonItemName } from "@/lib/addons"
 import { formatInr } from "@/lib/plan-config"
 import { EmailPacks } from "@/components/client/email-packs"
+import { CertificatePacks } from "@/components/client/certificate-packs"
 import { StatusTag } from "@/components/client/addon-status-tag"
 import { cn } from "@/lib/utils"
 
@@ -21,6 +22,7 @@ interface Quota {
 interface Purchase {
   _id: string
   addonEmails?: number
+  addonCertificates?: number
   amount: number
   invoiceNumber?: string
   createdAt: string
@@ -48,6 +50,8 @@ export default function AddonsPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   // Early-access requests already made (from the server) and the one being sent right now
   const [requested, setRequested] = useState<Record<string, string>>({})
+  // Certificate quota (plan + add-on credits) for the extra-certificates section
+  const [certUsage, setCertUsage] = useState<{ used: number; planLimit: number; credits: number; effective: number } | null>(null)
   const [requesting, setRequesting] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -60,6 +64,13 @@ export default function AddonsPage() {
       const map: Record<string, string> = {}
       for (const r of data.requests || []) if (r?.addonId) map[r.addonId] = r.requestedAt
       setRequested(map)
+    } catch {}
+    try {
+      const res = await fetch("/api/client/usage")
+      if (res.ok) {
+        const u = await res.json()
+        setCertUsage({ used: u.usage?.certificates || 0, planLimit: u.limits?.maxCertificates ?? 0, credits: u.certificateCredits || 0, effective: u.effectiveCertificates ?? 0 })
+      }
     } catch {}
   }, [])
 
@@ -85,7 +96,7 @@ export default function AddonsPage() {
   useEffect(() => { load() }, [load])
 
   const emails = ADDONS.find((a) => a.id === "emails")!
-  const upcoming = ADDONS.filter((a) => a.id !== "emails")
+  const upcoming = ADDONS.filter((a) => a.id !== "emails" && a.id !== "certificates")
   const unlimited = quota?.remaining === -1
   const planShare = quota && quota.planLimit > 0 ? Math.min(100, (quota.planRemaining / quota.planLimit) * 100) : 0
 
@@ -171,6 +182,47 @@ export default function AddonsPage() {
         </div>
       </section>
 
+      {/* Extra certificates */}
+      <section id="certificates" className="mt-6 rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)] scroll-mt-6">
+        <div className="grid lg:grid-cols-[1.15fr_1fr]">
+          <div className="p-6 md:p-8">
+            <div className="flex items-center gap-3">
+              <span className="h-10 w-10 rounded-xl bg-gold-soft text-gold-deep flex items-center justify-center">
+                <Award className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 className="text-[18px] font-semibold text-neutral-900">Extra certificates</h2>
+                <p className="text-[13px] text-neutral-500">One-time packs · never expire</p>
+              </div>
+            </div>
+            <p className="mt-5 text-[14.5px] text-neutral-600 leading-relaxed max-w-md">
+              For the event that turns out bigger than planned. Packs add to your plan&apos;s quota and are used only after the plan&apos;s certificates for the period are gone.
+            </p>
+            {certUsage && certUsage.effective !== -1 && (
+              <div className="mt-5 rounded-xl border border-neutral-200 p-4 max-w-md">
+                <div className="flex items-baseline justify-between text-[13px]">
+                  <span className="text-neutral-600">Issued this plan period</span>
+                  <span className="font-semibold text-neutral-900 tabular-nums">{n(certUsage.used)} <span className="font-normal text-neutral-500">of {n(certUsage.effective)}</span></span>
+                </div>
+                <div className="mt-2 h-1.5 rounded-full bg-neutral-100 overflow-hidden">
+                  <div className={cn("h-full rounded-full", certUsage.used >= certUsage.effective ? "bg-red-600" : "bg-neutral-900")} style={{ width: `${Math.min(100, Math.round((certUsage.used / Math.max(1, certUsage.effective)) * 100))}%` }} />
+                </div>
+                <p className="mt-2 text-[12px] text-neutral-500">
+                  {n(certUsage.planLimit)} from your plan{certUsage.credits > 0 ? ` + ${n(certUsage.credits)} extra from add-ons` : ""}. Issued certificates count even after they are deleted.
+                </p>
+              </div>
+            )}
+            <p className="mt-5 text-[13px] text-neutral-500">
+              Need extra certificates every event? <Link href="/client/upgrade" className="font-medium text-neutral-900 hover:underline underline-offset-4">Compare plans</Link>: the next plan up is usually cheaper per certificate.
+            </p>
+          </div>
+          <div className="border-t lg:border-t-0 lg:border-l border-neutral-200 bg-neutral-50/70 p-6 md:p-8">
+            <p className="text-[12px] font-semibold uppercase tracking-wider text-neutral-500 mb-3">Choose a pack</p>
+            <CertificatePacks onBought={() => load()} />
+          </div>
+        </div>
+      </section>
+
       {/* Coming soon */}
       <div className="mt-12">
         <div className="flex items-end justify-between gap-3 mb-4">
@@ -179,7 +231,7 @@ export default function AddonsPage() {
             <p className="text-[13.5px] text-neutral-500 mt-0.5">Tell us which upcoming one you need first and we&apos;ll set it up for your next event.</p>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {upcoming.map((addon) => {
             const Icon = ICONS[addon.id] || Mail
             return (
@@ -232,7 +284,7 @@ export default function AddonsPage() {
                 {purchases.map((p) => (
                   <div key={p._id} className="flex items-center justify-between gap-3 px-5 py-3.5 text-[13.5px]">
                     <div className="min-w-0">
-                      <p className="font-medium text-neutral-900">{emailPackName({ emails: p.addonEmails || 0 })}</p>
+                      <p className="font-medium text-neutral-900">{addonItemName(p)}</p>
                       <p className="text-[12px] text-neutral-500">
                         {new Date(p.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                         {p.invoiceNumber && <> · {p.invoiceNumber}</>}

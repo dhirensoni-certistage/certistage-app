@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import { requireClientUser } from "@/lib/client-auth.server"
-import { findEmailPack, emailPackName, parseCustomEmails, customEmailPrice, CUSTOM_EMAILS } from "@/lib/addons"
+import { findEmailPack, emailPackName, parseCustomEmails, customEmailPrice, CUSTOM_EMAILS, findCertPack, certPackName } from "@/lib/addons"
 import { getRazorpayKeys } from "@/lib/addon-payments.server"
 import { generateReceipt } from "@/lib/razorpay"
 import Payment from "@/models/Payment"
 import User from "@/models/User"
 
-// POST - start buying an add-on (a pack of certificate emails): creates the Razorpay order
+// POST - start buying an add-on (a pack of certificate emails, or of extra certificates): creates the Razorpay order
 export async function POST(request: NextRequest) {
   try {
     await connectDB()
     const auth = await requireClientUser(request)
     if (auth.response) return auth.response
     const { packId, emails: customEmails } = await request.json().catch(() => ({}))
+
+    const certPack = findCertPack(packId)
+    if (certPack) return createOrder(auth.userId, { id: certPack.id, price: certPack.price, description: certPackName(certPack), notes: { certificates: String(certPack.certificates) }, record: { addonCertificates: certPack.certificates } })
+
     // A listed pack, or any quantity priced by volume (lib/addons); the price is always computed here
     let pack = findEmailPack(packId)
     if (!pack && customEmails !== undefined) {
@@ -25,12 +29,23 @@ export async function POST(request: NextRequest) {
       }
       pack = { id: "emails_custom", emails, price: customEmailPrice(emails) }
     }
-    if (!pack) return NextResponse.json({ error: "Choose an email pack" }, { status: 400 })
+    if (!pack) return NextResponse.json({ error: "Choose a pack" }, { status: 400 })
+    return createOrder(auth.userId, { id: pack.id, price: pack.price, description: emailPackName(pack), notes: { emails: String(pack.emails) }, record: { addonEmails: pack.emails } })
+  } catch (error) {
+    console.error("Add-on order error:", error)
+    return NextResponse.json({ error: "Failed to create order" }, { status: 500 })
+  }
+}
 
+async function createOrder(
+  userId: string,
+  item: { id: string; price: number; description: string; notes: Record<string, string>; record: { addonEmails?: number; addonCertificates?: number } }
+) {
+  try {
     const { keyId, keySecret } = await getRazorpayKeys()
     if (!keyId || !keySecret) return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 })
 
-    const user = await User.findById(auth.userId).select("name email").lean<{ name?: string; email?: string }>()
+    const user = await User.findById(userId).select("name email").lean<{ name?: string; email?: string }>()
     const res = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: {
@@ -38,11 +53,11 @@ export async function POST(request: NextRequest) {
         Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`
       },
       body: JSON.stringify({
-        amount: pack.price,
+        amount: item.price,
         currency: "INR",
         receipt: generateReceipt(),
         // No "plan" note: the plan webhook paths must never treat this as a plan purchase
-        notes: { kind: "addon", addonId: pack.id, emails: String(pack.emails), userId: auth.userId, userEmail: user?.email || "" }
+        notes: { kind: "addon", addonId: item.id, ...item.notes, userId, userEmail: user?.email || "" }
       })
     })
     if (!res.ok) {
@@ -52,13 +67,13 @@ export async function POST(request: NextRequest) {
     const order = await res.json()
 
     await Payment.create({
-      userId: auth.userId,
+      userId,
       orderId: order.id,
       plan: "addon",
       kind: "addon",
-      addonId: pack.id,
-      addonEmails: pack.emails,
-      amount: pack.price,
+      addonId: item.id,
+      ...item.record,
+      amount: item.price,
       currency: "INR",
       status: "pending"
     })
@@ -66,7 +81,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       order: { id: order.id, amount: order.amount, currency: order.currency },
       razorpayKeyId: keyId,
-      description: emailPackName(pack),
+      description: item.description,
       prefill: { name: user?.name || "", email: user?.email || "" }
     })
   } catch (error) {

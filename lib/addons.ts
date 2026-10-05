@@ -49,6 +49,32 @@ export function betterTierOffer(emails: number): { emails: number; price: number
 
 export const emailPackName = (pack: { emails: number }) => `${pack.emails.toLocaleString("en-IN")} certificate emails`
 
+/**
+ * Extra certificates on top of the plan's quota, for the event that turns out bigger than
+ * planned. Used only after the plan's certificates for the period are gone; never expire.
+ * Priced above the annual plans' per-certificate rate on purpose: a pack is for a one-off
+ * overflow, the next plan up is still the better deal for recurring volume.
+ */
+export interface CertPack {
+  id: string
+  certificates: number
+  price: number
+}
+
+export const CERT_PACKS: CertPack[] = [
+  { id: "certs_500", certificates: 500, price: 99900 },
+  { id: "certs_1000", certificates: 1000, price: 179900 },
+  { id: "certs_5000", certificates: 5000, price: 699900 },
+]
+
+export const findCertPack = (id: unknown): CertPack | undefined => CERT_PACKS.find((p) => p.id === id)
+
+export const certPackName = (pack: { certificates: number }) => `${pack.certificates.toLocaleString("en-IN")} extra certificates`
+
+/** Receipt / history line for any add-on payment */
+export const addonItemName = (p: { addonEmails?: number | null; addonCertificates?: number | null }) =>
+  p.addonCertificates ? certPackName({ certificates: p.addonCertificates }) : emailPackName({ emails: p.addonEmails || 0 })
+
 export type AddonStatus = "live" | "beta" | "soon"
 
 export const ADDONS: { id: string; title: string; description: string; status: AddonStatus; href?: string; cta?: string }[] = [
@@ -67,8 +93,10 @@ export const ADDONS: { id: string; title: string; description: string; status: A
   {
     id: "certificates",
     title: "Extra certificates",
-    description: "Issue more certificates than your plan includes, without changing plan.",
-    status: "soon",
+    description: "Issue more certificates than your plan includes, without changing plan. One-time packs that never expire.",
+    status: "live",
+    href: "/client/addons#certificates",
+    cta: "See packs",
   },
   {
     // Shipped as part of every annual plan rather than as a paid add-on (Settings > Download page branding)

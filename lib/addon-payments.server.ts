@@ -2,7 +2,7 @@ import connectDB from "@/lib/mongodb"
 import Payment from "@/models/Payment"
 import Settings from "@/models/Settings"
 import User from "@/models/User"
-import { emailPackName } from "@/lib/addons"
+import { addonItemName } from "@/lib/addons"
 
 /** Razorpay keys: admin payment settings first, then env (same order as plan payments) */
 export async function getRazorpayKeys(): Promise<{ keyId?: string; keySecret?: string }> {
@@ -59,8 +59,13 @@ export async function completeAddonPayment(orderId: string, paymentId?: string, 
   if (!claimed) return { granted: false, payment: await Payment.findById(paid._id) }
 
   const emails = claimed.addonEmails || 0
-  const user = await User.findByIdAndUpdate(claimed.userId, { $inc: { emailCredits: emails } }, { new: true })
-  const itemName = emailPackName({ emails })
+  const certificates = claimed.addonCertificates || 0
+  const user = await User.findByIdAndUpdate(
+    claimed.userId,
+    { $inc: { ...(emails ? { emailCredits: emails } : {}), ...(certificates ? { certificateCredits: certificates } : {}) } },
+    { new: true }
+  )
+  const itemName = addonItemName(claimed)
 
   try {
     const Notification = (await import("@/models/Notification")).default
