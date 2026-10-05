@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
+import { DEFAULT_PLAN_CONFIG, mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
 import { Check, Plus, Pencil, Trash2, Sparkles, Layers, Tag } from "lucide-react"
 
 const ACCENT_PALETTE = ["#f97316", "#3b82f6", "#22c55e", "#e11d48", "#f59e0b", "#14b8a6"]
@@ -162,6 +162,14 @@ export default function AdminPlansPage() {
   const handleDelete = async (planId: string) => {
     if (planId === "free") {
       toast.error("Free plan cannot be deleted")
+      return
+    }
+    // Built-in plans come back from the defaults if removed, so they are switched off instead
+    if (DEFAULT_PLAN_CONFIG.some((plan) => plan.id === planId)) {
+      if (!confirm("This is a built-in plan, so it will be taken off sale (disabled) rather than deleted. Continue?")) return
+      const nextPlans = sortedPlans.map((plan) => (plan.id === planId ? { ...plan, enabled: false } : plan))
+      setPlans(nextPlans)
+      await persistPlans(nextPlans)
       return
     }
     if (!confirm("Delete this plan? This will remove it from pricing.")) return

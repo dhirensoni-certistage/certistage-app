@@ -291,8 +291,11 @@ export function mergePlanConfigWithDefaults(value: unknown): PlanConfig[] {
     normalizePlan(item, defaultsMap.get(item.id))
   )
 
-  if (!normalized.some((plan) => plan.id === "free") && defaultsMap.get("free")) {
-    normalized.push(normalizePlan(defaultsMap.get("free"), defaultsMap.get("free")))
+  // A saved config predates plans added to the defaults later (e.g. the one-event plan),
+  // so any default plan it does not mention is added with its default settings. To take
+  // one off sale, disable it in Admin > Plans rather than deleting it.
+  for (const plan of defaults) {
+    if (!normalized.some((p) => p.id === plan.id)) normalized.push(plan)
   }
 
   return normalized.sort((a, b) => {
