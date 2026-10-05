@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { planExpiryFrom } from "@/lib/plan-config"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import Event from "@/models/Event"
@@ -6,7 +7,7 @@ import Payment from "@/models/Payment"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 import TrashItem from "@/models/TrashItem"
-import { getPlanConfigFromDb } from "@/lib/plan-config.server"
+import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
 
 export async function GET(
   request: NextRequest,
@@ -109,10 +110,20 @@ export async function PATCH(
         return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
       }
       user.plan = body.plan
-      // Set plan expiry to 1 year from now if upgrading to paid plan
+      // A paid plan set by hand runs for its normal term from today (1 year, or 60 days for the one-event plan)
       if (body.plan !== "free") {
-        user.planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        user.planStartDate = new Date()
+        user.planExpiresAt = planExpiryFrom(getPlanMap(planConfig)[body.plan], user.planStartDate)
       }
+    }
+
+    // Add-on certificate emails sold to this organizer (lib/email-delivery)
+    if (body.addEmailCredits !== undefined) {
+      const add = Number(body.addEmailCredits)
+      if (!Number.isInteger(add) || add === 0 || Math.abs(add) > 1_000_000) {
+        return NextResponse.json({ error: "Enter a whole number of emails" }, { status: 400 })
+      }
+      user.emailCredits = Math.max(0, (user.emailCredits || 0) + add)
     }
 
     await user.save()
@@ -123,7 +134,8 @@ export async function PATCH(
         _id: user._id, 
         isActive: user.isActive,
         plan: user.plan,
-        planExpiresAt: user.planExpiresAt
+        planExpiresAt: user.planExpiresAt,
+        emailCredits: user.emailCredits || 0
       } 
     })
   } catch (error) {

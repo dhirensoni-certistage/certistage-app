@@ -9,7 +9,10 @@ export async function GET() {
     uptime: process.uptime(),
     environment: process.env.NODE_ENV,
     services: {
-      database: "unknown"
+      database: "unknown",
+      // Which mailer this deployment will use; "not configured" means OTP and receipt emails fail (502 on login)
+      email: process.env.BREVO_API_KEY ? "brevo" : process.env.SENDGRID_API_KEY ? "sendgrid" : process.env.SMTP_USER && process.env.SMTP_PASS ? "smtp" : "not configured",
+      certificateEmail: process.env.ZEPTOMAIL_TOKEN ? "zeptomail" : process.env.BREVO_API_KEY ? "brevo" : "not configured"
     }
   }
 

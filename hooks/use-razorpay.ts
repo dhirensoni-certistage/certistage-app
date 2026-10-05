@@ -4,6 +4,7 @@ import { useState, useCallback } from "react"
 import { 
   loadRazorpayScript, 
   getPlanDisplayDetails,
+  checkoutDescription,
   type PlanId,
   type RazorpayPaymentResponse
 } from "@/lib/razorpay"
@@ -62,7 +63,7 @@ export function useRazorpay(options: UseRazorpayOptions = {}) {
       const planDetails = getPlanDisplayDetails(plan)
       
       // Build description with pro-rata info if applicable
-      let description = `${planDetails.name} Plan - Annual Subscription`
+      let description = checkoutDescription(plan)
       if (proRata && proRata.unusedCredit > 0) {
         description = `${planDetails.name} Plan Upgrade (₹${(proRata.savings / 100).toLocaleString("en-IN")} credit applied)`
       }

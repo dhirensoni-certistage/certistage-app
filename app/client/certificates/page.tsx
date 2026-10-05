@@ -47,7 +47,7 @@ import { TextColorPicker } from "@/components/client/text-color-picker"
 import { useTemplateTextScale } from "@/lib/certificate-text"
 import { toastDeleted } from "@/lib/client-trash"
 import { usePlanConfig } from "@/hooks/use-plan-config"
-import { formatInr, getStartingPaidPlan } from "@/lib/plan-config"
+import { getStartingPaidPlan, planPriceLabel } from "@/lib/plan-config"
 
 // PDF-compatible fonts only (jsPDF limitation)
 const PDF_FONTS = [
@@ -975,7 +975,7 @@ export default function CertificatesPage() {
                   </a>
                   {startingPaidPlan && (
                     <span className="text-xs text-muted-foreground">
-                      Starting from {formatInr(startingPaidPlan.price)}/{startingPaidPlan.billingPeriod || "year"}
+                      Starting from {planPriceLabel(startingPaidPlan)}
                     </span>
                   )}
                 </div>

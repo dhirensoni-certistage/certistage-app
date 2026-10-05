@@ -12,7 +12,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { usePlanConfig } from "@/hooks/use-plan-config"
-import { formatInr } from "@/lib/plan-config"
+import { formatInr, planPeriodLabel } from "@/lib/plan-config"
 import { AuthSidePanel, AuthMobileBar, authInputClass, authPrimaryButtonClass, authGoogleButtonClass } from "@/components/landing/auth-side-panel"
 import { Reveal } from "@/components/landing/reveal"
 import { OtpInput } from "@/components/landing/otp-input"
@@ -250,7 +250,7 @@ function SignupForm() {
 
             {isPaidPlan && selectedPlan && (
               <p className="mt-6 text-[12px] text-neutral-500">
-                Your {selectedPlan.name} plan ({formatInr(selectedPlan.price)}/year) is saved. Payment comes right after verification.
+                Your {selectedPlan.name} plan ({formatInr(selectedPlan.price)} {planPeriodLabel(selectedPlan, true)}) is saved. Payment comes right after verification.
               </p>
             )}
           </Reveal>
@@ -298,7 +298,7 @@ function SignupForm() {
                     <span className="text-[15px] font-semibold text-black truncate">{selectedPlan.name}</span>
                   </div>
                   <div className="text-right shrink-0 leading-tight">
-                    <div><span className="text-[15px] font-semibold text-black">{formatInr(selectedPlan.price)}</span><span className="text-[12px] text-neutral-500"> / year</span></div>
+                    <div><span className="text-[15px] font-semibold text-black">{formatInr(selectedPlan.price)}</span><span className="text-[12px] text-neutral-500"> {planPeriodLabel(selectedPlan)}</span></div>
                     <div className="text-[11px] text-neutral-500">billed after verification</div>
                   </div>
                 </div>

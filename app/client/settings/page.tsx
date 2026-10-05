@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Loader2, Check, Download } from "lucide-react"
+import { Loader2, Check, Download, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
@@ -23,6 +24,9 @@ interface UserProfile {
   plan: string
   planExpiresAt?: string
   createdAt?: string
+  hidePoweredBy?: boolean
+  canHidePoweredBy?: boolean
+  logo?: string | null
 }
 
 export default function SettingsPage() {
@@ -37,6 +41,52 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [profileForm, setProfileForm] = useState({ name: "", phone: "", organization: "" })
   const [usage, setUsage] = useState<{ events: number; certificateTypes: number; certificates: number } | null>(null)
+  const [isSavingBranding, setIsSavingBranding] = useState(false)
+  const [isSavingLogo, setIsSavingLogo] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+
+  // Organisation logo for the download page header (Cloudinary via /api/client/profile/logo)
+  const handleLogoFile = async (file: File | undefined) => {
+    if (!file || !profile) return
+    if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)) { toast.error("Upload a PNG, JPG, WebP or SVG"); return }
+    if (file.size > 2 * 1024 * 1024) { toast.error("Logo must be under 2 MB"); return }
+    setIsSavingLogo(true)
+    try {
+      const imageData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(file)
+      })
+      const res = await fetch("/api/client/profile/logo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageData }) })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        invalidateClientProfile()
+        setProfile({ ...profile, logo: data.logo })
+        toast.success("Logo updated. It now shows on your download pages.")
+      } else {
+        toast.error(data.error || "Could not upload the logo")
+      }
+    } catch { toast.error("Could not upload the logo") }
+    setIsSavingLogo(false)
+    if (logoInputRef.current) logoInputRef.current.value = ""
+  }
+
+  const handleRemoveLogo = async () => {
+    if (!profile) return
+    setIsSavingLogo(true)
+    try {
+      const res = await fetch("/api/client/profile/logo", { method: "DELETE" })
+      if (res.ok) {
+        invalidateClientProfile()
+        setProfile({ ...profile, logo: null })
+        toast.success("Logo removed")
+      } else {
+        toast.error("Could not remove the logo")
+      }
+    } catch { toast.error("Could not remove the logo") }
+    setIsSavingLogo(false)
+  }
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -79,6 +129,27 @@ export default function SettingsPage() {
       } else { toast.error(data.error || "Failed to update profile") }
     } catch { toast.error("Something went wrong") }
     setIsSavingProfile(false)
+  }
+
+  // "Powered by CertiStage" on download pages: off only on an active paid plan (server enforces it)
+  const handlePoweredByToggle = async (show: boolean) => {
+    if (!profile) return
+    setIsSavingBranding(true)
+    try {
+      const res = await fetch("/api/client/profile", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hidePoweredBy: !show })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        invalidateClientProfile()
+        setProfile({ ...profile, ...data.user })
+        toast.success(show ? "\"Powered by CertiStage\" is back on your download pages" : "\"Powered by CertiStage\" hidden on your download pages")
+      } else {
+        toast.error(data.error || "Could not save")
+      }
+    } catch { toast.error("Something went wrong") }
+    setIsSavingBranding(false)
   }
 
   const handleLogout = () => { localStorage.removeItem("clientSession"); toast.success("Logged out"); router.push("/client/login") }
@@ -166,6 +237,59 @@ export default function SettingsPage() {
             </Button>
           </div>
         </form>
+      )}
+
+      {activeTab === "profile" && (
+        <div className="mt-4 rounded-xl border border-neutral-200 bg-white p-5 md:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-[15px] font-semibold text-neutral-900">Download page branding</h2>
+              <p className="text-[13px] text-neutral-500 mt-0.5">
+                Your logo and organisation name are the hero on every download page, on every plan. The small &quot;Powered by CertiStage&quot; line in the footer can be switched off on an annual plan.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <Label htmlFor="powered-by" className="text-[13px] font-medium text-neutral-700 whitespace-nowrap">
+                Show &quot;Powered by CertiStage&quot;
+              </Label>
+              <Switch
+                id="powered-by"
+                checked={!(profile.hidePoweredBy && profile.canHidePoweredBy)}
+                disabled={isSavingBranding || !profile.canHidePoweredBy}
+                onCheckedChange={(checked) => handlePoweredByToggle(checked)}
+              />
+            </div>
+          </div>
+          <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-4 rounded-lg border border-neutral-200 p-4">
+            <div className="h-16 w-40 shrink-0 rounded-md border border-dashed border-neutral-200 bg-neutral-50 flex items-center justify-center overflow-hidden">
+              {profile.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.logo} alt="Organisation logo" className="max-h-14 max-w-[150px] object-contain" />
+              ) : (
+                <span className="text-[12px] text-neutral-400">No logo yet</span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium text-neutral-900">Organisation logo</p>
+              <p className="text-[12.5px] text-neutral-500 mt-0.5">PNG, JPG, WebP or SVG up to 2 MB. A wide logo on a transparent background looks best. Shown next to your organisation name{profileForm.organization ? "" : " (add one in Profile above)"}.</p>
+              <div className="mt-2.5 flex items-center gap-2">
+                <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={(e) => handleLogoFile(e.target.files?.[0])} />
+                <Button type="button" variant="outline" disabled={isSavingLogo} onClick={() => logoInputRef.current?.click()} className="h-8 px-3 text-[12.5px] border-neutral-200 hover:bg-neutral-50">
+                  {isSavingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : profile.logo ? "Replace logo" : "Upload logo"}
+                </Button>
+                {profile.logo && (
+                  <Button type="button" variant="ghost" disabled={isSavingLogo} onClick={handleRemoveLogo} className="h-8 px-3 text-[12.5px] text-neutral-600 hover:text-red-600">Remove</Button>
+                )}
+              </div>
+            </div>
+          </div>
+          {!profile.canHidePoweredBy && (
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 py-2.5 text-[12.5px] text-neutral-600">
+              <span className="flex items-center gap-2"><Lock className="h-3.5 w-3.5 text-neutral-400" /> Removing the line is included with every annual plan (Professional and up).</span>
+              <Link href="/client/upgrade" className="font-medium text-neutral-900 hover:underline underline-offset-4 whitespace-nowrap">See plans</Link>
+            </div>
+          )}
+        </div>
       )}
 
       {activeTab === "profile" && (

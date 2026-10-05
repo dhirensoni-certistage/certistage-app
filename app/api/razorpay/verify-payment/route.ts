@@ -7,7 +7,9 @@ import Payment from "@/models/Payment"
 import Settings from "@/models/Settings"
 import { type PlanId, PLAN_PRICES_MAP } from "@/lib/razorpay"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
+import { planExpiryFrom } from "@/lib/plan-config"
 import { requireClientUser } from "@/lib/client-auth.server"
+import { consumeOneEventCredit } from "@/lib/plan-credit.server"
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,6 +58,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 })
     }
 
+    // An add-on order is confirmed by /api/client/addons/verify and never activates a plan
+    if (await Payment.exists({ orderId: razorpay_order_id, kind: "addon" })) {
+      return NextResponse.json({ error: "This payment is not for a plan" }, { status: 400 })
+    }
+
     // Verify signature
     const expectedSignature = crypto
       .createHmac("sha256", razorpayKeySecret)
@@ -78,6 +85,24 @@ export async function POST(request: NextRequest) {
       })
       
       return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 })
+    }
+
+    // The plan comes from the order we created, not from the browser: the order's notes and
+    // amount must match the plan being activated
+    const { getRazorpayKeys } = await import("@/lib/addon-payments.server")
+    const { keyId } = await getRazorpayKeys()
+    let order: any = null
+    if (keyId) {
+      const orderRes = await fetch(`https://api.razorpay.com/v1/orders/${encodeURIComponent(razorpay_order_id)}`, {
+        headers: { Authorization: `Basic ${Buffer.from(`${keyId}:${razorpayKeySecret}`).toString("base64")}` }
+      })
+      if (!orderRes.ok) {
+        return NextResponse.json({ error: "Could not confirm the payment with Razorpay. Please try again in a minute." }, { status: 502 })
+      }
+      order = await orderRes.json()
+      if (order?.notes?.kind === "addon" || (order?.notes?.plan && order.notes.plan !== plan) || (order?.notes?.userId && order.notes.userId !== userId)) {
+        return NextResponse.json({ error: "This payment does not match the selected plan" }, { status: 400 })
+      }
     }
 
     const now = new Date()
@@ -110,14 +135,19 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Calculate plan expiry (1 year from now)
+    // Plan expiry: 1 year for annual plans, 60 days for the one-event plan (lib/plan-config)
     const planStartDate = now
-    const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
     const planConfig = await getPlanConfigFromDb()
     const planMap = getPlanMap(planConfig)
-    const amount = planMap[plan]?.price ?? PLAN_PRICES_MAP[plan] ?? 0
-    const baseAmount = amount
+    const planExpiresAt = planExpiryFrom(planMap[plan], now)
+    // What was actually charged (the order amount, after any credit) and the plan's full price
+    const fullPrice = planMap[plan]?.price ?? PLAN_PRICES_MAP[plan] ?? 0
+    const amount = typeof order?.amount === "number" ? order.amount : fullPrice
+    const creditAmount = Math.max(0, Number(order?.notes?.credit) || 0)
+    const creditLabel = creditAmount > 0 ? String(order?.notes?.creditLabel || "Credit") : undefined
+    const baseAmount = creditAmount > 0 ? fullPrice : amount
     const gatewayFee = 0
+    if (creditAmount > 0) await consumeOneEventCredit(order?.notes?.creditPaymentId || undefined, razorpay_order_id)
 
     // Update user's plan in database and clear pendingPlan
     const user = await User.findByIdAndUpdate(
@@ -145,6 +175,7 @@ export async function POST(request: NextRequest) {
       existingPayment.invoiceBaseAmount = baseAmount
       existingPayment.invoiceGatewayFee = gatewayFee
       existingPayment.amount = amount
+      if (creditAmount > 0) { existingPayment.creditAmount = creditAmount; existingPayment.creditLabel = creditLabel }
       await existingPayment.save()
     } else {
       await Payment.create({
@@ -159,7 +190,8 @@ export async function POST(request: NextRequest) {
         invoiceNumber: generatedInvoiceNumber,
         invoiceIssuedAt: now,
         invoiceBaseAmount: baseAmount,
-        invoiceGatewayFee: gatewayFee
+        invoiceGatewayFee: gatewayFee,
+        ...(creditAmount > 0 ? { creditAmount, creditLabel } : {})
       })
     }
 
