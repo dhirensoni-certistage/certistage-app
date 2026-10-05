@@ -37,6 +37,15 @@ export default function SupportPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [resourceModal, setResourceModal] = useState<null | "docs" | "faqs" | "videos">(null)
+  const [ticketNumber, setTicketNumber] = useState<string | null>(null)
+  const [tickets, setTickets] = useState<{ _id: string; number: string; subject: string; status: "open" | "in_progress" | "closed"; createdAt: string }[]>([])
+
+  const loadTickets = async () => {
+    try {
+      const res = await fetch("/api/client/support")
+      if (res.ok) setTickets((await res.json()).tickets || [])
+    } catch {}
+  }
 
   useEffect(() => {
     const sess = getClientSession()
@@ -45,6 +54,7 @@ export default function SupportPage() {
 
     if (sess?.userName) setName(sess.userName)
     if (sess?.userEmail) setEmail(sess.userEmail)
+    loadTickets()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,8 +83,10 @@ export default function SupportPage() {
         return
       }
       setSubmitted(true)
+      setTicketNumber(data.ticketNumber || null)
       setSubject("")
       setMessage("")
+      loadTickets()
     } catch {
       toast.error("Connection failed. Please try again.")
     } finally {
@@ -201,9 +213,9 @@ export default function SupportPage() {
                 <div className="h-16 w-16 rounded-full bg-neutral-500/10 flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="h-8 w-8 text-neutral-600" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Request sent</h3>
+                <h3 className="text-xl font-semibold mb-2">Request received{ticketNumber ? <span className="font-mono text-base text-muted-foreground ml-2">{ticketNumber}</span> : null}</h3>
                 <p className="text-muted-foreground mb-1">
-                  We emailed your request to support and will reply to <span className="font-medium text-foreground">{email}</span>.
+                  Your ticket is with our team. We will reply to <span className="font-medium text-foreground">{email}</span>.
                 </p>
                 <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
                   <Clock className="h-4 w-4" />
@@ -345,6 +357,29 @@ export default function SupportPage() {
           </div>
         </DialogContent>
       </Dialog>
+      {tickets.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Your requests</CardTitle>
+            <CardDescription>Every request gets a ticket number. Mention it if you write to us again.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ul className="divide-y">
+              {tickets.map((t) => (
+                <li key={t._id} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{t.subject}</p>
+                    <p className="text-xs text-muted-foreground"><span className="font-mono">{t.number}</span> · {new Date(t.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+                  </div>
+                  <Badge variant="outline" className={t.status === "closed" ? "text-neutral-500" : t.status === "in_progress" ? "border-blue-200 text-blue-700" : "border-amber-200 text-amber-700"}>
+                    {t.status === "in_progress" ? "In progress" : t.status === "closed" ? "Resolved" : "Open"}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

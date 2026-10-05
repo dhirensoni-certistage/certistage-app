@@ -42,16 +42,19 @@ const jsonLd = {
       "operatingSystem": "Web",
       "url": "https://www.certistage.com",
       "description": "Issue certificates to thousands of attendees, students and participants. For events, colleges, institutes and training programs.",
-      "featureList": "Excel import, Visual template editor, Self-service download page, Download tracking",
+      "featureList": "Excel import, Visual template editor, Self-service download page, Email delivery with open and click tracking, Add to LinkedIn profile, WhatsApp share, Organiser logo and branding, Download tracking and reports",
+      "audience": { "@type": "Audience", "audienceType": "Event organisers, colleges, universities, training institutes" },
+      "areaServed": "IN",
       "publisher": { "@id": "https://www.certistage.com/#organization" },
       "offers": {
         "@type": "AggregateOffer",
         "priceCurrency": "INR",
         "lowPrice": "0",
         "highPrice": "19999",
-        "offerCount": 4,
+        "offerCount": 5,
         "offers": [
           { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "INR" },
+          { "@type": "Offer", "name": "One event", "price": "799", "priceCurrency": "INR", "description": "One event, up to 1,000 certificates, paid once" },
           { "@type": "Offer", "name": "Professional", "price": "4999", "priceCurrency": "INR" },
           { "@type": "Offer", "name": "Enterprise", "price": "9999", "priceCurrency": "INR" },
           { "@type": "Offer", "name": "Premium", "price": "19999", "priceCurrency": "INR" }
@@ -67,7 +70,7 @@ export const metadata: Metadata = {
     default: "CertiStage - Certificates for Events, Colleges and Institutes",
     template: "%s | CertiStage"
   },
-  description: "Issue certificates to thousands of attendees, students and participants in minutes. Upload your design and an Excel sheet; every recipient downloads their own certificate. For events, colleges, institutes and training programs.",
+  description: "Bulk certificate generator for events, colleges, institutes and training programs in India. Upload your design and an Excel sheet; every recipient downloads their own certificate or gets it by email, with Add to LinkedIn built in. From ₹799 per event.",
   keywords: [
     "certificate generator",
     "online certificate maker",
@@ -78,7 +81,12 @@ export const metadata: Metadata = {
     "certificate management system",
     "digital certificates India",
     "certificate software",
-    "automated certificate generation"
+    "automated certificate generation",
+    "bulk certificate generator excel",
+    "CME certificate for conference",
+    "convocation certificate online",
+    "certificate with LinkedIn add to profile",
+    "send certificates by email bulk"
   ],
   authors: [{ name: "CertiStage" }],
   creator: "CertiStage",

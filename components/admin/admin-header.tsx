@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Search, HelpCircle, Command, ChevronDown, User, CreditCard, Calendar, Check, Activity, Settings, LogOut, PackagePlus } from "lucide-react"
+import { Bell, Search, HelpCircle, Command, ChevronDown, User, CreditCard, Calendar, Check, Activity, Settings, LogOut, PackagePlus, LifeBuoy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -88,6 +88,7 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
       case "payment": return <CreditCard className="h-4 w-4 text-neutral-500" />
       case "event": return <Calendar className="h-4 w-4 text-purple-500" />
       case "addon_request": return <PackagePlus className="h-4 w-4 text-amber-600" />
+      case "support": return <LifeBuoy className="h-4 w-4 text-red-500" />
       default: return <Bell className="h-4 w-4" />
     }
   }
