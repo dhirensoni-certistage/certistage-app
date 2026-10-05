@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
         isActive: user.isActive,
         createdAt: user.createdAt,
         hidePoweredBy: !!user.hidePoweredBy,
-        canHidePoweredBy: await canHidePoweredBy(user)
+        canHidePoweredBy: await canHidePoweredBy(user),
+        logo: user.logo || null
       }
     })
   } catch (error) {
@@ -88,7 +89,8 @@ export async function PUT(request: NextRequest) {
         plan: user.plan,
         planExpiresAt: user.planExpiresAt,
         hidePoweredBy: !!user.hidePoweredBy,
-        canHidePoweredBy: await canHidePoweredBy(user)
+        canHidePoweredBy: await canHidePoweredBy(user),
+        logo: user.logo || null
       },
       message: "Profile updated successfully"
     })

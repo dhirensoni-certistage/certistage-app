@@ -67,6 +67,7 @@ interface EventData {
   id: string
   name: string
   organization?: string | null
+  logo?: string | null
   showPoweredBy?: boolean // false when the organiser hid the "Powered by" line on a paid plan
 }
 
@@ -329,7 +330,7 @@ export default function CertTypeDownloadPage() {
   // ---------- states ----------
   if (loading || autoOpening) {
     return (
-      <Shell showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name}>
+      <Shell showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo}>
         <div className="w-full max-w-md mx-auto rounded-lg border border-neutral-200 bg-white p-6 sm:p-8 space-y-4">
           <div className="h-3.5 w-40 rounded bg-neutral-100 animate-pulse" />
           <div className="h-6 w-56 rounded bg-neutral-200 animate-pulse" />
@@ -342,7 +343,7 @@ export default function CertTypeDownloadPage() {
 
   if (error || !certType) {
     return (
-      <Shell showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name}>
+      <Shell showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo}>
         <div className="w-full max-w-md mx-auto rounded-lg border border-neutral-200 bg-white p-6 sm:p-8">
           <h1 className="text-lg font-semibold text-neutral-900">This certificate link is not available</h1>
           <p className="text-sm text-neutral-600 mt-2">{error || "This certificate page could not be loaded."}</p>
@@ -356,7 +357,7 @@ export default function CertTypeDownloadPage() {
   const showPreview = step === "preview" && !!selectedRecipient
 
   return (
-    <Shell typeId={typeId} showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name}>
+    <Shell typeId={typeId} showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo}>
       <div className="w-full max-w-md mx-auto rounded-lg border border-neutral-200 bg-white p-6 sm:p-8">
           {step === "search" && (
             <form onSubmit={handleSearch} noValidate>
@@ -593,23 +594,28 @@ function trackClick(body: Record<string, string>) {
   }).catch(() => {})
 }
 
-// showPoweredBy=false (organiser hid it on a paid plan): the header carries the organiser's
-// name instead of the CertiStage logo and the footer line is gone.
-function Shell({ children, typeId, showPoweredBy = true, brand }: { children: React.ReactNode; typeId?: string; showPoweredBy?: boolean; brand?: string | null }) {
+// The organiser is the hero of the download page: their logo and name in the header.
+// CertiStage appears only in the footer line, and not at all when the organiser hid it (paid plan).
+function Shell({ children, typeId, showPoweredBy = true, brand, logo }: { children: React.ReactNode; typeId?: string; showPoweredBy?: boolean; brand?: string | null; logo?: string | null }) {
   // Clicks on any CertiStage link here are how recipients become organisers; count them per certificate
   const recordCta = () => { if (typeId) trackClick({ kind: "cta", typeId }) }
+  const hasBrand = !!(logo || brand)
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F6F4] text-neutral-900">
       <header>
-        <div className="max-w-5xl mx-auto px-5 h-20 flex items-center justify-center">
-          {showPoweredBy ? (
+        <div className="max-w-5xl mx-auto px-5 min-h-20 py-3 flex items-center justify-center">
+          {hasBrand ? (
+            <div className="flex items-center gap-3 min-w-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {logo && <img src={logo} alt={brand || "Organiser logo"} className="h-12 max-w-[200px] w-auto object-contain" />}
+              {brand && <span className="font-semibold text-[20px] tracking-tight truncate">{brand}</span>}
+            </div>
+          ) : showPoweredBy ? (
             <a href="https://www.certistage.com?utm_source=download_page&utm_medium=header" target="_blank" rel="noopener" onClick={recordCta} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
               <Image src="/Certistage_icon.svg" alt="CertiStage" width={36} height={36} />
               <span className="font-semibold text-[20px] tracking-tight">CertiStage</span>
             </a>
-          ) : (
-            <span className="font-semibold text-[20px] tracking-tight text-center truncate max-w-full">{brand || ""}</span>
-          )}
+          ) : null}
         </div>
       </header>
       <main className="flex-1 flex items-start justify-center px-4 py-6 md:py-12">

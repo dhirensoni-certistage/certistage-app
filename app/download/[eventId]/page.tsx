@@ -43,6 +43,7 @@ interface EventData {
   name: string
   description?: string
   organization?: string | null
+  logo?: string | null
   showPoweredBy?: boolean
 }
 
@@ -409,7 +410,7 @@ export default function EventDownloadPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <Header showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} />
+        <Header showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo} />
         <main className="flex-1 flex items-center justify-center p-4">
           <Card className="max-w-md w-full">
             <CardContent className="py-12 text-center">
@@ -428,7 +429,7 @@ export default function EventDownloadPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} />
+      <Header showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo} />
 
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="max-w-xl w-full space-y-6">
@@ -769,20 +770,26 @@ export default function EventDownloadPage() {
 
 // showPoweredBy=false (organiser hid it on a paid plan): the header shows the organiser's
 // name instead of the CertiStage mark and the footer line is gone.
-function Header({ showPoweredBy = true, brand }: { showPoweredBy?: boolean; brand?: string | null }) {
+// The organiser is the hero: their logo and name. CertiStage only in the footer line.
+function Header({ showPoweredBy = true, brand, logo }: { showPoweredBy?: boolean; brand?: string | null; logo?: string | null }) {
+  const hasBrand = !!(logo || brand)
   return (
     <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-center">
-        {showPoweredBy ? (
+      <div className="container mx-auto px-4 min-h-16 py-2 flex items-center justify-center">
+        {hasBrand ? (
+          <div className="flex items-center gap-3 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {logo && <img src={logo} alt={brand || "Organiser logo"} className="h-10 max-w-[180px] w-auto object-contain" />}
+            {brand && <span className="font-semibold text-lg truncate">{brand}</span>}
+          </div>
+        ) : showPoweredBy ? (
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <Award className="h-5 w-5 text-primary-foreground" />
             </div>
             <span className="font-semibold text-lg">CertiStage</span>
           </div>
-        ) : (
-          <span className="font-semibold text-lg truncate max-w-full">{brand || ""}</span>
-        )}
+        ) : null}
       </div>
     </header>
   )

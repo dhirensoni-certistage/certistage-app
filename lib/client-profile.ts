@@ -24,6 +24,7 @@ export interface ClientProfile {
   createdAt?: string
   hidePoweredBy?: boolean
   canHidePoweredBy?: boolean
+  logo?: string | null
 }
 
 interface ProfileResult {

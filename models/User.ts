@@ -35,6 +35,9 @@ export interface IUser extends Document {
   isActive: boolean
   isEmailVerified: boolean
   hidePoweredBy?: boolean // hide "Powered by CertiStage" on download pages; honoured only on an active paid plan
+  /** Organisation logo shown as the hero on download pages (Cloudinary URL + id for replacement) */
+  logo?: string
+  logoPublicId?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -70,7 +73,9 @@ const UserSchema = new Schema<IUser>(
     addonRequests: [{ addonId: { type: String, required: true }, requestedAt: { type: Date, default: Date.now } }],
     isActive: { type: Boolean, default: true },
     isEmailVerified: { type: Boolean, default: false },
-    hidePoweredBy: { type: Boolean, default: false }
+    hidePoweredBy: { type: Boolean, default: false },
+    logo: { type: String },
+    logoPublicId: { type: String }
   },
   { timestamps: true }
 )
