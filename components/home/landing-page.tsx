@@ -53,7 +53,7 @@ const FAQS: { q: string; a: string; href?: string; linkText?: string }[] = [
   },
   {
     q: "Does the download page show my branding?",
-    a: "Yes, on every plan. Upload your logo in Settings and it appears with your organisation name at the top of every download page. Annual plans can also switch off the small \"Powered by CertiStage\" line in the footer."
+    a: "Yes, on every plan. Upload your logo in Settings and it appears with your organisation name at the top of every download page. Annual plans can also remove CertiStage branding from the download pages entirely."
   },
   {
     q: "Can colleges and training institutes use it?",
@@ -117,7 +117,7 @@ const FEATURES = [
   {
     icon: Building2,
     title: "Your brand, not ours",
-    desc: "Your logo and organisation name lead every download page, on every plan. Annual plans can remove the CertiStage line entirely."
+    desc: "Your logo and organisation name lead every download page, on every plan. Annual plans can remove CertiStage branding altogether."
   },
   {
     icon: BarChart3,
@@ -147,7 +147,7 @@ function planHighlights(plan: PlanConfig): string[] {
   items.push(l.canImportData ? "Excel import and reports" : "Add recipients one by one")
   items.push(plan.price > 0 ? "Email delivery with open and click tracking" : "Email delivery for your first recipients")
   if (oneTime) items.push(`Organiser access for ${planValidityDays(plan)} days`)
-  if (l.canRemoveBranding) items.push("Remove the \"Powered by CertiStage\" line")
+  if (l.canRemoveBranding) items.push("Remove CertiStage branding")
   const seen = new Set(items.map((i) => i.toLowerCase()))
   // Limits above already cover certificates, events, designs and import; admin lines add the rest
   const repeats = (text: string) => /certificate|event|design|type|import|excel|template|email delivery/i.test(text)
