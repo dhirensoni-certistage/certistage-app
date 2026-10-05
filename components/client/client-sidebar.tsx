@@ -11,7 +11,7 @@ import {
   ChevronRight,
   Award,
   Users,
-  LifeBuoy,
+  Headset,
   Crown,
   Settings2,
   CalendarDays, ArchiveRestore } from "lucide-react"
@@ -104,7 +104,7 @@ export function ClientSidebar({ mobile = false, onNavigate, collapsed: collapsed
     { href: "/client/addons", label: "Add-ons", icon: PackagePlus, requiresEvent: false, group: "Account", beta: true },
     { href: "/client/settings", label: "Settings", icon: Settings2, requiresEvent: false, group: "Account" },
     { href: "/client/trash", label: "Recently deleted", icon: ArchiveRestore, requiresEvent: false, group: "Account" },
-    { href: "/client/support", label: "Support", icon: LifeBuoy, requiresEvent: false, group: "Account" },
+    { href: "/client/support", label: "Support", icon: Headset, requiresEvent: false, group: "Account" },
   ]
 
   const filteredNavItems = navItems.filter(item => {
