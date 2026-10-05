@@ -3,16 +3,38 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { ArrowRight, ChevronRight, Users, Download, Clock, Award, CalendarDays, Linkedin } from "lucide-react"
-import { BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts"
+import { ArrowRight, ChevronRight, Users, Download, Clock, Award, CalendarDays, Linkedin, BarChart3, Table2 } from "lucide-react"
+import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getClientSession, getPlanFeaturesMap, normalizePlanId } from "@/lib/auth"
 import { fetchClientProfile, applyProfileToSession } from "@/lib/client-profile"
 import { cn } from "@/lib/utils"
 
 const GOLD = "#C8961E"
+const GOLD_DEEP = "#9A6B12"
+const GOLD_SOFT = "#EFE3C4" // lighter step of the same ramp: the "not yet downloaded" part of each bar
 const INK = "#171717"
 const CHART_TOOLTIP = { backgroundColor: "#fff", border: "1px solid #E5E5E5", borderRadius: "8px", fontSize: "12px", color: INK, boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }
+
+// Chart filters: one row above the charts, scoping both of them
+const RANGES: { id: string; label: string; days: number | null }[] = [
+  { id: "7", label: "7 days", days: 7 },
+  { id: "14", label: "14 days", days: 14 },
+  { id: "30", label: "30 days", days: 30 },
+  { id: "90", label: "90 days", days: 90 },
+  { id: "all", label: "All time", days: null }
+]
+const dayKey = (d: Date) => d.toISOString().slice(0, 10)
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+const shortDate = (iso: string) => { const d = new Date(`${iso}T00:00:00`); return `${d.getDate()} ${MONTHS[d.getMonth()]}` }
+// Axis ticks: the day number, with the month only on the first tick and the 1st of a month ("22 Sep, 23, 24 … 1 Oct, 2")
+const axisDate = (iso: string, index: number) => { const d = new Date(`${iso}T00:00:00`); return index === 0 || d.getDate() === 1 ? shortDate(iso) : String(d.getDate()) }
+// Single-line category label, truncated with an ellipsis instead of wrapped by recharts
+const CategoryTick = ({ x, y, payload }: { x?: number; y?: number; payload?: { value?: string } }) => {
+  const v = String(payload?.value ?? "")
+  return <text x={x} y={y} dy={4} textAnchor="end" fontSize={12} fill="#525252"><title>{v}</title>{v.length > 18 ? v.slice(0, 17) + "…" : v}</text>
+}
 
 interface DashboardEvent {
   _id: string
@@ -50,6 +72,10 @@ export default function ClientDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [session, setSession] = useState<ReturnType<typeof getClientSession>>(null)
   const [showUpgradeBanner, setShowUpgradeBanner] = useState(false)
+  const [rangeId, setRangeId] = useState("14")
+  const [typeFilter, setTypeFilter] = useState("all")
+  const [chartView, setChartView] = useState<"chart" | "table">("chart")
+  const [activeBar, setActiveBar] = useState<number | null>(null)
 
   const normalizePlan = (plan?: string) => normalizePlanId(plan)
 
@@ -152,25 +178,45 @@ export default function ClientDashboard() {
     completion: ct.stats.total > 0 ? Math.round((ct.stats.downloaded / ct.stats.total) * 100) : 0
   }))
 
-  const downloadsByDay = (() => {
-    const days = 14
-    const map = new Map<string, number>()
+  // Downloads per day for a set of certificates over the last `days` days (null = since the first download)
+  const buildDownloadsByDay = (types: DashboardEvent["certificateTypes"], days: number | null) => {
     const now = new Date()
-    for (let i = days - 1; i >= 0; i--) {
+    const dates = types.flatMap((ct) => ct.recipients.filter((r) => r.downloadedAt).map((r) => new Date(r.downloadedAt as string)))
+    let span = days ?? 14
+    if (days === null && dates.length > 0) {
+      const earliest = Math.min(...dates.map((d) => d.getTime()))
+      span = Math.min(365, Math.max(14, Math.ceil((now.getTime() - earliest) / 86400000) + 1))
+    }
+    const map = new Map<string, number>()
+    for (let i = span - 1; i >= 0; i--) {
       const d = new Date(now)
       d.setDate(now.getDate() - i)
-      map.set(d.toISOString().slice(0, 10), 0)
+      map.set(dayKey(d), 0)
     }
-    event.certificateTypes.forEach((ct) =>
-      ct.recipients.forEach((r) => {
-        if (!r.downloadedAt) return
-        const key = new Date(r.downloadedAt).toISOString().slice(0, 10)
-        if (map.has(key)) map.set(key, (map.get(key) || 0) + 1)
-      })
-    )
+    dates.forEach((d) => {
+      const key = dayKey(d)
+      if (map.has(key)) map.set(key, (map.get(key) || 0) + 1)
+    })
     return Array.from(map.entries()).map(([date, downloads]) => ({ date, downloads }))
-  })()
+  }
+  const downloadsByDay = buildDownloadsByDay(event.certificateTypes, 14)
   const recentDownloads = downloadsByDay.reduce((sum, d) => sum + d.downloads, 0)
+
+  // Chart scope from the filter row
+  const range = RANGES.find((r) => r.id === rangeId) || RANGES[1]
+  const rangeStart = range.days === null ? null : (() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (range.days - 1)); return d })()
+  const chartTypes = typeFilter === "all" ? event.certificateTypes : event.certificateTypes.filter((ct) => ct.id === typeFilter)
+  const chartByCertificate = chartTypes.map((ct) => {
+    const downloaded = rangeStart
+      ? ct.recipients.filter((r) => r.downloadedAt && new Date(r.downloadedAt) >= rangeStart).length
+      : ct.stats.downloaded
+    return { id: ct.id, name: ct.name, total: ct.stats.total, downloaded, pending: Math.max(0, ct.stats.total - downloaded), completion: ct.stats.total > 0 ? Math.round((downloaded / ct.stats.total) * 100) : 0 }
+  })
+  const chartByDay = buildDownloadsByDay(chartTypes, range.days)
+  const chartDownloads = chartByDay.reduce((sum, d) => sum + d.downloads, 0)
+  const rangeLabel = range.days === null ? "all time" : `the last ${range.days} days`
+  // Label every day up to two weeks; beyond that recharts spaces the ticks
+  const tickInterval: number | "preserveStartEnd" = chartByDay.length <= 14 ? 0 : "preserveStartEnd"
 
   const stats = [
     { label: "Recipients", value: event.stats.total.toLocaleString("en-IN"), sub: `${event.stats.certificateTypesCount} certificate${event.stats.certificateTypesCount === 1 ? "" : "s"}`, icon: Users, tile: "bg-sky-50 text-sky-600" },
@@ -281,52 +327,167 @@ export default function ClientDashboard() {
         </motion.div>
       )}
 
+      {/* Chart filters: one row, scoping both charts below */}
+      <motion.div {...fade(0.33)} className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Date range" className="inline-flex h-9 items-center rounded-md border border-neutral-200 bg-white p-0.5">
+          {RANGES.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => setRangeId(r.id)}
+              aria-pressed={rangeId === r.id}
+              className={cn("h-8 px-3 rounded text-[12.5px] font-medium transition-colors", rangeId === r.id ? "bg-neutral-900 text-white" : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50")}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        {event.certificateTypes.length > 1 && (
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="h-9 w-[220px] text-[13px] border-neutral-200 bg-white rounded-md" aria-label="Certificate">
+              <SelectValue placeholder="All certificates" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All certificates</SelectItem>
+              {event.certificateTypes.map((ct) => <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        <div role="group" aria-label="View" className="ml-auto inline-flex h-9 items-center rounded-md border border-neutral-200 bg-white p-0.5">
+          {([["chart", BarChart3, "Charts"], ["table", Table2, "Table"]] as const).map(([id, Icon, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setChartView(id)}
+              aria-pressed={chartView === id}
+              title={label}
+              className={cn("h-8 px-2.5 rounded inline-flex items-center gap-1.5 text-[12.5px] font-medium transition-colors", chartView === id ? "bg-neutral-900 text-white" : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50")}
+            >
+              <Icon className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{label}</span>
+            </button>
+          ))}
+        </div>
+      </motion.div>
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <motion.div {...fade(0.35)} className="rounded-xl border border-neutral-200 bg-white">
-          <div className="px-5 pt-5 pb-3">
-            <h2 className="text-[15px] font-semibold text-neutral-900">Downloads by certificate</h2>
-            <p className="text-[12px] text-neutral-500">Downloaded vs total recipients</p>
+          <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[15px] font-semibold text-neutral-900">Downloads by certificate</h2>
+              <p className="text-[12px] text-neutral-500">Downloaded in {rangeLabel} vs recipients</p>
+            </div>
+            <div className="flex items-center gap-3 text-[11.5px] text-neutral-600 shrink-0 pt-0.5">
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: GOLD_DEEP }} /> Downloaded</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: GOLD_SOFT }} /> Not yet</span>
+            </div>
           </div>
-          <div className="h-[240px] px-3 pb-3">
-            {byCertificate.length === 0 ? (
-              <p className="text-[13px] text-neutral-400 px-2 pt-8">No certificates yet.</p>
-            ) : (
+          {chartByCertificate.length === 0 ? (
+            <p className="text-[13px] text-neutral-400 px-5 pb-8 pt-4">No certificates yet.</p>
+          ) : chartView === "table" ? (
+            <table className="w-full text-[13px] mb-2">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-wider text-neutral-500 border-y border-neutral-100">
+                  <th className="px-5 py-2.5 font-medium text-left">Certificate</th>
+                  <th className="px-5 py-2.5 font-medium text-right">Downloaded</th>
+                  <th className="px-5 py-2.5 font-medium text-right">Recipients</th>
+                  <th className="px-5 py-2.5 font-medium text-right">Rate</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {chartByCertificate.map((ct) => (
+                  <tr key={ct.id}>
+                    <td className="px-5 py-2.5 text-neutral-900 truncate max-w-[220px]" title={ct.name}>{ct.name}</td>
+                    <td className="px-5 py-2.5 text-right tabular-nums text-neutral-700">{ct.downloaded.toLocaleString("en-IN")}</td>
+                    <td className="px-5 py-2.5 text-right tabular-nums text-neutral-700">{ct.total.toLocaleString("en-IN")}</td>
+                    <td className="px-5 py-2.5 text-right tabular-nums text-neutral-900 font-medium">{ct.completion}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="px-3 pb-4" style={{ height: Math.max(220, 48 + chartByCertificate.length * 44) }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={byCertificate} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} tickFormatter={(v: string) => (v.length > 14 ? v.slice(0, 12) + ".." : v)} dy={8} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} allowDecimals={false} />
-                  {/* Item text takes the bar colour by default; the light grey Recipients bar made it unreadable */}
-                  {/* The hover band was #FAFAFA on a white card, so hovering the grey Recipients bar looked like nothing happened */}
-                  <Tooltip cursor={{ fill: "#F0F0F0" }} contentStyle={CHART_TOOLTIP} itemStyle={{ color: INK }} />
-                  <Bar dataKey="total" name="Recipients" fill="#E5E5E5" radius={[4, 4, 0, 0]} maxBarSize={36} activeBar={{ fill: "#D4D4D4" }} />
-                  <Bar dataKey="downloaded" name="Downloaded" radius={[4, 4, 0, 0]} maxBarSize={36} activeBar={{ fill: "#000000" }}>
-                    {byCertificate.map((_, i) => <Cell key={i} fill={INK} />)}
+                {/* One row per certificate: downloaded (deep gold) and not yet (light gold) add up to the recipients */}
+                <BarChart data={chartByCertificate} layout="vertical" margin={{ top: 4, right: 56, left: 4, bottom: 0 }} barCategoryGap={12} onMouseLeave={() => setActiveBar(null)}>
+                  <CartesianGrid horizontal={false} stroke="#F0F0F0" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" width={128} axisLine={false} tickLine={false} tick={<CategoryTick />} />
+                  {/* Each bar is its own hit target: no band cursor, one tooltip for the hovered row */}
+                  <Tooltip
+                    cursor={false}
+                    shared={false}
+                    contentStyle={CHART_TOOLTIP}
+                    itemStyle={{ color: INK }}
+                    labelStyle={{ color: INK, fontWeight: 600 }}
+                    formatter={(value: number, name: string, item: any) => {
+                      const row = item?.payload as (typeof chartByCertificate)[number] | undefined
+                      if (name === "Downloaded") return [`${value.toLocaleString("en-IN")} of ${row ? row.total.toLocaleString("en-IN") : "?"} (${row?.completion ?? 0}%)`, "Downloaded"]
+                      return [value.toLocaleString("en-IN"), "Not yet downloaded"]
+                    }}
+                  />
+                  <Bar dataKey="downloaded" name="Downloaded" stackId="r" barSize={20} stroke="#fff" strokeWidth={2} radius={[4, 0, 0, 4]} isAnimationActive={false}
+                    onMouseEnter={(_: unknown, i: number) => setActiveBar(i)} onMouseLeave={() => setActiveBar(null)}>
+                    {chartByCertificate.map((_, i) => <Cell key={i} fill={activeBar === i ? INK : GOLD_DEEP} />)}
+                  </Bar>
+                  <Bar dataKey="pending" name="Not yet" stackId="r" barSize={20} stroke="#fff" strokeWidth={2} radius={[0, 4, 4, 0]} isAnimationActive={false}
+                    onMouseEnter={(_: unknown, i: number) => setActiveBar(i)} onMouseLeave={() => setActiveBar(null)}>
+                    {chartByCertificate.map((_, i) => <Cell key={i} fill={activeBar === i ? "#D9C58F" : GOLD_SOFT} />)}
+                    <LabelList dataKey="completion" position="right" offset={8} formatter={(v: number) => `${v}%`} style={{ fontSize: 11.5, fill: "#525252" }} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            )}
-          </div>
+            </div>
+          )}
         </motion.div>
 
         <motion.div {...fade(0.4)} className="rounded-xl border border-neutral-200 bg-white">
-          <div className="px-5 pt-5 pb-3">
-            <h2 className="text-[15px] font-semibold text-neutral-900">Downloads over time</h2>
-            <p className="text-[12px] text-neutral-500">Last 14 days, by most recent download</p>
+          <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[15px] font-semibold text-neutral-900">Downloads over time</h2>
+              <p className="text-[12px] text-neutral-500">{range.days === null ? "Since the first download" : `Last ${range.days} days`}, by each person&apos;s most recent download</p>
+            </div>
+            <p className="text-[12px] text-neutral-500 shrink-0 pt-0.5"><span className="font-semibold text-neutral-900 text-[14px]">{chartDownloads.toLocaleString("en-IN")}</span> in {rangeLabel}</p>
           </div>
-          <div className="h-[240px] px-3 pb-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={downloadsByDay} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
-                {/* interval={0}: recharts otherwise drops labels (29 Sep, 4 Oct) when 14 ticks get tight */}
-                <XAxis dataKey="date" axisLine={false} tickLine={false} interval={0} tick={{ fontSize: 10.5, fill: "#888" }} tickFormatter={(v: string) => v.slice(5)} dy={8} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} allowDecimals={false} />
-                <Tooltip contentStyle={CHART_TOOLTIP} />
-                <Line type="monotone" dataKey="downloads" name="Downloads" stroke={GOLD} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: GOLD }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          {chartView === "table" ? (
+            <div className="max-h-[260px] overflow-y-auto mb-2">
+              <table className="w-full text-[13px]">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="text-[11px] uppercase tracking-wider text-neutral-500 border-y border-neutral-100">
+                    <th className="px-5 py-2.5 font-medium text-left">Date</th>
+                    <th className="px-5 py-2.5 font-medium text-right">Downloads</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {[...chartByDay].reverse().map((d) => (
+                    <tr key={d.date} className={d.downloads === 0 ? "text-neutral-400" : ""}>
+                      <td className="px-5 py-2 text-neutral-700">{shortDate(d.date)}</td>
+                      <td className="px-5 py-2 text-right tabular-nums">{d.downloads.toLocaleString("en-IN")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="h-[240px] px-3 pb-3">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartByDay} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="downloadsWash" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={GOLD} stopOpacity={0.14} />
+                      <stop offset="100%" stopColor={GOLD} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="#F0F0F0" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} interval={tickInterval} minTickGap={28} tick={{ fontSize: 11, fill: "#888" }} tickFormatter={axisDate} dy={8} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} allowDecimals={false} />
+                  {/* Crosshair finds the day; the tooltip reads the value for it */}
+                  <Tooltip cursor={{ stroke: "#D4D4D4", strokeWidth: 1 }} contentStyle={CHART_TOOLTIP} itemStyle={{ color: INK }} labelStyle={{ color: INK, fontWeight: 600 }} labelFormatter={(v: string) => shortDate(v)} formatter={(v: number) => [v.toLocaleString("en-IN"), "Downloads"]} />
+                  <Area type="monotone" dataKey="downloads" name="Downloads" stroke={GOLD} strokeWidth={2} fill="url(#downloadsWash)" dot={false} activeDot={{ r: 4, fill: GOLD, stroke: "#fff", strokeWidth: 2 }} isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </motion.div>
       </div>
 
