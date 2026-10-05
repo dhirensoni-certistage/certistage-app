@@ -404,7 +404,7 @@ export default function AdminPlansPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Add-on packs</CardTitle>
-              <CardDescription>One-time packs sold on the Add-ons page. Prices in rupees; quantities are what the customer receives. Custom email quantities keep their per-email rates from code.</CardDescription>
+              <CardDescription>One-time packs sold on the Add-ons page. Prices in rupees; quantities are what the customer receives. Custom email quantities are priced per email by volume with the tiers below.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-6 md:grid-cols-2">
@@ -441,6 +441,44 @@ export default function AdminPlansPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-1">Custom email quantity: rate per email</p>
+                <p className="text-xs text-muted-foreground mb-2">Three volume tiers. The first always starts at 0 emails; set where the next two begin and the paise per email for each.</p>
+                <div className="grid gap-2 md:grid-cols-3">
+                  {[...addons.emailRateTiers].sort((a, b) => a.from - b.from).map((t, i) => (
+                    <div key={i} className="grid grid-cols-[1fr_1fr] gap-2 items-end rounded-lg border p-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">From (emails)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          disabled={i === 0}
+                          value={String(t.from)}
+                          onChange={(e) => {
+                            const sorted = [...addons.emailRateTiers].sort((a, b) => a.from - b.from)
+                            sorted[i] = { ...sorted[i], from: Math.max(0, Math.round(Number(e.target.value || 0))) }
+                            setAddons({ ...addons, emailRateTiers: sorted })
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Paise / email</Label>
+                        <Input
+                          type="number"
+                          min="0.01"
+                          step="0.5"
+                          value={String(t.paise)}
+                          onChange={(e) => {
+                            const sorted = [...addons.emailRateTiers].sort((a, b) => a.from - b.from)
+                            sorted[i] = { ...sorted[i], paise: Math.max(0.01, Number(e.target.value || 0)) }
+                            setAddons({ ...addons, emailRateTiers: sorted })
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="flex justify-end">

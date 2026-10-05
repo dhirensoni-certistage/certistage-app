@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
           error: `Enter ${CUSTOM_EMAILS.min.toLocaleString("en-IN")} to ${CUSTOM_EMAILS.max.toLocaleString("en-IN")} emails, in steps of ${CUSTOM_EMAILS.step}`
         }, { status: 400 })
       }
-      pack = { id: "emails_custom", emails, price: customEmailPrice(emails) }
+      pack = { id: "emails_custom", emails, price: Math.round(customEmailPrice(emails, config.emailRateTiers)) }
     }
     if (!pack) return NextResponse.json({ error: "Choose a pack" }, { status: 400 })
     return createOrder(auth.userId, { id: pack.id, price: pack.price, description: emailPackName(pack), notes: { emails: String(pack.emails) }, record: { addonEmails: pack.emails } })

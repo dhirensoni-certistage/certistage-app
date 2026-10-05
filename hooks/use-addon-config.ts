@@ -20,7 +20,7 @@ export function useAddonConfig(): AddonConfig {
       .then((data) => {
         if (!mounted || !data) return
         setConfig(mergeAddonConfig(data))
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ emailPacks: data.emailPacks, certPacks: data.certPacks })) } catch {}
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ emailPacks: data.emailPacks, certPacks: data.certPacks, emailRateTiers: data.emailRateTiers })) } catch {}
       })
       .catch(() => {})
     return () => { mounted = false }
