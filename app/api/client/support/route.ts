@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const tickets = await SupportTicket.find({ userId: auth.userId })
       .sort({ createdAt: -1 })
       .limit(20)
-      .select("number subject status createdAt closedAt")
+      .select("number subject message status createdAt closedAt replies lastReplyAt lastReplyBy")
       .lean()
     return NextResponse.json({ tickets })
   } catch (error) {

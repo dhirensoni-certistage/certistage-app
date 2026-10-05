@@ -202,3 +202,12 @@ html {
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+
+/* Landing hero: fine dot grid */
+.landing-dots {
+  background-image: radial-gradient(rgba(23, 23, 23, 0.09) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.dark .landing-dots {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+}
