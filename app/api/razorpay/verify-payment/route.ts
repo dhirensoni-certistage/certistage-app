@@ -9,6 +9,7 @@ import { type PlanId, PLAN_PRICES_MAP } from "@/lib/razorpay"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
 import { planExpiryFrom } from "@/lib/plan-config"
 import { requireClientUser } from "@/lib/client-auth.server"
+import { consumeOneEventCredit } from "@/lib/plan-credit.server"
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
     // amount must match the plan being activated
     const { getRazorpayKeys } = await import("@/lib/addon-payments.server")
     const { keyId } = await getRazorpayKeys()
+    let order: any = null
     if (keyId) {
       const orderRes = await fetch(`https://api.razorpay.com/v1/orders/${encodeURIComponent(razorpay_order_id)}`, {
         headers: { Authorization: `Basic ${Buffer.from(`${keyId}:${razorpayKeySecret}`).toString("base64")}` }
@@ -97,7 +99,7 @@ export async function POST(request: NextRequest) {
       if (!orderRes.ok) {
         return NextResponse.json({ error: "Could not confirm the payment with Razorpay. Please try again in a minute." }, { status: 502 })
       }
-      const order = await orderRes.json()
+      order = await orderRes.json()
       if (order?.notes?.kind === "addon" || (order?.notes?.plan && order.notes.plan !== plan) || (order?.notes?.userId && order.notes.userId !== userId)) {
         return NextResponse.json({ error: "This payment does not match the selected plan" }, { status: 400 })
       }
@@ -138,9 +140,14 @@ export async function POST(request: NextRequest) {
     const planConfig = await getPlanConfigFromDb()
     const planMap = getPlanMap(planConfig)
     const planExpiresAt = planExpiryFrom(planMap[plan], now)
-    const amount = planMap[plan]?.price ?? PLAN_PRICES_MAP[plan] ?? 0
-    const baseAmount = amount
+    // What was actually charged (the order amount, after any credit) and the plan's full price
+    const fullPrice = planMap[plan]?.price ?? PLAN_PRICES_MAP[plan] ?? 0
+    const amount = typeof order?.amount === "number" ? order.amount : fullPrice
+    const creditAmount = Math.max(0, Number(order?.notes?.credit) || 0)
+    const creditLabel = creditAmount > 0 ? String(order?.notes?.creditLabel || "Credit") : undefined
+    const baseAmount = creditAmount > 0 ? fullPrice : amount
     const gatewayFee = 0
+    if (creditAmount > 0) await consumeOneEventCredit(order?.notes?.creditPaymentId || undefined, razorpay_order_id)
 
     // Update user's plan in database and clear pendingPlan
     const user = await User.findByIdAndUpdate(
@@ -168,6 +175,7 @@ export async function POST(request: NextRequest) {
       existingPayment.invoiceBaseAmount = baseAmount
       existingPayment.invoiceGatewayFee = gatewayFee
       existingPayment.amount = amount
+      if (creditAmount > 0) { existingPayment.creditAmount = creditAmount; existingPayment.creditLabel = creditLabel }
       await existingPayment.save()
     } else {
       await Payment.create({
@@ -182,7 +190,8 @@ export async function POST(request: NextRequest) {
         invoiceNumber: generatedInvoiceNumber,
         invoiceIssuedAt: now,
         invoiceBaseAmount: baseAmount,
-        invoiceGatewayFee: gatewayFee
+        invoiceGatewayFee: gatewayFee,
+        ...(creditAmount > 0 ? { creditAmount, creditLabel } : {})
       })
     }
 

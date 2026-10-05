@@ -18,6 +18,7 @@ interface ProRataInfo {
   daysRemaining: number
   savings: number
   savingsPercent: number
+  label?: string | null
 }
 
 const planBadges: Record<string, string> = {
@@ -90,6 +91,31 @@ function UpgradePageContent() {
 
     loadPlans()
   }, [])
+
+  // Credit the customer would get on each annual plan (unused days, or a recent one-event plan)
+  useEffect(() => {
+    if (!userId) return
+    const paid = planConfig.filter((p) => p.enabled !== false && p.price > 0 && !isOneTimePlan(p) && p.id !== currentPlan)
+    if (paid.length === 0) return
+    let cancelled = false
+    setLoadingProRata(true)
+    Promise.all(paid.map(async (p) => {
+      try {
+        const res = await fetch("/api/razorpay/calculate-pro-rata", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: p.id }) })
+        const data = await res.json().catch(() => ({}))
+        return [p.id, res.ok && data?.proRata ? (data.proRata as ProRataInfo) : null] as const
+      } catch {
+        return [p.id, null] as const
+      }
+    })).then((entries) => {
+      if (cancelled) return
+      const next: Record<string, ProRataInfo> = {}
+      for (const [id, info] of entries) if (info) next[id] = info
+      setProRataInfo(next)
+      setLoadingProRata(false)
+    })
+    return () => { cancelled = true }
+  }, [userId, currentPlan, planConfig])
 
   const handleUpgrade = async (planId: PlanType) => {
     if (!userId) {
@@ -179,8 +205,8 @@ function UpgradePageContent() {
                   <p className="text-[12px] text-neutral-500 mt-2 text-center">Organiser access for {planValidityDays(plan)} days. Recipients can keep downloading after that.</p>
                 )}
                 {!isCurrent && proRataInfo[plan.id] && proRataInfo[plan.id].unusedCredit > 0 && (
-                  <p className="text-[12px] text-neutral-500 mt-2 text-center">
-                    You pay {formatRupees(proRataInfo[plan.id].finalAmount)} after {formatRupees(proRataInfo[plan.id].unusedCredit)} credit for the unused part of your current plan.
+                  <p className="text-[12px] text-neutral-600 mt-2 text-center">
+                    You pay <span className="font-medium text-neutral-900">{formatRupees(proRataInfo[plan.id].finalAmount)}</span> after {formatRupees(proRataInfo[plan.id].unusedCredit)} credit{proRataInfo[plan.id].label ? ` (${proRataInfo[plan.id].label})` : " for the unused part of your current plan"}.
                   </p>
                 )}
               </div>

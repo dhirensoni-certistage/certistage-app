@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { PLAN_PRICES_MAP, generateReceipt, type PlanId } from "@/lib/razorpay"
-import { calculateProRataUpgrade } from "@/lib/pro-rata"
+import { PLAN_PRICES_MAP, generateReceipt } from "@/lib/razorpay"
+import { planCreditFor } from "@/lib/plan-credit.server"
 import connectDB from "@/lib/mongodb"
 import Settings from "@/models/Settings"
-import User from "@/models/User"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
 import { requireClientUser } from "@/lib/client-auth.server"
 
@@ -40,33 +39,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Free plan does not require payment" }, { status: 400 })
     }
 
-    // Calculate pro-rata pricing if user is upgrading from a paid plan
+    // Credit for the unused part of the current plan, or for a one-event plan bought recently
+    // (lib/plan-credit.server). The credited amount and its source travel in the order notes so
+    // every activation path records the same receipt.
     await connectDB()
-    
-    if (userId) {
-      const user = await User.findById(userId)
-      if (user && user.plan !== "free" && user.planStartDate && user.planExpiresAt) {
-        const priceMap = Object.fromEntries(planConfig.map(p => [p.id, p.price]))
-        const proRata = calculateProRataUpgrade(
-          user.plan as PlanId,
-          plan as PlanId,
-          user.planStartDate,
-          user.planExpiresAt,
-          priceMap
-        )
-        
-        if (proRata.unusedCredit > 0) {
-          amount = proRata.finalAmount
-          proRataDetails = {
-            originalPrice: proRata.originalPrice,
-            unusedCredit: proRata.unusedCredit,
-            finalAmount: proRata.finalAmount,
-            daysRemaining: proRata.daysRemaining,
-            savings: proRata.savings,
-            savingsPercent: proRata.savingsPercent
-          }
+    const fullPrice = amount
+    let credit: Awaited<ReturnType<typeof planCreditFor>> = null
+    if (userId && selectedPlan) {
+      const priceMap = Object.fromEntries(planConfig.map(p => [p.id, p.price]))
+      credit = await planCreditFor(userId, selectedPlan, priceMap)
+      if (credit && credit.amount > 0) {
+        amount = Math.max(0, fullPrice - credit.amount)
+        proRataDetails = {
+          originalPrice: fullPrice,
+          unusedCredit: credit.amount,
+          finalAmount: amount,
+          daysRemaining: credit.daysRemaining || 0,
+          savings: credit.amount,
+          savingsPercent: fullPrice > 0 ? Math.round((credit.amount / fullPrice) * 100) : 0,
+          label: credit.label
         }
       }
+    }
+    if (amount < 100) {
+      // Razorpay needs at least ₹1; a credit that covers the whole price leaves a token amount
+      amount = 100
     }
 
     // Try to get credentials from database first
@@ -106,7 +103,9 @@ export async function POST(request: NextRequest) {
         plan,
         userId: userId || "",
         userEmail: userEmail || "",
-        userName: userName || ""
+        userName: userName || "",
+        fullPrice: String(fullPrice),
+        ...(credit && credit.amount > 0 ? { credit: String(credit.amount), creditLabel: credit.label, creditPaymentId: credit.sourcePaymentId || "" } : {})
       }
     }
 

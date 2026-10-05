@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { planExpiresAtFor } from "@/lib/plan-config.server"
+import { consumeOneEventCredit } from "@/lib/plan-credit.server"
 import { completeAddonPayment } from "@/lib/addon-payments.server"
 import { sendPlanPaymentEmails } from "@/lib/plan-payment-emails.server"
 import crypto from "crypto"
@@ -153,6 +154,8 @@ async function handlePaymentCaptured(payment: any) {
     const planStartDate = new Date()
     const planExpiresAt = await planExpiresAtFor(notes.plan, planStartDate)
     
+    const credit = creditFromNotes(notes)
+    if (credit) await consumeOneEventCredit(notes.creditPaymentId || undefined, orderId)
     await Payment.create({
       userId: notes.userId,
       orderId,
@@ -162,9 +165,10 @@ async function handlePaymentCaptured(payment: any) {
       currency: "INR",
       status: "success",
       webhookVerified: true,
+      ...(credit || {}),
       invoiceNumber: generateInvoiceNumber(),
       invoiceIssuedAt: now,
-      invoiceBaseAmount: amount,
+      invoiceBaseAmount: credit ? amount + credit.creditAmount : amount,
       invoiceGatewayFee: 0
     })
     
@@ -245,6 +249,8 @@ async function handleOrderPaid(order: any, payment?: any) {
   const planExpiresAt = await planExpiresAtFor(notes.plan, now)
   
   // Create or update payment
+  const credit = creditFromNotes(notes)
+  if (credit) await consumeOneEventCredit(notes.creditPaymentId || undefined, orderId)
   await Payment.findOneAndUpdate(
     { orderId },
     {
@@ -256,9 +262,10 @@ async function handleOrderPaid(order: any, payment?: any) {
       currency: "INR",
       status: "success",
       webhookVerified: true,
+      ...(credit || {}),
       invoiceNumber: generateInvoiceNumber(),
       invoiceIssuedAt: now,
-      invoiceBaseAmount: amount,
+      invoiceBaseAmount: credit ? amount + credit.creditAmount : amount,
       invoiceGatewayFee: 0
     },
     { upsert: true }
@@ -318,4 +325,11 @@ async function createAddonPaymentFromNotes(orderId: string, paymentId: string | 
     webhookVerified: true,
     ...(failureReason ? { failureReason } : {})
   })
+}
+
+/** Credit applied to a plan order (set by create-order in the order notes) */
+function creditFromNotes(notes: any): { creditAmount: number; creditLabel: string } | null {
+  const creditAmount = Math.max(0, Number(notes?.credit) || 0)
+  if (!creditAmount) return null
+  return { creditAmount, creditLabel: String(notes?.creditLabel || "Credit") }
 }

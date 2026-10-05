@@ -228,12 +228,17 @@ export async function renderInvoicePdf(payment: any, user: InvoicePdfUser | null
   // Totals card
   const totalCardX = margin + contentWidth - 250
   const totalCardW = 250
-  const totalCardH = showGatewayFee ? 112 : 92
+  const creditAmount = Math.max(0, Number(payment.creditAmount) || 0)
+  const totalCardH = 92 + (showGatewayFee ? 20 : 0) + (creditAmount > 0 ? 20 : 0)
   doc.setFillColor(249, 250, 251)
   doc.roundedRect(totalCardX, y, totalCardW, totalCardH, 8, 8, "F")
 
   drawTextPair(doc, "Plan Amount", formatInr(baseAmount), totalCardX + 12, y + 24, totalCardW - 24)
   let totalY = y + 44
+  if (creditAmount > 0) {
+    drawTextPair(doc, String(payment.creditLabel || "Credit").slice(0, 32), `- ${formatInr(creditAmount)}`, totalCardX + 12, totalY, totalCardW - 24)
+    totalY += 20
+  }
   if (showGatewayFee) {
     drawTextPair(
       doc,

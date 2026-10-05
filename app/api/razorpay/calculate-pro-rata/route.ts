@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PLAN_PRICES_MAP } from "@/lib/razorpay"
-import { calculateProRataUpgrade } from "@/lib/pro-rata"
+import { planCreditFor } from "@/lib/plan-credit.server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
@@ -37,30 +37,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Plan is not available" }, { status: 400 })
     }
     
-    const user = await User.findById(userId)
+    const user = await User.findById(userId).select("_id")
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Calculate pro-rata pricing
+    // The same credit create-order will apply (unused days, or a recent one-event plan)
     const priceMap = Object.fromEntries(planConfig.map(p => [p.id, p.price]))
-    const proRata = calculateProRataUpgrade(
-      user.plan,
-      plan,
-      user.planStartDate,
-      user.planExpiresAt,
-      priceMap
-    )
+    const credit = selectedPlan ? await planCreditFor(userId, selectedPlan, priceMap) : null
+    const unusedCredit = credit?.amount || 0
+    const finalAmount = Math.max(0, amount - unusedCredit)
 
     return NextResponse.json({
       success: true,
       proRata: {
-        originalPrice: proRata.originalPrice,
-        unusedCredit: proRata.unusedCredit,
-        finalAmount: proRata.finalAmount,
-        daysRemaining: proRata.daysRemaining,
-        savings: proRata.savings,
-        savingsPercent: proRata.savingsPercent
+        originalPrice: amount,
+        unusedCredit,
+        finalAmount,
+        daysRemaining: credit?.daysRemaining || 0,
+        savings: unusedCredit,
+        savingsPercent: amount > 0 ? Math.round((unusedCredit / amount) * 100) : 0,
+        label: credit?.label || null
       }
     })
   } catch (error) {

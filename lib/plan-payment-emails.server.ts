@@ -58,6 +58,7 @@ export async function sendPlanPaymentEmails(orderId: string): Promise<void> {
       customerOrganization: user.organization,
       planName,
       term,
+      credit: payment.creditAmount ? { amount: payment.creditAmount, label: payment.creditLabel || "Credit" } : undefined,
       amount: payment.invoiceBaseAmount ?? payment.amount,
       gatewayFee: payment.invoiceGatewayFee || 0,
       totalAmount: payment.amount,

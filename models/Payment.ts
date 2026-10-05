@@ -25,6 +25,11 @@ export interface IPayment extends Document {
   refundedAt?: Date
   /** Set once the receipt and admin emails for this payment have gone out */
   receiptSentAt?: Date
+  /** Credit applied to this payment (unused days of the previous plan, or a one-event plan bought earlier) */
+  creditAmount?: number
+  creditLabel?: string
+  /** For a one-event payment: the annual-plan order its ₹ were credited to (used once) */
+  creditedToOrderId?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -56,7 +61,10 @@ const PaymentSchema = new Schema<IPayment>(
     failureReason: { type: String },
     refundAmount: { type: Number },
     refundedAt: { type: Date },
-    receiptSentAt: { type: Date }
+    receiptSentAt: { type: Date },
+    creditAmount: { type: Number },
+    creditLabel: { type: String },
+    creditedToOrderId: { type: String }
   },
   { timestamps: true }
 )
