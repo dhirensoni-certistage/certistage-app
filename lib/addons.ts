@@ -8,13 +8,14 @@ export interface EmailPack {
   price: number
 }
 
+// Defaults; Admin > Plans > Add-on packs overrides quantities and prices (Settings key "addon_config")
 export const EMAIL_PACKS: EmailPack[] = [
   { id: "emails_2000", emails: 2000, price: 20000 },
   { id: "emails_10000", emails: 10000, price: 80000 },
   { id: "emails_50000", emails: 50000, price: 300000 },
 ]
 
-export const findEmailPack = (id: unknown): EmailPack | undefined => EMAIL_PACKS.find((p) => p.id === id)
+export const findEmailPack = (id: unknown, packs: EmailPack[] = EMAIL_PACKS): EmailPack | undefined => packs.find((p) => p.id === id)
 
 /**
  * Any number of emails can be bought, priced per email by volume (the packs above follow the
@@ -67,7 +68,31 @@ export const CERT_PACKS: CertPack[] = [
   { id: "certs_5000", certificates: 5000, price: 699900 },
 ]
 
-export const findCertPack = (id: unknown): CertPack | undefined => CERT_PACKS.find((p) => p.id === id)
+export const findCertPack = (id: unknown, packs: CertPack[] = CERT_PACKS): CertPack | undefined => packs.find((p) => p.id === id)
+
+/** Pack quantities and prices as saved by the admin, merged over the defaults above */
+export interface AddonConfig {
+  emailPacks: EmailPack[]
+  certPacks: CertPack[]
+}
+
+const positiveInt = (v: unknown, fallback: number) => {
+  const n = Math.round(Number(v))
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+export function mergeAddonConfig(value: unknown): AddonConfig {
+  const raw = (value && typeof value === "object" ? value : {}) as { emailPacks?: unknown; certPacks?: unknown }
+  const emailPacks = EMAIL_PACKS.map((def) => {
+    const o = Array.isArray(raw.emailPacks) ? raw.emailPacks.find((p: any) => p?.id === def.id) : null
+    return { id: def.id, emails: positiveInt(o?.emails, def.emails), price: positiveInt(o?.price, def.price) }
+  })
+  const certPacks = CERT_PACKS.map((def) => {
+    const o = Array.isArray(raw.certPacks) ? raw.certPacks.find((p: any) => p?.id === def.id) : null
+    return { id: def.id, certificates: positiveInt(o?.certificates, def.certificates), price: positiveInt(o?.price, def.price) }
+  })
+  return { emailPacks, certPacks }
+}
 
 export const certPackName = (pack: { certificates: number }) => `${pack.certificates.toLocaleString("en-IN")} extra certificates`
 

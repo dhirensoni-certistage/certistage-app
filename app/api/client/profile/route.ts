@@ -33,7 +33,8 @@ export async function GET(request: NextRequest) {
         createdAt: user.createdAt,
         hidePoweredBy: !!user.hidePoweredBy,
         canHidePoweredBy: await canHidePoweredBy(user),
-        logo: user.logo || null
+        logo: user.logo || null,
+        showNameWithLogo: !!user.showNameWithLogo
       }
     })
   } catch (error) {
@@ -50,13 +51,14 @@ export async function PUT(request: NextRequest) {
     const auth = await requireClientUser(request)
     if (auth.response) return auth.response
     const userId = auth.userId
-    const { name, phone, organization, hidePoweredBy } = await request.json()
+    const { name, phone, organization, hidePoweredBy, showNameWithLogo } = await request.json()
 
     // Build update object (only allow certain fields to be updated)
     const updateData: Record<string, unknown> = {}
     if (name) updateData.name = name
     if (phone) updateData.phone = phone
     if (organization !== undefined) updateData.organization = organization
+    if (typeof showNameWithLogo === "boolean") updateData.showNameWithLogo = showNameWithLogo
     if (typeof hidePoweredBy === "boolean") {
       // Hiding the line is a paid-plan feature; showing it is always allowed
       if (hidePoweredBy) {
@@ -90,7 +92,8 @@ export async function PUT(request: NextRequest) {
         planExpiresAt: user.planExpiresAt,
         hidePoweredBy: !!user.hidePoweredBy,
         canHidePoweredBy: await canHidePoweredBy(user),
-        logo: user.logo || null
+        logo: user.logo || null,
+        showNameWithLogo: !!user.showNameWithLogo
       },
       message: "Profile updated successfully"
     })

@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PLAN_CONFIG, mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
+import { mergeAddonConfig, type AddonConfig } from "@/lib/addons"
 import { Check, Plus, Pencil, Trash2, Sparkles, Layers, Tag } from "lucide-react"
 
 const ACCENT_PALETTE = ["#f97316", "#3b82f6", "#22c55e", "#e11d48", "#f59e0b", "#14b8a6"]
@@ -115,6 +116,35 @@ export default function AdminPlansPage() {
   useEffect(() => {
     fetchPlans()
   }, [])
+
+  // Add-on packs (emails, extra certificates): quantities and prices, saved to Settings "addon_config"
+  const [addons, setAddons] = useState<AddonConfig>(() => mergeAddonConfig(null))
+  const [addonsLoaded, setAddonsLoaded] = useState(false)
+  const [savingAddons, setSavingAddons] = useState(false)
+  useEffect(() => {
+    fetch("/api/admin/addons")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (data) setAddons(mergeAddonConfig(data)) })
+      .catch(() => {})
+      .finally(() => setAddonsLoaded(true))
+  }, [])
+  const saveAddons = async () => {
+    setSavingAddons(true)
+    try {
+      const res = await fetch("/api/admin/addons", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(addons) })
+      if (res.ok) {
+        setAddons(mergeAddonConfig(await res.json()))
+        toast.success("Add-on packs saved")
+      } else {
+        toast.error("Failed to save add-on packs")
+      }
+    } catch {
+      toast.error("Failed to save add-on packs")
+    }
+    setSavingAddons(false)
+  }
+  const rupees = (paise: number) => String(Math.round(paise) / 100)
+  const toPaise = (value: string) => Math.max(0, Math.round(Number(value || 0) * 100))
 
   const persistPlans = async (nextPlans: PlanConfig[]) => {
     setSaving(true)
@@ -370,6 +400,54 @@ export default function AdminPlansPage() {
               })}
             </div>
           )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Add-on packs</CardTitle>
+              <CardDescription>One-time packs sold on the Add-ons page. Prices in rupees; quantities are what the customer receives. Custom email quantities keep their per-email rates from code.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <p className="text-sm font-medium mb-2">Certificate emails</p>
+                  <div className="space-y-2">
+                    {addons.emailPacks.map((p, i) => (
+                      <div key={p.id} className="grid grid-cols-[1fr_1fr] gap-2 items-end">
+                        <div className="space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Emails</Label>}
+                          <Input type="number" min="1" value={String(p.emails)} onChange={(e) => setAddons({ ...addons, emailPacks: addons.emailPacks.map((x) => (x.id === p.id ? { ...x, emails: Math.max(1, Math.round(Number(e.target.value || 1))) } : x)) })} />
+                        </div>
+                        <div className="space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Price (INR)</Label>}
+                          <Input type="number" min="1" step="1" value={rupees(p.price)} onChange={(e) => setAddons({ ...addons, emailPacks: addons.emailPacks.map((x) => (x.id === p.id ? { ...x, price: toPaise(e.target.value) } : x)) })} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-2">Extra certificates</p>
+                  <div className="space-y-2">
+                    {addons.certPacks.map((p, i) => (
+                      <div key={p.id} className="grid grid-cols-[1fr_1fr] gap-2 items-end">
+                        <div className="space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Certificates</Label>}
+                          <Input type="number" min="1" value={String(p.certificates)} onChange={(e) => setAddons({ ...addons, certPacks: addons.certPacks.map((x) => (x.id === p.id ? { ...x, certificates: Math.max(1, Math.round(Number(e.target.value || 1))) } : x)) })} />
+                        </div>
+                        <div className="space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Price (INR)</Label>}
+                          <Input type="number" min="1" step="1" value={rupees(p.price)} onChange={(e) => setAddons({ ...addons, certPacks: addons.certPacks.map((x) => (x.id === p.id ? { ...x, price: toPaise(e.target.value) } : x)) })} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={saveAddons} disabled={savingAddons || !addonsLoaded}>{savingAddons ? "Saving..." : "Save add-on packs"}</Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 

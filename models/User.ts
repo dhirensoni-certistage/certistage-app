@@ -42,6 +42,8 @@ export interface IUser extends Document {
   /** Organisation logo shown as the hero on download pages (Cloudinary URL + id for replacement) */
   logo?: string
   logoPublicId?: string
+  /** Show the organisation name next to the logo on download pages (most logos already carry the name) */
+  showNameWithLogo?: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -81,7 +83,8 @@ const UserSchema = new Schema<IUser>(
     isEmailVerified: { type: Boolean, default: false },
     hidePoweredBy: { type: Boolean, default: false },
     logo: { type: String },
-    logoPublicId: { type: String }
+    logoPublicId: { type: String },
+    showNameWithLogo: { type: Boolean, default: false }
   },
   { timestamps: true }
 )

@@ -27,6 +27,7 @@ interface UserProfile {
   hidePoweredBy?: boolean
   canHidePoweredBy?: boolean
   logo?: string | null
+  showNameWithLogo?: boolean
 }
 
 export default function SettingsPage() {
@@ -70,6 +71,16 @@ export default function SettingsPage() {
     } catch { toast.error("Could not upload the logo") }
     setIsSavingLogo(false)
     if (logoInputRef.current) logoInputRef.current.value = ""
+  }
+
+  const handleShowNameToggle = async (checked: boolean) => {
+    if (!profile) return
+    try {
+      const res = await fetch("/api/client/profile", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ showNameWithLogo: checked }) })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) { invalidateClientProfile(); setProfile({ ...profile, ...data.user }) }
+      else toast.error(data.error || "Could not save")
+    } catch { toast.error("Could not save") }
   }
 
   const handleRemoveLogo = async () => {
@@ -281,6 +292,12 @@ export default function SettingsPage() {
                   <Button type="button" variant="ghost" disabled={isSavingLogo} onClick={handleRemoveLogo} className="h-8 px-3 text-[12.5px] text-neutral-600 hover:text-red-600">Remove</Button>
                 )}
               </div>
+              {profile.logo && (
+                <div className="mt-3 flex items-center gap-3">
+                  <Switch id="show-name" checked={!!profile.showNameWithLogo} onCheckedChange={handleShowNameToggle} />
+                  <Label htmlFor="show-name" className="text-[12.5px] text-neutral-700">Also show the organisation name next to the logo <span className="text-neutral-400">(off if your logo already carries the name)</span></Label>
+                </div>
+              )}
             </div>
           </div>
           {!profile.canHidePoweredBy && (

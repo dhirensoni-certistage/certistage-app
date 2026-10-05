@@ -5,6 +5,7 @@ import { Check, Loader2, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CERT_PACKS } from "@/lib/addons"
+import { useAddonConfig } from "@/hooks/use-addon-config"
 import { formatInr } from "@/lib/plan-config"
 import { useBuyEmails } from "@/hooks/use-buy-emails"
 import { cn } from "@/lib/utils"
@@ -15,14 +16,15 @@ const perCert = (price: number, certificates: number) => `₹${(price / 100 / ce
 /** Pack picker with one checkout button for extra certificates (Add-ons page and the quota dialog) */
 export function CertificatePacks({ onBought, compact = false }: { onBought?: (certificates: number) => void; compact?: boolean }) {
   const { buy, busyPack } = useBuyEmails(onBought)
+  const { certPacks: packs } = useAddonConfig()
   const [selected, setSelected] = useState(CERT_PACKS[1].id)
-  const pack = CERT_PACKS.find((p) => p.id === selected) || CERT_PACKS[0]
-  const base = CERT_PACKS[0].price / CERT_PACKS[0].certificates
+  const pack = packs.find((p) => p.id === selected) || packs[0]
+  const base = packs[0].price / packs[0].certificates
 
   return (
     <div>
       <div role="radiogroup" aria-label="Certificate packs" className="space-y-2.5">
-        {CERT_PACKS.map((p) => {
+        {packs.map((p) => {
           const active = p.id === selected
           const saving = Math.round((1 - p.price / p.certificates / base) * 100)
           return (

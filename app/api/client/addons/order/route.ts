@@ -3,6 +3,7 @@ import connectDB from "@/lib/mongodb"
 import { requireClientUser } from "@/lib/client-auth.server"
 import { findEmailPack, emailPackName, parseCustomEmails, customEmailPrice, CUSTOM_EMAILS, findCertPack, certPackName } from "@/lib/addons"
 import { getRazorpayKeys } from "@/lib/addon-payments.server"
+import { getAddonConfigFromDb } from "@/lib/addons.server"
 import { generateReceipt } from "@/lib/razorpay"
 import Payment from "@/models/Payment"
 import User from "@/models/User"
@@ -15,11 +16,12 @@ export async function POST(request: NextRequest) {
     if (auth.response) return auth.response
     const { packId, emails: customEmails } = await request.json().catch(() => ({}))
 
-    const certPack = findCertPack(packId)
+    const config = await getAddonConfigFromDb()
+    const certPack = findCertPack(packId, config.certPacks)
     if (certPack) return createOrder(auth.userId, { id: certPack.id, price: certPack.price, description: certPackName(certPack), notes: { certificates: String(certPack.certificates) }, record: { addonCertificates: certPack.certificates } })
 
     // A listed pack, or any quantity priced by volume (lib/addons); the price is always computed here
-    let pack = findEmailPack(packId)
+    let pack = findEmailPack(packId, config.emailPacks)
     if (!pack && customEmails !== undefined) {
       const emails = parseCustomEmails(customEmails)
       if (!emails) {
