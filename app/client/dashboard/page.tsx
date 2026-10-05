@@ -298,9 +298,10 @@ export default function ClientDashboard() {
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} tickFormatter={(v: string) => (v.length > 14 ? v.slice(0, 12) + ".." : v)} dy={8} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} allowDecimals={false} />
                   {/* Item text takes the bar colour by default; the light grey Recipients bar made it unreadable */}
-                  <Tooltip cursor={{ fill: "#FAFAFA" }} contentStyle={CHART_TOOLTIP} itemStyle={{ color: INK }} />
-                  <Bar dataKey="total" name="Recipients" fill="#E5E5E5" radius={[4, 4, 0, 0]} maxBarSize={36} />
-                  <Bar dataKey="downloaded" name="Downloaded" radius={[4, 4, 0, 0]} maxBarSize={36}>
+                  {/* The hover band was #FAFAFA on a white card, so hovering the grey Recipients bar looked like nothing happened */}
+                  <Tooltip cursor={{ fill: "#F0F0F0" }} contentStyle={CHART_TOOLTIP} itemStyle={{ color: INK }} />
+                  <Bar dataKey="total" name="Recipients" fill="#E5E5E5" radius={[4, 4, 0, 0]} maxBarSize={36} activeBar={{ fill: "#D4D4D4" }} />
+                  <Bar dataKey="downloaded" name="Downloaded" radius={[4, 4, 0, 0]} maxBarSize={36} activeBar={{ fill: "#000000" }}>
                     {byCertificate.map((_, i) => <Cell key={i} fill={INK} />)}
                   </Bar>
                 </BarChart>
@@ -318,7 +319,8 @@ export default function ClientDashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={downloadsByDay} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} tickFormatter={(v: string) => v.slice(5)} dy={8} />
+                {/* interval={0}: recharts otherwise drops labels (29 Sep, 4 Oct) when 14 ticks get tight */}
+                <XAxis dataKey="date" axisLine={false} tickLine={false} interval={0} tick={{ fontSize: 10.5, fill: "#888" }} tickFormatter={(v: string) => v.slice(5)} dy={8} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} allowDecimals={false} />
                 <Tooltip contentStyle={CHART_TOOLTIP} />
                 <Line type="monotone" dataKey="downloads" name="Downloads" stroke={GOLD} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: GOLD }} />

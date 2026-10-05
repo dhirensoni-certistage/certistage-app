@@ -1,5 +1,6 @@
 "use client"
 
+import { StatusTag } from "@/components/client/addon-status-tag"
 import { useEffect, useState, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -24,11 +25,9 @@ import {
 import { getClientSession, getTrialStatus, getCurrentPlanFeatures } from "@/lib/auth"
 import {
   Users, FileSpreadsheet, Search, Trash2, Download, Plus, Lock,
-  UserPlus, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Pencil, MoreHorizontal, Award, Eye,
-  Mail, MailCheck, MailX, Loader2, Linkedin
+  UserPlus, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Pencil, MoreHorizontal, Award, Eye, Mail
 } from "lucide-react"
-import { Progress } from "@/components/ui/progress"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { EmailCertificatesDialog } from "@/components/client/email-certificates-dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
@@ -56,26 +55,6 @@ interface EventRecipient {
   status: "pending" | "downloaded"
   downloadedAt?: string
   downloadCount: number
-  emailStatus?: "sent" | "failed"
-  emailSentAt?: string
-  emailError?: string
-}
-
-interface EmailCounts {
-  total: number
-  withEmail: number
-  noEmail: number
-  sent: number
-  failed: number
-  unsent: number
-}
-
-type EmailSendMode = "unsent" | "all" | "selected"
-
-const formatSentAt = (iso?: string) => {
-  if (!iso) return ""
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
 }
 
 interface CertificateType {
@@ -130,6 +109,7 @@ export default function RecipientsPage() {
   // chosen certificate already has from an imported Excel (e.g. Credit Hours)
   const [typeColumns, setTypeColumns] = useState<string[]>([])
   // Problems found in an uploaded Excel, shown before importing
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
   const [importCheck, setImportCheck] = useState<{ recipients: ImportRow[]; issues: ImportIssue[]; renamed: string[] } | null>(null)
   const [formExtra, setFormExtra] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(true)
@@ -139,16 +119,6 @@ export default function RecipientsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'single' | 'bulk'; recipient?: EventRecipient & { certTypeId: string } } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  // Certificate email dialog (bulk send to everyone in the current filter, or to the selected rows)
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
-  const [emailDialogIds, setEmailDialogIds] = useState<string[] | null>(null) // null = current filter
-  const [emailCounts, setEmailCounts] = useState<EmailCounts | null>(null)
-  const [emailConfigured, setEmailConfigured] = useState(true)
-  const [emailMode, setEmailMode] = useState<EmailSendMode>("unsent")
-  const [emailSending, setEmailSending] = useState(false)
-  const [emailProgress, setEmailProgress] = useState<{ sent: number; failed: number; total: number } | null>(null)
-  const [emailDone, setEmailDone] = useState<{ sent: number; failed: number; error?: string } | null>(null)
-  const emailCancelRef = useRef(false)
   const [isUserLogin, setIsUserLogin] = useState(false)
   const [isTrialExpired, setIsTrialExpired] = useState(false)
   const [canImportData, setCanImportData] = useState(true)
@@ -273,11 +243,7 @@ export default function RecipientsPage() {
     }
 
     // Filter by status
-    if (statusFilter === "emailed") {
-      recipients = recipients.filter(r => r.emailStatus === "sent")
-    } else if (statusFilter === "not-emailed") {
-      recipients = recipients.filter(r => !!r.email && r.emailStatus !== "sent")
-    } else if (statusFilter !== "all") {
+    if (statusFilter !== "all") {
       recipients = recipients.filter(r => r.status === statusFilter)
     }
 
@@ -345,98 +311,6 @@ export default function RecipientsPage() {
       setDeleteTarget({ type: 'bulk' })
     }
     setDeleteDialogOpen(true)
-  }
-
-  // ---- Certificate emails ----
-  const emailScopeTypeId = selectedTypeId === "all" ? null : selectedTypeId
-
-  const openEmailDialog = async (ids: string[] | null) => {
-    if (!eventId) return
-    setEmailDialogIds(ids)
-    setEmailCounts(null)
-    setEmailDone(null)
-    setEmailProgress(null)
-    setEmailMode(ids ? "selected" : "unsent")
-    setEmailDialogOpen(true)
-    try {
-      const params = new URLSearchParams({ eventId })
-      if (emailScopeTypeId) params.set("certificateTypeId", emailScopeTypeId)
-      const res = await fetch(`/api/client/recipients/email?${params.toString()}`)
-      const data = await res.json()
-      if (res.ok) {
-        setEmailCounts(data.counts)
-        setEmailConfigured(data.configured !== false)
-        if (!ids && data.counts?.unsent === 0 && data.counts?.sent > 0) setEmailMode("all")
-      } else {
-        toast.error(data.error || "Could not load email status")
-      }
-    } catch {
-      toast.error("Could not load email status")
-    }
-  }
-
-  // Sends batch after batch until the server reports nothing left, or the user cancels
-  const runEmailSend = async (mode: EmailSendMode, ids: string[] | null, total: number) => {
-    if (!eventId) return
-    const since = new Date().toISOString()
-    setEmailSending(true)
-    setEmailDone(null)
-    setEmailProgress({ sent: 0, failed: 0, total })
-    emailCancelRef.current = false
-    let sent = 0
-    let failed = 0
-    let error: string | undefined
-    let pendingIds = ids ? [...ids] : null
-    try {
-      while (!emailCancelRef.current) {
-        const batchIds = pendingIds ? pendingIds.splice(0, 50) : undefined
-        if (pendingIds && batchIds?.length === 0) break
-        const res = await fetch("/api/client/recipients/email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ eventId, certificateTypeId: emailScopeTypeId, mode, recipientIds: batchIds, since })
-        })
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok) {
-          error = data.error || "Sending failed"
-          sent += data.sent || 0
-          failed += data.failed || 0
-          break
-        }
-        sent += data.sent || 0
-        failed += data.failed || 0
-        setEmailProgress({ sent, failed, total })
-        if (data.error && data.sent === 0) { error = data.error; break }
-        if (!pendingIds && (data.remaining === 0 || data.processed === 0)) break
-      }
-    } catch {
-      error = "Network error while sending"
-    }
-    setEmailSending(false)
-    setEmailDone({ sent, failed, error })
-    if (eventId) fetchEventData(eventId)
-    if (sent > 0 && !error) toast.success(`${sent.toLocaleString("en-IN")} certificate email${sent === 1 ? "" : "s"} sent`)
-  }
-
-  const emailOneRecipient = async (r: EventRecipient) => {
-    if (!eventId) return
-    if (!r.email) { toast.error("This recipient has no email address. Add one with Edit."); return }
-    const toastId = toast.loading(`Emailing ${r.name}...`)
-    try {
-      const res = await fetch("/api/client/recipients/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, mode: "selected", recipientIds: [r.id] })
-      })
-      const data = await res.json().catch(() => ({}))
-      toast.dismiss(toastId)
-      if (res.ok && data.sent > 0) toast.success(`Certificate emailed to ${r.email}`)
-      else toast.error(data.error || "Could not send the email")
-      fetchEventData(eventId)
-    } catch {
-      toast.dismiss(toastId)
-      toast.error("Could not send the email")
-    }
   }
 
   const handleDelete = async () => {
@@ -956,15 +830,9 @@ export default function RecipientsPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => openEmailDialog(null)}
-              disabled={showTableSkeleton || allRecipientsCount === 0}
-              className="h-9 px-3 text-[13px] border-neutral-200 bg-white hover:bg-neutral-50"
-              title="Email every recipient a link to their certificate"
-            >
+            <Button variant="outline" size="sm" onClick={() => setEmailDialogOpen(true)} disabled={showTableSkeleton || allRecipientsCount === 0} className="h-9 px-3 text-[13px] border-neutral-200 bg-white hover:bg-neutral-50">
               <Mail className="h-3.5 w-3.5 mr-1.5" /> Email certificates
+              <span className="ml-1.5"><StatusTag status="beta" /></span>
             </Button>
             <Button size="sm" onClick={openAddDialog} disabled={showTableSkeleton} className="h-9 px-3.5 text-[13px] bg-neutral-900 text-white hover:bg-black">
               <UserPlus className="h-3.5 w-3.5 mr-1.5" /> Add recipient
@@ -1014,8 +882,6 @@ export default function RecipientsPage() {
                   <SelectItem value="all">Any status</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="downloaded">Downloaded</SelectItem>
-                  <SelectItem value="emailed">Emailed</SelectItem>
-                  <SelectItem value="not-emailed">Not emailed</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -1106,15 +972,7 @@ export default function RecipientsPage() {
                       </td>
                       <td className="px-3 py-3 text-neutral-400 tabular-nums">{startIndex + i + 1}</td>
                       <td className="px-3 py-3 font-medium text-neutral-900 text-[13px] truncate" title={r.name}>{r.name}</td>
-                      <td className="px-3 py-3 text-neutral-600" title={r.email}>
-                        <span className="flex items-center gap-1.5 min-w-0">
-                          {r.emailStatus === "sent" && <MailCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-label="Emailed" />}
-                          {r.emailStatus === "failed" && <MailX className="h-3.5 w-3.5 shrink-0 text-red-500" aria-label="Email failed" />}
-                          <span className="truncate" title={r.emailStatus === "sent" ? `Emailed ${formatSentAt(r.emailSentAt)}` : r.emailStatus === "failed" ? `Email failed: ${r.emailError || "unknown error"}` : r.email}>
-                            {r.email || <span className="text-neutral-300">—</span>}
-                          </span>
-                        </span>
-                      </td>
+                      <td className="px-3 py-3 text-neutral-600 truncate" title={r.email}>{r.email || <span className="text-neutral-300">—</span>}</td>
                       <td className="px-3 py-3 text-neutral-600 truncate tabular-nums">{r.mobile || <span className="text-neutral-300">—</span>}</td>
                       <td className="px-3 py-3">
                         <span className="font-mono text-[11.5px] text-neutral-600 truncate inline-block max-w-[140px] whitespace-nowrap" title={r.certificateId}>{r.certificateId}</span>
@@ -1154,10 +1012,6 @@ export default function RecipientsPage() {
                               <Pencil className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => emailOneRecipient(r)} className={!r.email ? "opacity-50" : ""}>
-                              <Mail className="h-4 w-4 mr-2" />
-                              {r.emailStatus === "sent" ? "Email again" : "Email certificate"}
-                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => openDeleteDialog(r)}
                               className="text-red-600 focus:text-red-600"
@@ -1182,24 +1036,14 @@ export default function RecipientsPage() {
                 {filteredRecipients.length > 0 ? startIndex + 1 : 0}–{Math.min(endIndex, filteredRecipients.length)} of {filteredRecipients.length}
               </div>
               {selectedIds.size > 0 && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openEmailDialog(Array.from(selectedIds))}
-                  >
-                    <Mail className="h-4 w-4 mr-2" />
-                    Email Selected ({selectedIds.size})
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => openDeleteDialog()}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Selected ({selectedIds.size})
-                  </Button>
-                </>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => openDeleteDialog()}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Selected ({selectedIds.size})
+                </Button>
               )}
             </div>
             <div className="flex items-center gap-3 sm:gap-4">
@@ -1294,139 +1138,6 @@ export default function RecipientsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Certificate Email Dialog */}
-      <Dialog
-        open={emailDialogOpen}
-        onOpenChange={(open) => {
-          if (!open && emailSending) return
-          setEmailDialogOpen(open)
-        }}
-      >
-        <DialogContent className="sm:max-w-[480px]">
-          {(() => {
-            const scopeLabel = emailDialogIds
-              ? `${emailDialogIds.length.toLocaleString("en-IN")} selected recipient${emailDialogIds.length === 1 ? "" : "s"}`
-              : emailScopeTypeId
-                ? `"${event?.certificateTypes.find((ct) => ct.id === emailScopeTypeId)?.name || "this certificate"}"`
-                : "all certificates in this event"
-            const selectedWithEmail = emailDialogIds
-              ? getAllRecipients().filter((r) => emailDialogIds.includes(r.id) && !!r.email).length
-              : 0
-            const plannedCount = emailDialogIds ? selectedWithEmail : emailMode === "all" ? (emailCounts?.withEmail || 0) : (emailCounts?.unsent || 0)
-            const progressPct = emailProgress && emailProgress.total > 0 ? Math.min(100, Math.round(((emailProgress.sent + emailProgress.failed) / emailProgress.total) * 100)) : 0
-            return (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2"><Mail className="h-4 w-4" /> Email certificates</DialogTitle>
-                  <DialogDescription>
-                    Each person gets a link to their own certificate and an &quot;Add to LinkedIn profile&quot; button. Replies come to your account email. Scope: {scopeLabel}.
-                  </DialogDescription>
-                </DialogHeader>
-
-                {!emailCounts && !emailDone ? (
-                  <div className="py-6 text-sm text-neutral-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Checking recipients…</div>
-                ) : emailDone ? (
-                  <div className="space-y-3 py-2">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
-                        <p className="text-[11px] uppercase tracking-wider text-emerald-700 font-medium">Sent</p>
-                        <p className="text-2xl font-semibold text-emerald-800 tabular-nums">{emailDone.sent.toLocaleString("en-IN")}</p>
-                      </div>
-                      <div className={cn("rounded-lg border p-3", emailDone.failed > 0 ? "border-red-100 bg-red-50" : "border-neutral-200 bg-neutral-50")}>
-                        <p className={cn("text-[11px] uppercase tracking-wider font-medium", emailDone.failed > 0 ? "text-red-700" : "text-neutral-500")}>Failed</p>
-                        <p className={cn("text-2xl font-semibold tabular-nums", emailDone.failed > 0 ? "text-red-800" : "text-neutral-700")}>{emailDone.failed.toLocaleString("en-IN")}</p>
-                      </div>
-                    </div>
-                    {emailDone.error && (
-                      <div className="flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-[13px] text-red-800">
-                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                        <span>Stopped: {emailDone.error}. Fix the cause and run &quot;Email certificates&quot; again; only people not yet emailed are sent.</span>
-                      </div>
-                    )}
-                    {!emailDone.error && emailDone.failed > 0 && (
-                      <p className="text-[13px] text-neutral-600">Failed addresses are marked with <MailX className="inline h-3.5 w-3.5 text-red-500" /> in the list. Hover the address to see why, fix it with Edit, then email again.</p>
-                    )}
-                    {!emailDone.error && emailDone.failed === 0 && emailDone.sent === 0 && (
-                      <p className="text-[13px] text-neutral-600">Nothing to send: nobody in this scope has an email address that has not already been emailed.</p>
-                    )}
-                  </div>
-                ) : emailSending && emailProgress ? (
-                  <div className="space-y-3 py-2">
-                    <Progress value={progressPct} />
-                    <p className="text-[13px] text-neutral-600 tabular-nums">
-                      {(emailProgress.sent + emailProgress.failed).toLocaleString("en-IN")} of {emailProgress.total.toLocaleString("en-IN")} processed · {emailProgress.sent.toLocaleString("en-IN")} sent{emailProgress.failed > 0 ? ` · ${emailProgress.failed.toLocaleString("en-IN")} failed` : ""}
-                    </p>
-                    <p className="text-[12px] text-neutral-500">Keep this tab open until it finishes. Sending happens in batches of 50.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4 py-1">
-                    {!emailConfigured && (
-                      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-900">
-                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                        <span>Email sending is not set up on this server yet. Write to support@certistage.com.</span>
-                      </div>
-                    )}
-                    {emailDialogIds ? (
-                      <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-[13px] text-neutral-700">
-                        <p><span className="font-medium text-neutral-900">{selectedWithEmail.toLocaleString("en-IN")}</span> of the {emailDialogIds.length.toLocaleString("en-IN")} selected have an email address. Anyone already emailed will get it again.</p>
-                      </div>
-                    ) : (
-                      <RadioGroup value={emailMode} onValueChange={(v) => setEmailMode(v as EmailSendMode)} className="gap-2">
-                        <label className={cn("flex items-start gap-3 rounded-lg border p-3 cursor-pointer", emailMode === "unsent" ? "border-neutral-900 bg-neutral-50" : "border-neutral-200")}>
-                          <RadioGroupItem value="unsent" className="mt-0.5" />
-                          <span className="text-[13px]">
-                            <span className="font-medium text-neutral-900 block">Not yet emailed ({(emailCounts?.unsent || 0).toLocaleString("en-IN")})</span>
-                            <span className="text-neutral-500">Includes anyone whose last email failed.</span>
-                          </span>
-                        </label>
-                        <label className={cn("flex items-start gap-3 rounded-lg border p-3 cursor-pointer", emailMode === "all" ? "border-neutral-900 bg-neutral-50" : "border-neutral-200")}>
-                          <RadioGroupItem value="all" className="mt-0.5" />
-                          <span className="text-[13px]">
-                            <span className="font-medium text-neutral-900 block">Everyone with an email ({(emailCounts?.withEmail || 0).toLocaleString("en-IN")})</span>
-                            <span className="text-neutral-500">{(emailCounts?.sent || 0).toLocaleString("en-IN")} already emailed; they get it again.</span>
-                          </span>
-                        </label>
-                      </RadioGroup>
-                    )}
-                    {!emailDialogIds && (emailCounts?.noEmail || 0) > 0 && (
-                      <p className="text-[12.5px] text-neutral-500">
-                        {(emailCounts?.noEmail || 0).toLocaleString("en-IN")} recipient{(emailCounts?.noEmail || 0) === 1 ? " has" : "s have"} no email address and will be skipped. They can still search and download from the event link.
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2 rounded-lg border border-neutral-200 p-3 text-[12.5px] text-neutral-600">
-                      <Linkedin className="h-4 w-4 shrink-0 text-neutral-500" />
-                      <span>Sender shows as &quot;{"<your organisation>"} via CertiStage&quot;. The LinkedIn button in the mail counts on your dashboard like the one on the download page.</span>
-                    </div>
-                  </div>
-                )}
-
-                <DialogFooter className="gap-2">
-                  {emailSending ? (
-                    <Button variant="outline" onClick={() => { emailCancelRef.current = true }}>
-                      Stop after this batch
-                    </Button>
-                  ) : emailDone ? (
-                    <Button onClick={() => setEmailDialogOpen(false)}>Done</Button>
-                  ) : (
-                    <>
-                      <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
-                      <Button
-                        disabled={!emailCounts || !emailConfigured || plannedCount === 0}
-                        onClick={() => runEmailSend(emailDialogIds ? "selected" : emailMode, emailDialogIds, plannedCount)}
-                        className="bg-neutral-900 text-white hover:bg-black"
-                      >
-                        <Mail className="h-4 w-4 mr-2" />
-                        Send {plannedCount > 0 ? plannedCount.toLocaleString("en-IN") : ""} email{plannedCount === 1 ? "" : "s"}
-                      </Button>
-                    </>
-                  )}
-                </DialogFooter>
-              </>
-            )
-          })()}
-        </DialogContent>
-      </Dialog>
-
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -1453,6 +1164,17 @@ export default function RecipientsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {eventId && event && (
+        <EmailCertificatesDialog
+          open={emailDialogOpen}
+          onOpenChange={setEmailDialogOpen}
+          eventId={eventId}
+          typeId={selectedTypeId === "all" ? null : selectedTypeId}
+          scopeLabel={selectedTypeId === "all" ? "all certificates in this event" : event.certificateTypes.find((ct) => ct.id === selectedTypeId)?.name || "selected certificate"}
+          onSent={() => fetchEventData(eventId)}
+        />
+      )}
 
       {/* Excel check: certificate columns missing or empty in the uploaded file */}
       <Dialog open={!!importCheck} onOpenChange={(open) => { if (!open) setImportCheck(null) }}>

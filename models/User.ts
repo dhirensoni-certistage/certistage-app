@@ -19,6 +19,17 @@ export interface IUser extends Document {
     key: string
     certificatesIssued: number
   }
+  /** Certificate emails sent to recipients: per plan period (same key as usage) and per day */
+  emailUsage?: {
+    key: string
+    sent: number
+  }
+  emailDay?: {
+    day: string
+    sent: number
+  }
+  /** Extra certificate emails bought as an add-on; used after the plan's emails, never expire */
+  emailCredits?: number
   isActive: boolean
   isEmailVerified: boolean
   hidePoweredBy?: boolean // hide "Powered by CertiStage" on download pages; honoured only on an active paid plan
@@ -45,6 +56,15 @@ const UserSchema = new Schema<IUser>(
       key: { type: String },
       certificatesIssued: { type: Number, default: 0 }
     },
+    emailUsage: {
+      key: { type: String },
+      sent: { type: Number, default: 0 }
+    },
+    emailDay: {
+      day: { type: String },
+      sent: { type: Number, default: 0 }
+    },
+    emailCredits: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
     isEmailVerified: { type: Boolean, default: false },
     hidePoweredBy: { type: Boolean, default: false }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import Payment from "@/models/Payment"
 import User from "@/models/User"
+import { completeAddonPayment } from "@/lib/addon-payments.server"
 
 // Helper to make Razorpay API calls
 async function razorpayFetch(endpoint: string) {
@@ -76,6 +77,12 @@ export async function POST(request: NextRequest) {
       const paymentsData = await razorpayFetch(`/orders/${payment.orderId}/payments`)
       const successfulPayment = paymentsData.items?.find((p: any) => p.status === "captured")
 
+      // Add-on purchases add emails and never change the plan
+      if (payment.kind === "addon") {
+        await completeAddonPayment(payment.orderId, successfulPayment?.id, "sync")
+        return NextResponse.json({ message: "Add-on payment synced", status: "success", synced: true, plan: "addon" })
+      }
+
       // Update payment record
       payment.status = "success"
       if (successfulPayment) {
@@ -147,6 +154,13 @@ export async function PUT(request: NextRequest) {
         if (razorpayOrder.status === "paid") {
           const paymentsData = await razorpayFetch(`/orders/${payment.orderId}/payments`)
           const successfulPayment = paymentsData.items?.find((p: any) => p.status === "captured")
+
+          if (payment.kind === "addon") {
+            await completeAddonPayment(payment.orderId, successfulPayment?.id, "sync")
+            results.success++
+            results.synced++
+            continue
+          }
 
           payment.status = "success"
           if (successfulPayment) {

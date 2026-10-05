@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   ChartColumnIncreasing,
+  MailCheck,
+  PackagePlus,
   LogOut,
   ChevronRight,
   Award,
@@ -15,6 +17,7 @@ import {
   CalendarDays, ArchiveRestore, ReceiptText } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { StatusTag } from "@/components/client/addon-status-tag"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -96,7 +99,9 @@ export function ClientSidebar({ mobile = false, onNavigate, collapsed: collapsed
     { href: "/client/dashboard", label: "Dashboard", icon: LayoutDashboard, requiresEvent: true, group: "Event" },
     { href: "/client/certificates", label: "Certificates", icon: Award, requiresEvent: true, group: "Event" },
     { href: "/client/recipients", label: "Recipients", icon: Users, requiresEvent: true, group: "Event" },
+    { href: "/client/email-log", label: "Email log", icon: MailCheck, requiresEvent: true, group: "Event", beta: true },
     { href: "/client/reports", label: "Reports", icon: ChartColumnIncreasing, requiresEvent: true, group: "Event" },
+    { href: "/client/addons", label: "Add-ons", icon: PackagePlus, requiresEvent: false, group: "Account", beta: true },
     { href: "/client/settings", label: "Settings", icon: Settings2, requiresEvent: false, group: "Account" },
     { href: "/client/billing", label: "Billing", icon: ReceiptText, requiresEvent: false, group: "Account" },
     { href: "/client/trash", label: "Recently deleted", icon: ArchiveRestore, requiresEvent: false, group: "Account" },
@@ -166,6 +171,7 @@ export function ClientSidebar({ mobile = false, onNavigate, collapsed: collapsed
                   >
                     <item.icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-neutral-900" : "text-neutral-500")} strokeWidth={isActive ? 2 : 1.75} />
                     {!collapsed && <span className="truncate">{item.label}</span>}
+                    {!collapsed && "beta" in item && item.beta && <span className="ml-auto"><StatusTag status="beta" /></span>}
                   </Link>
                 )
               })}

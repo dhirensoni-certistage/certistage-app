@@ -13,7 +13,8 @@ export async function sendPlanPaymentEmails(orderId: string): Promise<void> {
   try {
     // Claim the send atomically so two paths never both send
     const payment = await Payment.findOneAndUpdate(
-      { orderId, status: "success", receiptSentAt: { $exists: false } },
+      // Add-on purchases send their own receipt (completeAddonPayment)
+      { orderId, status: "success", kind: { $ne: "addon" }, receiptSentAt: { $exists: false } },
       { $set: { receiptSentAt: new Date() } },
       { new: true }
     )

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { completeAddonPayment } from "@/lib/addon-payments.server"
 import { sendPlanPaymentEmails } from "@/lib/plan-payment-emails.server"
 import crypto from "crypto"
 import connectDB from "@/lib/mongodb"
@@ -107,6 +108,13 @@ async function handlePaymentCaptured(payment: any) {
   // Find existing payment record by order ID
   const existingPayment = await Payment.findOne({ orderId })
   const now = new Date()
+
+  // Add-on purchases (lib/addons) add emails and never touch the plan
+  if (existingPayment?.kind === "addon" || (!existingPayment && notes?.kind === "addon")) {
+    if (!existingPayment) await createAddonPaymentFromNotes(orderId, paymentId, amount, notes, "pending")
+    await completeAddonPayment(orderId, paymentId, "webhook")
+    return
+  }
   
   if (existingPayment) {
     // Update existing payment
@@ -180,8 +188,14 @@ async function handlePaymentFailed(payment: any) {
   
   // Update or create failed payment record
   const existingPayment = await Payment.findOne({ orderId })
+  if (!existingPayment && notes?.kind === "addon") {
+    await createAddonPaymentFromNotes(orderId, paymentId, payment.amount, notes, "failed", error_description)
+    return
+  }
   
   if (existingPayment) {
+    // A late failure event must not undo an add-on that was already paid
+    if (existingPayment.kind === "addon" && existingPayment.status === "success") return
     existingPayment.paymentId = paymentId
     existingPayment.status = "failed"
     existingPayment.failureReason = error_description
@@ -206,6 +220,12 @@ async function handlePaymentFailed(payment: any) {
 
 async function handleOrderPaid(order: any, payment?: any) {
   const { id: orderId, amount, notes } = order
+
+  if (notes?.kind === "addon" || (await Payment.exists({ orderId, kind: "addon" }))) {
+    if (!(await Payment.exists({ orderId }))) await createAddonPaymentFromNotes(orderId, payment?.id, amount, notes, "pending")
+    await completeAddonPayment(orderId, payment?.id, "webhook")
+    return
+  }
   
   if (!notes?.userId || !notes?.plan) {
     console.log("Webhook: order.paid missing notes", orderId)
@@ -277,4 +297,23 @@ async function handleRefundCreated(refund: any) {
     
     console.log("Webhook: Refund processed", { paymentId, amount })
   }
+}
+
+/** Backup record for an add-on order the browser never reported (lib/addons) */
+async function createAddonPaymentFromNotes(orderId: string, paymentId: string | undefined, amount: number, notes: any, status: "pending" | "failed", failureReason?: string) {
+  if (!notes?.userId) return
+  await Payment.create({
+    userId: notes.userId,
+    orderId,
+    paymentId,
+    plan: "addon",
+    kind: "addon",
+    addonId: notes.addonId,
+    addonEmails: Number(notes.emails) || 0,
+    amount,
+    currency: "INR",
+    status,
+    webhookVerified: true,
+    ...(failureReason ? { failureReason } : {})
+  })
 }

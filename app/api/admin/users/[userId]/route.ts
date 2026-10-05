@@ -115,6 +115,15 @@ export async function PATCH(
       }
     }
 
+    // Add-on certificate emails sold to this organizer (lib/email-delivery)
+    if (body.addEmailCredits !== undefined) {
+      const add = Number(body.addEmailCredits)
+      if (!Number.isInteger(add) || add === 0 || Math.abs(add) > 1_000_000) {
+        return NextResponse.json({ error: "Enter a whole number of emails" }, { status: 400 })
+      }
+      user.emailCredits = Math.max(0, (user.emailCredits || 0) + add)
+    }
+
     await user.save()
 
     return NextResponse.json({ 
@@ -123,7 +132,8 @@ export async function PATCH(
         _id: user._id, 
         isActive: user.isActive,
         plan: user.plan,
-        planExpiresAt: user.planExpiresAt
+        planExpiresAt: user.planExpiresAt,
+        emailCredits: user.emailCredits || 0
       } 
     })
   } catch (error) {

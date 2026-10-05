@@ -444,51 +444,6 @@ export const emailTemplates = {
   }
 }
 
-/**
- * The certificate email an organiser sends to recipients. The organiser is the
- * hero (their name is the sender line and the first thing in the body); the
- * CertiStage shell stays around it. Links: the person's own download page and
- * LinkedIn "Add to profile", both counted on the organiser dashboard.
- */
-export function certificateEmail(data: {
-  recipientName: string
-  organisationName: string
-  eventName: string
-  certificateName: string
-  downloadUrl: string
-  linkedinUrl?: string
-  regNo?: string
-}): { subject: string; html: string } {
-  const b = EMAIL_BRAND
-  const org = esc(data.organisationName)
-  const cert = /\bcertificate\b/i.test(data.certificateName) ? esc(data.certificateName) : `${esc(data.certificateName)} certificate`
-  const linkedinButton = data.linkedinUrl
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;"><tr><td style="border:1px solid ${b.ink};border-radius:8px;">
-        <a href="${data.linkedinUrl}" style="display:inline-block;padding:11px 22px;font-family:${FONT};font-size:14px;font-weight:600;color:${b.ink};text-decoration:none;">Add to LinkedIn profile</a>
-      </td></tr></table>`
-    : ''
-  return {
-    subject: `Your ${data.certificateName} certificate - ${data.eventName}`.replace(/certificate certificate/i, 'certificate'),
-    html: emailLayout({
-      preheader: `${data.organisationName} has issued your certificate for ${data.eventName}. Download it here.`,
-      body: `
-        <p style="margin:0 0 6px;font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:${b.gold};">${org}</p>
-        ${h1('Your certificate is ready')}
-        ${para(`Dear ${esc(data.recipientName)},`)}
-        ${para(`${org} has issued your <strong style="color:${b.ink};">${cert}</strong> for <strong style="color:${b.ink};">${esc(data.eventName)}</strong>. Open the button below to view and download it as a PDF.`)}
-        ${data.regNo ? keyValueRows([['Name', data.recipientName], ['Registration number', data.regNo]]) : keyValueRows([['Name', data.recipientName]])}
-        ${button(data.downloadUrl, 'Download certificate')}
-        ${linkedinButton}
-        ${small(`If the buttons do not work, open this link:<br><a href="${data.downloadUrl}" style="color:${b.ink};word-break:break-all;">${data.downloadUrl}</a>`)}
-        ${divider()}
-        ${small(`This email was sent by ${org}. Reply to it if your name or details on the certificate need a correction.`)}
-        ${small(`Need certificates for your own event? <a href="${APP_URL}/?utm_source=certificate_email&utm_medium=email&utm_campaign=powered_by" style="color:${b.ink};">Create them with CertiStage</a>.`)}
-      `,
-      footerNote: `You received this email because ${data.organisationName} added you as a certificate recipient on CertiStage.`
-    })
-  }
-}
-
 /** Shared shell for internal emails (contact form, support requests). */
 export function renderInternalEmail({ title, rows, message, note }: { title: string; rows: Array<[string, unknown]>; message?: string; note?: string }): string {
   const b = EMAIL_BRAND
@@ -501,4 +456,91 @@ export function renderInternalEmail({ title, rows, message, note }: { title: str
     `,
     footerNote: 'Internal notification from CertiStage.'
   })
+}
+
+/**
+ * Certificate email to a recipient, sent on the organizer's behalf (lib/email-delivery).
+ * Links to the recipient's own download page rather than attaching the PDF, so downloads,
+ * LinkedIn adds and shares are counted and the message stays small.
+ */
+export function renderCertificateEmail({ recipientName, eventName, certificateName, issuer, link, linkedinUrl, reminder, openPixel }: {
+  recipientName: string
+  eventName: string
+  certificateName: string
+  issuer: string
+  link: string
+  linkedinUrl?: string // "Add to LinkedIn profile", counted on the dashboard like the download-page button
+  reminder?: boolean
+  openPixel?: string // 1x1 image that records the open in the Email log
+}): { subject: string; html: string } {
+  const subject = reminder
+    ? `Reminder: your ${eventName} certificate is ready`
+    : `Your certificate for ${eventName}`
+  const body = `
+    ${h1(reminder ? 'Your certificate is waiting' : 'Your certificate is ready')}
+    ${para(`Dear ${esc(recipientName)},`)}
+    ${para(`${esc(issuer)} has issued your <strong>${esc(certificateName)}</strong> certificate for <strong>${esc(eventName)}</strong>.`)}
+    ${button(link, 'View and download certificate')}
+    ${linkedinUrl
+      ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;"><tr><td style="border:1px solid ${EMAIL_BRAND.ink};border-radius:8px;">
+        <a href="${linkedinUrl}" style="display:inline-block;padding:11px 22px;font-family:${FONT};font-size:14px;font-weight:600;color:${EMAIL_BRAND.ink};text-decoration:none;">Add to LinkedIn profile</a>
+      </td></tr></table>`
+      : small('On that page you can also add the certificate to your LinkedIn profile.')}
+    ${divider()}
+    ${small(`If the button does not work, copy this link into your browser:<br><a href="${link}" style="color:${EMAIL_BRAND.muted};word-break:break-all;">${esc(link)}</a>`)}
+    ${openPixel ? `<img src="${openPixel}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;">` : ''}
+  `
+  return {
+    subject,
+    html: emailLayout({
+      preheader: `${issuer} has issued your certificate for ${eventName}.`,
+      body,
+      footerNote: `You received this email because ${issuer} added you as a participant of ${eventName}.`
+    })
+  }
+}
+
+/** Receipt for an add-on purchase (lib/addons), e.g. a pack of certificate emails */
+export function renderAddonReceipt(data: {
+  invoiceNumber: string
+  customerName: string
+  customerEmail: string
+  itemName: string
+  amount: number // paise
+  paymentId: string
+  paymentDate: Date
+  invoiceUrl?: string
+}): { subject: string; html: string } {
+  const b = EMAIL_BRAND
+  const fmt = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  const line = (label: string, value: string, strong = false) => `<tr>
+      <td style="padding:10px 0;font-family:${FONT};font-size:${strong ? 16 : 14}px;color:${strong ? b.ink : b.muted};font-weight:${strong ? 600 : 400};border-top:1px solid ${b.line};">${label}</td>
+      <td align="right" style="padding:10px 0;font-family:${FONT};font-size:${strong ? 16 : 14}px;color:${b.ink};font-weight:${strong ? 600 : 400};border-top:1px solid ${b.line};">${value}</td>
+    </tr>`
+  return {
+    subject: `Receipt ${data.invoiceNumber}: ${data.itemName}`,
+    html: emailLayout({
+      preheader: `Payment of ${inr(data.amount)} received. ${data.itemName} added to your account.`,
+      body: `
+        ${h1('Payment received')}
+        ${para(`Thank you, ${esc(data.customerName)}. <strong style="color:${b.ink};">${esc(data.itemName)}</strong> ${data.itemName.endsWith('s') ? 'have' : 'has'} been added to your account. They never expire.`)}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 4px;">
+          <tr>
+            <td style="padding:0 0 8px;font-family:${FONT};font-size:11px;letter-spacing:1px;text-transform:uppercase;color:${b.muted};">Receipt</td>
+            <td align="right" style="padding:0 0 8px;font-family:${FONT};font-size:13px;color:${b.ink};">${esc(data.invoiceNumber)}</td>
+          </tr>
+          ${line('Billed to', `${esc(data.customerName)}<br><span style="color:${b.muted};font-size:13px;">${esc(data.customerEmail)}</span>`)}
+          ${line('Date', fmt(data.paymentDate))}
+          ${line('Payment ID', `<span style="font-family:${MONO};font-size:12px;">${esc(data.paymentId)}</span>`)}
+          ${line(`${esc(data.itemName)}, one-time`, inr(data.amount))}
+          ${line('Total paid', inr(data.amount), true)}
+        </table>
+        ${button(`${APP_URL}/client/email-log`, 'Go to email log')}
+        ${data.invoiceUrl ? small(`<a href="${data.invoiceUrl}" style="color:${b.ink};">Download PDF receipt</a>`) : ''}
+        ${divider()}
+        ${small('CertiStage &middot; support@certistage.com &middot; Keep this email as your payment record.')}
+      `,
+      footerNote: 'You received this email because a payment was made on your CertiStage account.'
+    })
+  }
 }

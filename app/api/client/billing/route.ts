@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
       },
       payments: payments.map((p) => ({
         id: String(p._id),
-        description: `${planName(p.plan)}${/\bplan$/i.test(planName(p.plan)) ? "" : " plan"}, 1 year`,
+        description: p.kind === "addon"
+          ? `${Number(p.addonEmails || 0).toLocaleString("en-IN")} certificate emails (add-on)`
+          : `${planName(p.plan)}${/\bplan$/i.test(planName(p.plan)) ? "" : " plan"}, 1 year`,
         amount: p.amount,
         currency: p.currency || "INR",
         status: p.status,
