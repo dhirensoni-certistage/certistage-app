@@ -51,6 +51,7 @@ export interface EmailAttachment {
 export interface SendEmailOptions extends EmailTemplate {
   template?: string
   cc?: string | string[]
+  replyTo?: string
   attachments?: EmailAttachment[]
   metadata?: {
     userId?: string
@@ -92,11 +93,11 @@ async function logEmail(options: {
   }
 }
 
-export async function sendEmail({ to, subject, html, template = "custom", cc, metadata, attachments }: SendEmailOptions): Promise<{ success: boolean; error?: any; data?: any }> {
+export async function sendEmail({ to, subject, html, template = "custom", cc, replyTo, metadata, attachments }: SendEmailOptions): Promise<{ success: boolean; error?: any; data?: any }> {
   // Provider order: Brevo (BREVO_API_KEY), then SendGrid, then SMTP
   if (process.env.BREVO_API_KEY) {
     const { sendEmailViaBrevo } = await import('./email-brevo')
-    const result = await sendEmailViaBrevo({ to, subject, html, cc, attachments, tags: [template] })
+    const result = await sendEmailViaBrevo({ to, subject, html, cc, attachments, replyTo, tags: [template] })
     await logEmail({
       to,
       subject,
@@ -160,6 +161,9 @@ export async function sendEmail({ to, subject, html, template = "custom", cc, me
 
   if (cc) {
     mailOptions.cc = cc
+  }
+  if (replyTo) {
+    mailOptions.replyTo = replyTo
   }
   if (attachments?.length) {
     mailOptions.attachments = attachments.map((a) => ({ filename: a.filename, content: a.content, contentType: a.contentType }))
@@ -437,6 +441,51 @@ export const emailTemplates = {
         footerNote: 'You received this email because a payment was made on your CertiStage account. This receipt is computer-generated and needs no signature.'
       })
     }
+  }
+}
+
+/**
+ * The certificate email an organiser sends to recipients. The organiser is the
+ * hero (their name is the sender line and the first thing in the body); the
+ * CertiStage shell stays around it. Links: the person's own download page and
+ * LinkedIn "Add to profile", both counted on the organiser dashboard.
+ */
+export function certificateEmail(data: {
+  recipientName: string
+  organisationName: string
+  eventName: string
+  certificateName: string
+  downloadUrl: string
+  linkedinUrl?: string
+  regNo?: string
+}): { subject: string; html: string } {
+  const b = EMAIL_BRAND
+  const org = esc(data.organisationName)
+  const cert = /\bcertificate\b/i.test(data.certificateName) ? esc(data.certificateName) : `${esc(data.certificateName)} certificate`
+  const linkedinButton = data.linkedinUrl
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;"><tr><td style="border:1px solid ${b.ink};border-radius:8px;">
+        <a href="${data.linkedinUrl}" style="display:inline-block;padding:11px 22px;font-family:${FONT};font-size:14px;font-weight:600;color:${b.ink};text-decoration:none;">Add to LinkedIn profile</a>
+      </td></tr></table>`
+    : ''
+  return {
+    subject: `Your ${data.certificateName} certificate - ${data.eventName}`.replace(/certificate certificate/i, 'certificate'),
+    html: emailLayout({
+      preheader: `${data.organisationName} has issued your certificate for ${data.eventName}. Download it here.`,
+      body: `
+        <p style="margin:0 0 6px;font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:${b.gold};">${org}</p>
+        ${h1('Your certificate is ready')}
+        ${para(`Dear ${esc(data.recipientName)},`)}
+        ${para(`${org} has issued your <strong style="color:${b.ink};">${cert}</strong> for <strong style="color:${b.ink};">${esc(data.eventName)}</strong>. Open the button below to view and download it as a PDF.`)}
+        ${data.regNo ? keyValueRows([['Name', data.recipientName], ['Registration number', data.regNo]]) : keyValueRows([['Name', data.recipientName]])}
+        ${button(data.downloadUrl, 'Download certificate')}
+        ${linkedinButton}
+        ${small(`If the buttons do not work, open this link:<br><a href="${data.downloadUrl}" style="color:${b.ink};word-break:break-all;">${data.downloadUrl}</a>`)}
+        ${divider()}
+        ${small(`This email was sent by ${org}. Reply to it if your name or details on the certificate need a correction.`)}
+        ${small(`Need certificates for your own event? <a href="${APP_URL}/?utm_source=certificate_email&utm_medium=email&utm_campaign=powered_by" style="color:${b.ink};">Create them with CertiStage</a>.`)}
+      `,
+      footerNote: `You received this email because ${data.organisationName} added you as a certificate recipient on CertiStage.`
+    })
   }
 }
 

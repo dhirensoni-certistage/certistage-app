@@ -93,7 +93,10 @@ export async function GET(request: NextRequest) {
                 mobile: { $ifNull: ["$mobile", ""] },
                 certificateId: { $ifNull: ["$regNo", { $toString: "$_id" }] },
                 downloadCount: { $ifNull: ["$downloadCount", 0] },
-                downloadedAt: "$lastDownloadAt"
+                downloadedAt: "$lastDownloadAt",
+                emailStatus: "$emailStatus",
+                emailSentAt: "$emailSentAt",
+                emailError: "$emailError"
               }
             },
             total: { $sum: 1 },
