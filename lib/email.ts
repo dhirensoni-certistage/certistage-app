@@ -353,6 +353,49 @@ export const emailTemplates = {
       note: 'If you did not sign up for CertiStage, ignore this email and no account will be created.'
     }),
 
+  planExpiring: (data: { name: string; planName: string; expiresAt: Date; daysLeft: number; oneTime: boolean }) => {
+    const when = data.expiresAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    const plan = planTitle(data.planName)
+    const days = data.daysLeft <= 1 ? 'tomorrow' : `in ${data.daysLeft} days`
+    return {
+      subject: `Your ${plan} ends ${days}`,
+      html: emailLayout({
+        preheader: `Your ${plan} is active until ${when}. Renew to keep issuing certificates without a break.`,
+        body: `
+          ${h1(`Your ${esc(plan)} ends ${days}`)}
+          ${para(`Hi ${esc(data.name)}, your <strong style="color:${EMAIL_BRAND.ink};">${esc(plan)}</strong> is active until <strong style="color:${EMAIL_BRAND.ink};">${when}</strong>.`)}
+          ${para(data.oneTime
+            ? 'After that your organiser access ends. Recipients can still open their download links. Running another event? Buy the one-event plan again, or move to an annual plan and the one-event price is credited.'
+            : 'After that the account returns to the Free plan: new recipients stop at the Free limit and Excel import switches off. Recipients can still download their certificates. Renew now and the new term starts when the current one ends.')}
+          ${button(`${APP_URL}/client/upgrade`, data.oneTime ? 'See plans' : 'Renew now')}
+          ${divider()}
+          ${small('Questions? Reply to this email or write to support@certistage.com.')}
+        `,
+        footerNote: 'You received this email because you have a paid plan on CertiStage.'
+      })
+    }
+  },
+
+  planExpired: (data: { name: string; planName: string; expiredAt: Date }) => {
+    const when = data.expiredAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    const plan = planTitle(data.planName)
+    return {
+      subject: `Your ${plan} has ended`,
+      html: emailLayout({
+        preheader: `Your ${plan} ended on ${when}. Everything is kept; renew whenever you are ready.`,
+        body: `
+          ${h1(`Your ${esc(plan)} has ended`)}
+          ${para(`Hi ${esc(data.name)}, your <strong style="color:${EMAIL_BRAND.ink};">${esc(plan)}</strong> ended on ${when}. Your events, certificates and recipients are all kept, and recipients can still download their certificates.`)}
+          ${para('To add recipients beyond the Free limit or import from Excel again, choose a plan. Paying now starts a fresh term from today.')}
+          ${button(`${APP_URL}/client/upgrade`, 'Choose a plan')}
+          ${divider()}
+          ${small('Questions? Reply to this email or write to support@certistage.com.')}
+        `,
+        footerNote: 'You received this email because a paid plan on your CertiStage account ended.'
+      })
+    }
+  },
+
   adminNotification: (type: 'signup' | 'payment', data: any) => {
     const title = type === 'signup' ? 'New signup' : 'New payment'
     const rows: Array<[string, unknown]> = type === 'signup'
