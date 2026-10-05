@@ -59,7 +59,7 @@ export default function AddonsPage() {
   useEffect(() => { load() }, [load])
 
   const emails = ADDONS.find((a) => a.id === "emails")!
-  const upcoming = ADDONS.filter((a) => a.status === "soon")
+  const upcoming = ADDONS.filter((a) => a.id !== "emails")
   const unlimited = quota?.remaining === -1
   const planShare = quota && quota.planLimit > 0 ? Math.min(100, (quota.planRemaining / quota.planLimit) * 100) : 0
 
@@ -149,8 +149,8 @@ export default function AddonsPage() {
       <div className="mt-12">
         <div className="flex items-end justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-[18px] font-semibold text-neutral-900">Coming soon</h2>
-            <p className="text-[13.5px] text-neutral-500 mt-0.5">Tell us which one you need first and we&apos;ll set it up for your next event.</p>
+            <h2 className="text-[18px] font-semibold text-neutral-900">More add-ons</h2>
+            <p className="text-[13.5px] text-neutral-500 mt-0.5">Tell us which upcoming one you need first and we&apos;ll set it up for your next event.</p>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
@@ -166,12 +166,18 @@ export default function AddonsPage() {
                 </div>
                 <h3 className="mt-4 text-[15px] font-semibold text-neutral-900">{addon.title}</h3>
                 <p className="mt-1 text-[13px] text-neutral-500 leading-relaxed flex-1">{addon.description}</p>
-                <a
-                  href={`mailto:support@certistage.com?subject=${encodeURIComponent(`Early access: ${addon.title}`)}`}
-                  className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-neutral-900 hover:underline underline-offset-4"
-                >
-                  Request early access <ArrowRight className="h-3.5 w-3.5" />
-                </a>
+                {addon.href ? (
+                  <Link href={addon.href} className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-neutral-900 hover:underline underline-offset-4">
+                    {addon.cta || "Open"} <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                ) : (
+                  <a
+                    href={`mailto:support@certistage.com?subject=${encodeURIComponent(`Early access: ${addon.title}`)}`}
+                    className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-neutral-900 hover:underline underline-offset-4"
+                  >
+                    Request early access <ArrowRight className="h-3.5 w-3.5" />
+                  </a>
+                )}
               </div>
             )
           })}

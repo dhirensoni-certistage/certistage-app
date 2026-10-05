@@ -51,7 +51,7 @@ export const emailPackName = (pack: { emails: number }) => `${pack.emails.toLoca
 
 export type AddonStatus = "live" | "beta" | "soon"
 
-export const ADDONS: { id: string; title: string; description: string; status: AddonStatus }[] = [
+export const ADDONS: { id: string; title: string; description: string; status: AddonStatus; href?: string; cta?: string }[] = [
   {
     id: "emails",
     title: "Certificate emails",
@@ -71,9 +71,12 @@ export const ADDONS: { id: string; title: string; description: string; status: A
     status: "soon",
   },
   {
+    // Shipped as part of every annual plan rather than as a paid add-on (Settings > Download page branding)
     id: "branding",
     title: "Remove CertiStage branding",
-    description: "Hide the \"Powered by CertiStage\" line on your download pages.",
-    status: "soon",
+    description: "Hide the \"Powered by CertiStage\" line on your download pages. Included with every annual plan; switch it off in Settings.",
+    status: "live",
+    href: "/client/settings",
+    cta: "Open Settings",
   },
 ]

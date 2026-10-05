@@ -14,7 +14,7 @@ import {
   LifeBuoy,
   Crown,
   Settings2,
-  CalendarDays, ArchiveRestore, ReceiptText } from "lucide-react"
+  CalendarDays, ArchiveRestore } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { StatusTag } from "@/components/client/addon-status-tag"
@@ -103,7 +103,6 @@ export function ClientSidebar({ mobile = false, onNavigate, collapsed: collapsed
     { href: "/client/reports", label: "Reports", icon: ChartColumnIncreasing, requiresEvent: true, group: "Event" },
     { href: "/client/addons", label: "Add-ons", icon: PackagePlus, requiresEvent: false, group: "Account", beta: true },
     { href: "/client/settings", label: "Settings", icon: Settings2, requiresEvent: false, group: "Account" },
-    { href: "/client/billing", label: "Billing", icon: ReceiptText, requiresEvent: false, group: "Account" },
     { href: "/client/trash", label: "Recently deleted", icon: ArchiveRestore, requiresEvent: false, group: "Account" },
     { href: "/client/support", label: "Support", icon: LifeBuoy, requiresEvent: false, group: "Account" },
   ]
