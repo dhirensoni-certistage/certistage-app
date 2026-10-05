@@ -1,4 +1,6 @@
 import { jsPDF } from "jspdf"
+import { getPlanById } from "@/lib/plan-config.server"
+import { isOneTimePlan, planExpiryFrom, planTermLabel } from "@/lib/plan-config"
 import { readFile } from "fs/promises"
 import path from "path"
 
@@ -78,7 +80,9 @@ export async function renderInvoicePdf(payment: any, user: InvoicePdfUser | null
     normalizedOrg !== "certificate generation platform" &&
     normalizedOrg !== String(user?.name || "").trim().toLowerCase()
   const issuedAt = payment.invoiceIssuedAt || payment.createdAt || new Date()
-  const validUntil = new Date(issuedAt.getTime() + 365 * 24 * 60 * 60 * 1000)
+  const planCfg = payment.kind === "addon" ? null : await getPlanById(String(payment.plan || ""))
+  const validUntil = planExpiryFrom(planCfg, issuedAt)
+  const oneTime = isOneTimePlan(planCfg)
   const baseAmount = payment.invoiceBaseAmount || payment.amount
   const gatewayFee =
     typeof payment.invoiceGatewayFee === "number"
@@ -211,9 +215,9 @@ export async function renderInvoicePdf(payment: any, user: InvoicePdfUser | null
   doc.setFont("helvetica", "normal")
   doc.setFontSize(9)
   doc.setTextColor(107, 114, 128)
-  doc.text(isAddon ? "Add-on - CertiStage" : "Annual Subscription - CertiStage", margin + 12, y + 14)
+  doc.text(isAddon ? "Add-on - CertiStage" : oneTime ? "One-event plan - CertiStage" : "Annual Subscription - CertiStage", margin + 12, y + 14)
   doc.setTextColor(17, 24, 39)
-  doc.text(isAddon ? "One-time" : "1 Year", margin + contentWidth - 150, y)
+  doc.text(isAddon ? "One-time" : planTermLabel(planCfg).replace(/^(\d+) year$/, "$1 Year"), margin + contentWidth - 150, y)
   doc.text(formatInr(baseAmount), margin + contentWidth - 12, y, { align: "right" })
   y += 28
   doc.setDrawColor(229, 231, 235)

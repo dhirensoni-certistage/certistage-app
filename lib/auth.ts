@@ -32,6 +32,20 @@ export const PLAN_FEATURES: Record<PlanType, PlanFeatures> = {
     priceYearly: "₹0",
     color: "gray"
   },
+  "event": {
+    canCreateEvent: true,
+    canImportData: true,
+    canExportReport: true,
+    downloadLimit: -1,
+    maxCertificateTypes: 3,
+    maxCertificates: 1000,
+    maxEvents: 1,
+    canUpgrade: true,
+    displayName: "One event",
+    price: "₹799 once",
+    priceYearly: "₹799",
+    color: "gold"
+  },
   "test": {
     canCreateEvent: true,
     canImportData: true,
@@ -95,6 +109,7 @@ interface StoredPlanConfig {
   enabled?: boolean
   name?: string
   price?: number
+  billingPeriod?: string
   limits?: {
     maxEvents?: number
     maxCertificateTypes?: number
@@ -146,7 +161,9 @@ export function getPlanFeaturesMap(): Record<string, PlanFeatures> {
       maxEvents: plan.limits?.maxEvents ?? base.maxEvents,
       canUpgrade: plan.limits?.canUpgrade ?? base.canUpgrade,
       displayName,
-      price: price !== undefined ? `${formatRupees(price)}${price > 0 ? "/year" : ""}` : base.price,
+      price: price !== undefined
+        ? `${formatRupees(price)}${price > 0 ? (plan.billingPeriod === "one-time" ? " once" : plan.billingPeriod === "month" ? "/month" : "/year") : ""}`
+        : base.price,
       priceYearly: price !== undefined ? formatRupees(price) : base.priceYearly
     }
   }

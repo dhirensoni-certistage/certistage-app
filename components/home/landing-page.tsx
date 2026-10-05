@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowRight, Shield, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles, Award, Download, Search, FileSpreadsheet, Quote, ChevronDown } from "lucide-react"
+import { Ticket, ArrowRight, Shield, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles, Award, Download, Search, FileSpreadsheet, Quote, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
 import { formatApproxCount, type PublicStats } from "@/lib/public-stats"
@@ -13,6 +13,7 @@ import { SiteFooter } from "@/components/landing/site-footer"
 
 const planIcons: Record<string, any> = {
   free: Gift,
+  event: Ticket,
   professional: Briefcase,
   enterprise: Crown,
   premium: Gem
@@ -460,14 +461,12 @@ export default function HomePage() {
               Choose the plan that fits your needs
             </p>
           </Reveal>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={`grid sm:grid-cols-2 gap-4 ${visiblePlans.length >= 5 ? "lg:grid-cols-3 xl:grid-cols-5" : "lg:grid-cols-4"}`}>
             {visiblePlans.map((plan, i) => {
               const Icon = planIcons[plan.id] || Sparkles
               const badge = plan.badge || (plan.highlight ? "Popular" : "")
               const priceLabel = formatPrice(plan.price, plan.currency || "INR")
-              const showPeriod =
-                plan.price > 0 && plan.billingPeriod && plan.billingPeriod !== "one-time"
-              const periodLabel = showPeriod ? `/${plan.billingPeriod}` : ""
+              const periodLabel = plan.price <= 0 ? "" : plan.billingPeriod === "one-time" ? "once" : `/${plan.billingPeriod || "year"}`
               const features = (plan.features || []).slice(0, 4)
               const ctaLabel = plan.price === 0
                 ? "Start Free"

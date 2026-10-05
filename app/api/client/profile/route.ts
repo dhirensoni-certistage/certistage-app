@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
         isActive: user.isActive,
         createdAt: user.createdAt,
         hidePoweredBy: !!user.hidePoweredBy,
-        canHidePoweredBy: canHidePoweredBy(user)
+        canHidePoweredBy: await canHidePoweredBy(user)
       }
     })
   } catch (error) {
@@ -60,8 +60,8 @@ export async function PUT(request: NextRequest) {
       // Hiding the line is a paid-plan feature; showing it is always allowed
       if (hidePoweredBy) {
         const current = await User.findById(userId).select("plan planExpiresAt").lean<{ plan?: string; planExpiresAt?: Date }>()
-        if (!canHidePoweredBy(current)) {
-          return NextResponse.json({ error: "Hiding \"Powered by CertiStage\" is available on paid plans. Upgrade to switch it off." }, { status: 403 })
+        if (!(await canHidePoweredBy(current))) {
+          return NextResponse.json({ error: "Hiding \"Powered by CertiStage\" is included with annual plans. Upgrade to switch it off." }, { status: 403 })
         }
       }
       updateData.hidePoweredBy = hidePoweredBy
@@ -88,7 +88,7 @@ export async function PUT(request: NextRequest) {
         plan: user.plan,
         planExpiresAt: user.planExpiresAt,
         hidePoweredBy: !!user.hidePoweredBy,
-        canHidePoweredBy: canHidePoweredBy(user)
+        canHidePoweredBy: await canHidePoweredBy(user)
       },
       message: "Profile updated successfully"
     })

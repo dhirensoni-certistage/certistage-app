@@ -379,6 +379,7 @@ export const emailTemplates = {
     customerPhone?: string
     customerOrganization?: string
     planName: string
+    term?: string // "1 year" (default) or "60 days" for the one-event plan
     amount: number
     gatewayFee?: number
     totalAmount: number
@@ -428,7 +429,7 @@ export const emailTemplates = {
               <td style="padding:0 0 8px;font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:${b.muted};">Description</td>
               <td align="right" style="padding:0 0 8px;font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:${b.muted};">Amount</td>
             </tr>
-            ${money(`${esc(plan)}<br><span style="font-size:13px;color:${b.muted};">1 year · ${fmt(data.paymentDate)} to ${fmt(data.validUntil)}</span>`, inr(data.amount), { top: true })}
+            ${money(`${esc(plan)}<br><span style="font-size:13px;color:${b.muted};">${esc(data.term || '1 year')} · ${fmt(data.paymentDate)} to ${fmt(data.validUntil)}</span>`, inr(data.amount), { top: true })}
             ${showGatewayFee ? money('Processing fee', inr(data.gatewayFee || 0), { top: true }) : ''}
             ${money('Total paid', inr(data.totalAmount), { strong: true, top: true })}
           </table>

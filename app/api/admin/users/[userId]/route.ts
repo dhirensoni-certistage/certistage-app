@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { planExpiryFrom } from "@/lib/plan-config"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import Event from "@/models/Event"
@@ -6,7 +7,7 @@ import Payment from "@/models/Payment"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 import TrashItem from "@/models/TrashItem"
-import { getPlanConfigFromDb } from "@/lib/plan-config.server"
+import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
 
 export async function GET(
   request: NextRequest,
@@ -109,9 +110,10 @@ export async function PATCH(
         return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
       }
       user.plan = body.plan
-      // Set plan expiry to 1 year from now if upgrading to paid plan
+      // A paid plan set by hand runs for its normal term from today (1 year, or 60 days for the one-event plan)
       if (body.plan !== "free") {
-        user.planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        user.planStartDate = new Date()
+        user.planExpiresAt = planExpiryFrom(getPlanMap(planConfig)[body.plan], user.planStartDate)
       }
     }
 

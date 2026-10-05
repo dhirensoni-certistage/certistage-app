@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { usePlanConfig } from "@/hooks/use-plan-config"
-import { formatInr, getStartingPaidPlan } from "@/lib/plan-config"
+import { getStartingPaidPlan, planPriceLabel } from "@/lib/plan-config"
 
 interface UpgradeOverlayProps {
   feature: string
@@ -67,7 +67,7 @@ export function UpgradeOverlay({
 
           {type !== "trial-expired" && startingPaidPlan && (
             <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-[0.1em]">
-              {startingPaidPlan.name} access from {formatInr(startingPaidPlan.price)}/{startingPaidPlan.billingPeriod === "month" ? "mo" : "yr"}
+              {startingPaidPlan.name} access from {planPriceLabel(startingPaidPlan)}
             </p>
           )}
         </div>

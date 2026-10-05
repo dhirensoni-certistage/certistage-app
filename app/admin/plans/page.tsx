@@ -72,6 +72,7 @@ const makeEmptyPlan = (index: number): PlanConfig => ({
     canExportReport: false,
     downloadLimit: 0,
     canUpgrade: true,
+    canRemoveBranding: false,
   },
 })
 
@@ -200,6 +201,7 @@ export default function AdminPlansPage() {
       description: draft.description?.trim() || undefined,
       currency: draft.currency?.trim() || "INR",
       billingPeriod: draft.billingPeriod?.trim() || "year",
+      validityDays: Number(draft.validityDays) > 0 ? Number(draft.validityDays) : undefined,
       features: draft.features.map((f) => f.trim()).filter(Boolean),
       limits: {
         ...draft.limits,
@@ -257,7 +259,7 @@ export default function AdminPlansPage() {
                 const preview = features.slice(0, 4)
                 const extraCount = Math.max(0, features.length - preview.length)
                 const billingSuffix =
-                  plan.price > 0 && plan.billingPeriod ? `/${plan.billingPeriod}` : ""
+                  plan.price > 0 ? (plan.billingPeriod === "one-time" ? " once" : `/${plan.billingPeriod || "year"}`) : ""
 
                 return (
                   <Card
@@ -430,6 +432,17 @@ export default function AdminPlansPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
+                  <Label>Validity (days)</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={draft.validityDays ? String(draft.validityDays) : ""}
+                    onChange={(e) => setDraft({ ...draft, validityDays: Number(e.target.value || 0) || undefined })}
+                    placeholder={draft.billingPeriod === "one-time" ? "60" : draft.billingPeriod === "month" ? "30" : "365"}
+                  />
+                  <p className="text-xs text-muted-foreground">How long a payment keeps the plan active. Blank uses the billing period&apos;s default.</p>
+                </div>
+                <div className="space-y-2">
                   <Label>Sort Order</Label>
                   <Input
                     type="number"
@@ -582,6 +595,16 @@ export default function AdminPlansPage() {
                       checked={draft.limits.canUpgrade}
                       onCheckedChange={(value) =>
                         setDraft({ ...draft, limits: { ...draft.limits, canUpgrade: value } })
+                      }
+                      className="shrink-0 data-[state=checked]:bg-emerald-500"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <span className="text-sm">Can hide &quot;Powered by&quot;</span>
+                    <Switch
+                      checked={!!draft.limits.canRemoveBranding}
+                      onCheckedChange={(value) =>
+                        setDraft({ ...draft, limits: { ...draft.limits, canRemoveBranding: value } })
                       }
                       className="shrink-0 data-[state=checked]:bg-emerald-500"
                     />

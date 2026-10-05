@@ -1,6 +1,7 @@
 import Payment from "@/models/Payment"
 import User from "@/models/User"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
+import { planExpiryFrom, planTermLabel } from "@/lib/plan-config"
 import { renderInvoicePdf } from "@/lib/invoice-pdf.server"
 
 /**
@@ -23,11 +24,13 @@ export async function sendPlanPaymentEmails(orderId: string): Promise<void> {
     const user = await User.findById(payment.userId)
     if (!user) return
 
-    const planName = getPlanMap(await getPlanConfigFromDb())[payment.plan]?.name
+    const planCfg = getPlanMap(await getPlanConfigFromDb())[payment.plan]
+    const planName = planCfg?.name
       || payment.plan.charAt(0).toUpperCase() + payment.plan.slice(1)
     const invoiceNumber = payment.invoiceNumber || ""
     const paidAt = payment.invoiceIssuedAt || payment.updatedAt || new Date()
-    const validUntil = user.planExpiresAt || new Date(paidAt.getTime() + 365 * 24 * 60 * 60 * 1000)
+    const validUntil = user.planExpiresAt || planExpiryFrom(planCfg, paidAt)
+    const term = planTermLabel(planCfg)
 
     try {
       const Notification = (await import("@/models/Notification")).default
@@ -54,6 +57,7 @@ export async function sendPlanPaymentEmails(orderId: string): Promise<void> {
       customerPhone: user.phone,
       customerOrganization: user.organization,
       planName,
+      term,
       amount: payment.invoiceBaseAmount ?? payment.amount,
       gatewayFee: payment.invoiceGatewayFee || 0,
       totalAmount: payment.amount,

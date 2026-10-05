@@ -1,24 +1,31 @@
 // Organiser branding on public download pages.
 //
 // The organiser's name is always the hero. The small "Powered by CertiStage"
-// line stays on Free (it is how recipients become organisers) and can be
-// switched off on any active paid plan from Settings. If the plan lapses the
-// line comes back on its own, because the check happens at render time.
+// line stays on Free and on the one-event plan (it is how recipients become
+// organisers) and can be switched off on an annual plan from Settings. If the
+// plan lapses the line comes back on its own, because the check happens at
+// render time. Which plans may remove it is set per plan in Admin > Plans
+// (limits.canRemoveBranding).
 import User from "@/models/User"
+import { getPlanById } from "@/lib/plan-config.server"
 
 export interface IssuerBranding {
   organization: string | null
   showPoweredBy: boolean
 }
 
-export function hasActivePaidPlan(user: { plan?: string | null; planExpiresAt?: Date | string | null } | null | undefined): boolean {
+type PlanHolder = { plan?: string | null; planExpiresAt?: Date | string | null } | null | undefined
+
+export function hasActivePaidPlan(user: PlanHolder): boolean {
   if (!user || !user.plan || user.plan === "free") return false
   if (user.planExpiresAt && new Date(user.planExpiresAt).getTime() < Date.now()) return false
   return true
 }
 
-export function canHidePoweredBy(user: { plan?: string | null; planExpiresAt?: Date | string | null; hidePoweredBy?: boolean } | null | undefined): boolean {
-  return hasActivePaidPlan(user)
+export async function canHidePoweredBy(user: PlanHolder): Promise<boolean> {
+  if (!hasActivePaidPlan(user)) return false
+  const plan = await getPlanById(String(user?.plan))
+  return !!plan?.limits?.canRemoveBranding
 }
 
 export async function getIssuerBranding(ownerId: unknown): Promise<IssuerBranding> {
@@ -26,8 +33,9 @@ export async function getIssuerBranding(ownerId: unknown): Promise<IssuerBrandin
   const owner = await User.findById(ownerId)
     .select("organization plan planExpiresAt hidePoweredBy")
     .lean<{ organization?: string; plan?: string; planExpiresAt?: Date; hidePoweredBy?: boolean }>()
+  const hidden = !!owner?.hidePoweredBy && (await canHidePoweredBy(owner))
   return {
     organization: owner?.organization?.trim() || null,
-    showPoweredBy: !(owner?.hidePoweredBy && canHidePoweredBy(owner))
+    showPoweredBy: !hidden
   }
 }

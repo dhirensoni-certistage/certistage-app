@@ -3,7 +3,8 @@ import User from "@/models/User"
 import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
-import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
+import { getPlanConfigFromDb, getPlanMap, getPlanById } from "@/lib/plan-config.server"
+import { isOneTimePlan } from "@/lib/plan-config"
 
 export type PlanType = string
 
@@ -25,6 +26,14 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
     canCreateEvent: true,
     canImportData: false,
     canExportReport: false
+  },
+  event: {
+    maxEvents: 1,
+    maxCertificateTypes: 3,
+    maxCertificates: 1000,
+    canCreateEvent: true,
+    canImportData: true,
+    canExportReport: true
   },
   test: {
     maxEvents: 3,
@@ -83,6 +92,13 @@ export async function getPlanLimits(plan: string): Promise<PlanLimits> {
   return PLAN_LIMITS[plan] || PLAN_LIMITS.free
 }
 
+/** On a one-time plan, limits apply to events created since the plan was paid for */
+async function planPeriodFilter(user: { plan?: string; planStartDate?: Date | null }): Promise<Record<string, unknown>> {
+  if (!user.plan || user.plan === "free" || !user.planStartDate) return {}
+  const plan = await getPlanById(user.plan)
+  return isOneTimePlan(plan) ? { createdAt: { $gte: user.planStartDate } } : {}
+}
+
 // Check if user can create more events
 export async function canUserCreateEvent(userId: string): Promise<{
   allowed: boolean
@@ -106,7 +122,10 @@ export async function canUserCreateEvent(userId: string): Promise<{
     }
   }
 
-  const currentCount = await Event.countDocuments({ ownerId: userId })
+  // A plan paid per event (the one-event plan) counts only events created in the current
+  // paid period, so someone who buys it again for next year's conference is not blocked by
+  // last year's event.
+  const currentCount = await Event.countDocuments({ ownerId: userId, ...(await planPeriodFilter(user)) })
   
   if (currentCount >= limits.maxEvents) {
     return {
@@ -134,8 +153,8 @@ export async function canUserCreateCertificateType(userId: string, eventId: stri
 
   const limits = await getPlanLimits(user.plan)
   
-  // Count certificate types across all user's events
-  const userEvents = await Event.find({ ownerId: userId }).select("_id")
+  // Count certificate types across the user's events (this paid period only on a per-event plan)
+  const userEvents = await Event.find({ ownerId: userId, ...(await planPeriodFilter(user)) }).select("_id")
   const eventIds = userEvents.map(e => e._id)
   const currentCount = await CertificateType.countDocuments({ eventId: { $in: eventIds } })
   

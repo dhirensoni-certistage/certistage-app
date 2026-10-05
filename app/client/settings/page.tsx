@@ -199,7 +199,7 @@ export default function SettingsPage() {
             <div className="min-w-0">
               <h2 className="text-[15px] font-semibold text-neutral-900">Download page branding</h2>
               <p className="text-[13px] text-neutral-500 mt-0.5">
-                Your organisation name is always the hero on download pages. The small &quot;Powered by CertiStage&quot; line in the footer can be switched off on a paid plan.
+                Your organisation name is always the hero on download pages. The small &quot;Powered by CertiStage&quot; line in the footer can be switched off on an annual plan.
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
@@ -216,7 +216,7 @@ export default function SettingsPage() {
           </div>
           {!profile.canHidePoweredBy && (
             <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 py-2.5 text-[12.5px] text-neutral-600">
-              <span className="flex items-center gap-2"><Lock className="h-3.5 w-3.5 text-neutral-400" /> Removing the line is included with every paid plan.</span>
+              <span className="flex items-center gap-2"><Lock className="h-3.5 w-3.5 text-neutral-400" /> Removing the line is included with every annual plan (Professional and up).</span>
               <Link href="/client/upgrade" className="font-medium text-neutral-900 hover:underline underline-offset-4 whitespace-nowrap">See plans</Link>
             </div>
           )}

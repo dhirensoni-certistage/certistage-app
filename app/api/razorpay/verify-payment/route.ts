@@ -7,6 +7,7 @@ import Payment from "@/models/Payment"
 import Settings from "@/models/Settings"
 import { type PlanId, PLAN_PRICES_MAP } from "@/lib/razorpay"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
+import { planExpiryFrom } from "@/lib/plan-config"
 import { requireClientUser } from "@/lib/client-auth.server"
 
 export async function POST(request: NextRequest) {
@@ -132,11 +133,11 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Calculate plan expiry (1 year from now)
+    // Plan expiry: 1 year for annual plans, 60 days for the one-event plan (lib/plan-config)
     const planStartDate = now
-    const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
     const planConfig = await getPlanConfigFromDb()
     const planMap = getPlanMap(planConfig)
+    const planExpiresAt = planExpiryFrom(planMap[plan], now)
     const amount = planMap[plan]?.price ?? PLAN_PRICES_MAP[plan] ?? 0
     const baseAmount = amount
     const gatewayFee = 0

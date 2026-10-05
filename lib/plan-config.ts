@@ -7,6 +7,8 @@ export interface PlanLimitsConfig {
   canExportReport: boolean
   downloadLimit: number
   canUpgrade: boolean
+  /** May switch off "Powered by CertiStage" on download pages (Settings) */
+  canRemoveBranding: boolean
 }
 
 export interface PlanConfig {
@@ -15,7 +17,10 @@ export interface PlanConfig {
   name: string
   price: number // in paise
   currency?: string
+  /** "year", "month" or "one-time" (paid once, e.g. the one-event plan) */
   billingPeriod?: string
+  /** How long the plan stays active after payment. Defaults from billingPeriod: 365, 30 or 60 days. */
+  validityDays?: number
   badge?: string
   highlight?: boolean
   accent?: string
@@ -33,7 +38,8 @@ const DEFAULT_LIMITS: PlanLimitsConfig = {
   canImportData: false,
   canExportReport: false,
   downloadLimit: 0,
-  canUpgrade: true
+  canUpgrade: true,
+  canRemoveBranding: false
 }
 
 export const DEFAULT_PLAN_CONFIG: PlanConfig[] = [
@@ -59,7 +65,41 @@ export const DEFAULT_PLAN_CONFIG: PlanConfig[] = [
       canImportData: false,
       canExportReport: false,
       downloadLimit: 1,
-      canUpgrade: true
+      canUpgrade: true,
+      canRemoveBranding: false
+    }
+  },
+  {
+    // Paid once by UPI for a single conference, fest or workshop. Familiar per-event pricing
+    // (Zoho Backstage, KonfHub) for buyers who will not commit to a year. 6.3 of these equal
+    // the annual price, so repeat buyers are nudged to Professional on the Plans page.
+    id: "event",
+    enabled: true,
+    name: "One event",
+    price: 79900,
+    currency: "INR",
+    billingPeriod: "one-time",
+    validityDays: 60,
+    badge: "Pay once",
+    sortOrder: 2,
+    description: "One event, paid once. Organiser access for 60 days.",
+    features: [
+      "1 event, up to 1,000 certificates",
+      "Up to 3 certificate designs",
+      "Excel import and reports",
+      "Organiser access for 60 days",
+      "No renewal, no card needed"
+    ],
+    limits: {
+      maxEvents: 1,
+      maxCertificateTypes: 3,
+      maxCertificates: 1000,
+      canCreateEvent: true,
+      canImportData: true,
+      canExportReport: true,
+      downloadLimit: -1,
+      canUpgrade: true,
+      canRemoveBranding: false
     }
   },
   {
@@ -70,7 +110,7 @@ export const DEFAULT_PLAN_CONFIG: PlanConfig[] = [
     currency: "INR",
     billingPeriod: "year",
     badge: "Test",
-    sortOrder: 2,
+    sortOrder: 6,
     description: "Test payments only",
     features: [
       "Test payments only",
@@ -85,7 +125,8 @@ export const DEFAULT_PLAN_CONFIG: PlanConfig[] = [
       canImportData: true,
       canExportReport: true,
       downloadLimit: -1,
-      canUpgrade: true
+      canUpgrade: true,
+      canRemoveBranding: true
     }
   },
   {
@@ -114,7 +155,8 @@ export const DEFAULT_PLAN_CONFIG: PlanConfig[] = [
       canImportData: true,
       canExportReport: true,
       downloadLimit: -1,
-      canUpgrade: true
+      canUpgrade: true,
+      canRemoveBranding: true
     }
   },
   {
@@ -143,7 +185,8 @@ export const DEFAULT_PLAN_CONFIG: PlanConfig[] = [
       canImportData: true,
       canExportReport: true,
       downloadLimit: -1,
-      canUpgrade: true
+      canUpgrade: true,
+      canRemoveBranding: true
     }
   },
   {
@@ -171,7 +214,8 @@ export const DEFAULT_PLAN_CONFIG: PlanConfig[] = [
       canImportData: true,
       canExportReport: true,
       downloadLimit: -1,
-      canUpgrade: false
+      canUpgrade: false,
+      canRemoveBranding: true
     }
   }
 ]
@@ -207,6 +251,7 @@ function normalizePlan(plan: any, fallback?: PlanConfig): PlanConfig {
     price: typeof plan?.price === "number" ? plan.price : base.price,
     currency: typeof plan?.currency === "string" ? plan.currency : base.currency,
     billingPeriod: typeof plan?.billingPeriod === "string" ? plan.billingPeriod : base.billingPeriod,
+    validityDays: Number.isFinite(Number(plan?.validityDays)) && Number(plan.validityDays) > 0 ? Number(plan.validityDays) : base.validityDays,
     badge: typeof plan?.badge === "string" ? plan.badge : base.badge,
     highlight: typeof plan?.highlight === "boolean" ? plan.highlight : base.highlight,
     accent: typeof plan?.accent === "string" ? plan.accent : base.accent,
@@ -221,7 +266,8 @@ function normalizePlan(plan: any, fallback?: PlanConfig): PlanConfig {
       canImportData: typeof limits.canImportData === "boolean" ? limits.canImportData : base.limits.canImportData,
       canExportReport: typeof limits.canExportReport === "boolean" ? limits.canExportReport : base.limits.canExportReport,
       downloadLimit: parseNumber(limits.downloadLimit, base.limits.downloadLimit),
-      canUpgrade: typeof limits.canUpgrade === "boolean" ? limits.canUpgrade : base.limits.canUpgrade
+      canUpgrade: typeof limits.canUpgrade === "boolean" ? limits.canUpgrade : base.limits.canUpgrade,
+      canRemoveBranding: typeof limits.canRemoveBranding === "boolean" ? limits.canRemoveBranding : base.limits.canRemoveBranding
     }
   }
 }
@@ -279,3 +325,51 @@ export function toPriceLabel(amountInPaise: number, suffix: string = "/year"): s
 }
 
 
+
+// ---- Plan term helpers -------------------------------------------------------------------
+// A plan's billingPeriod decides how long a payment keeps it active and how its price is
+// labelled. "one-time" plans (the one-event plan) are paid once and run for validityDays.
+
+type PlanTerm = Pick<PlanConfig, "billingPeriod" | "validityDays"> | null | undefined
+
+export function isOneTimePlan(plan: PlanTerm): boolean {
+  return (plan?.billingPeriod || "year") === "one-time"
+}
+
+/** Days a payment keeps the plan active */
+export function planValidityDays(plan: PlanTerm): number {
+  if (plan?.validityDays && plan.validityDays > 0) return plan.validityDays
+  switch (plan?.billingPeriod || "year") {
+    case "month": return 30
+    case "one-time": return 60
+    default: return 365
+  }
+}
+
+export function planExpiryFrom(plan: PlanTerm, from: Date = new Date()): Date {
+  return new Date(from.getTime() + planValidityDays(plan) * 24 * 60 * 60 * 1000)
+}
+
+/** "1 year", "30 days", "60 days": the term shown on receipts and checkout */
+export function planTermLabel(plan: PlanTerm): string {
+  const days = planValidityDays(plan)
+  if (days === 365) return "1 year"
+  if (days === 30 && (plan?.billingPeriod || "year") === "month") return "1 month"
+  return `${days} days`
+}
+
+/** What follows the price: "/ year", "/ month" or "once". `short` gives "/yr", "/mo", "once". */
+export function planPeriodLabel(plan: PlanTerm, short = false): string {
+  switch (plan?.billingPeriod || "year") {
+    case "one-time": return "once"
+    case "month": return short ? "/mo" : "/ month"
+    default: return short ? "/yr" : "/ year"
+  }
+}
+
+/** "₹799 once", "₹4,999/yr" */
+export function planPriceLabel(plan: Pick<PlanConfig, "price" | "billingPeriod" | "validityDays">, short = true): string {
+  if (plan.price <= 0) return formatInr(0)
+  const period = planPeriodLabel(plan, short)
+  return `${formatInr(plan.price)}${period === "once" ? " once" : period}`
+}

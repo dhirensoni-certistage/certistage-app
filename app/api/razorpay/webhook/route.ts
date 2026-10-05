@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { planExpiresAtFor } from "@/lib/plan-config.server"
 import { completeAddonPayment } from "@/lib/addon-payments.server"
 import { sendPlanPaymentEmails } from "@/lib/plan-payment-emails.server"
 import crypto from "crypto"
@@ -132,7 +133,7 @@ async function handlePaymentCaptured(payment: any) {
       const user = await User.findById(existingPayment.userId)
       if (user && user.plan !== existingPayment.plan) {
         const planStartDate = new Date()
-        const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        const planExpiresAt = await planExpiresAtFor(existingPayment.plan, planStartDate)
         
         user.plan = existingPayment.plan
         user.pendingPlan = null
@@ -150,7 +151,7 @@ async function handlePaymentCaptured(payment: any) {
   } else if (notes?.userId && notes?.plan) {
     // Create new payment record from webhook (backup if client verification failed)
     const planStartDate = new Date()
-    const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+    const planExpiresAt = await planExpiresAtFor(notes.plan, planStartDate)
     
     await Payment.create({
       userId: notes.userId,
@@ -241,7 +242,7 @@ async function handleOrderPaid(order: any, payment?: any) {
   
   const now = new Date()
   const planStartDate = now
-  const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+  const planExpiresAt = await planExpiresAtFor(notes.plan, now)
   
   // Create or update payment
   await Payment.findOneAndUpdate(

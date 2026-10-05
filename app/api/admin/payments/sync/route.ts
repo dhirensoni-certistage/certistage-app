@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { planExpiresAtFor } from "@/lib/plan-config.server"
 import connectDB from "@/lib/mongodb"
 import Payment from "@/models/Payment"
 import User from "@/models/User"
@@ -26,13 +27,7 @@ async function razorpayFetch(endpoint: string) {
   return response.json()
 }
 
-// Plan durations in days
-const PLAN_DURATIONS: Record<string, number> = {
-  test: 365,
-  professional: 365,
-  enterprise: 365,
-  premium: 365
-}
+// Plan validity comes from Admin > Plans (365 days for annual plans, 60 for the one-event plan)
 
 export async function POST(request: NextRequest) {
   try {
@@ -94,7 +89,8 @@ export async function POST(request: NextRequest) {
       const user = await User.findById(payment.userId)
       if (user) {
         user.plan = payment.plan
-        user.planExpiresAt = new Date(Date.now() + PLAN_DURATIONS[payment.plan] * 24 * 60 * 60 * 1000)
+        user.planStartDate = new Date()
+        user.planExpiresAt = await planExpiresAtFor(payment.plan)
         await user.save()
       }
 
@@ -172,7 +168,8 @@ export async function PUT(request: NextRequest) {
           const user = await User.findById(payment.userId)
           if (user) {
             user.plan = payment.plan
-            user.planExpiresAt = new Date(Date.now() + PLAN_DURATIONS[payment.plan] * 24 * 60 * 60 * 1000)
+            user.planStartDate = new Date()
+            user.planExpiresAt = await planExpiresAtFor(payment.plan)
             await user.save()
           }
 
