@@ -4,11 +4,11 @@ import { useState } from "react"
 import { Check, Loader2, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EMAIL_PACKS, CUSTOM_EMAILS, customEmailPrice, emailRate, parseCustomEmails, betterTierOffer } from "@/lib/addons"
+import { useAddonConfig } from "@/hooks/use-addon-config"
 import { formatInr } from "@/lib/plan-config"
 import { useBuyEmails } from "@/hooks/use-buy-emails"
 import { cn } from "@/lib/utils"
 
-const BASE_RATE = EMAIL_PACKS[0].price / EMAIL_PACKS[0].emails
 const LABELS: Record<string, string> = { emails_10000: "Most popular", emails_50000: "Best value" }
 const paise = (price: number, emails: number) => `${(price / emails).toFixed(2).replace(/\.?0+$/, "")} paise / email`
 
@@ -18,6 +18,8 @@ const paise = (price: number, emails: number) => `${(price / emails).toFixed(2).
  */
 export function EmailPacks({ onBought, compact = false }: { onBought?: (emails: number) => void; compact?: boolean }) {
   const { buy, busyPack } = useBuyEmails(onBought)
+  const { emailPacks: packs } = useAddonConfig()
+  const BASE_RATE = packs[0].price / packs[0].emails
   const [selected, setSelected] = useState(EMAIL_PACKS[1].id)
   const [customInput, setCustomInput] = useState("2500")
   const isCustom = selected === "custom"
@@ -25,12 +27,12 @@ export function EmailPacks({ onBought, compact = false }: { onBought?: (emails: 
   const offer = isCustom && customEmails ? betterTierOffer(customEmails) : null
   const pack = isCustom
     ? customEmails ? { id: "custom", emails: customEmails, price: customEmailPrice(customEmails) } : null
-    : EMAIL_PACKS.find((p) => p.id === selected) || EMAIL_PACKS[0]
+    : packs.find((p) => p.id === selected) || packs[0]
 
   return (
     <div>
       <div role="radiogroup" aria-label="Email packs" className="space-y-2.5">
-        {EMAIL_PACKS.map((p) => {
+        {packs.map((p) => {
           const active = p.id === selected
           const saving = Math.round((1 - p.price / p.emails / BASE_RATE) * 100)
           return (

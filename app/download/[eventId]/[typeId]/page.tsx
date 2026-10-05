@@ -68,6 +68,7 @@ interface EventData {
   name: string
   organization?: string | null
   logo?: string | null
+  showName?: boolean
   showPoweredBy?: boolean // false when the organiser hid the "Powered by" line on a paid plan
 }
 
@@ -330,7 +331,7 @@ export default function CertTypeDownloadPage() {
   // ---------- states ----------
   if (loading || autoOpening) {
     return (
-      <Shell showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo}>
+      <Shell showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo} showName={event?.showName !== false}>
         <div className="w-full max-w-md mx-auto rounded-lg border border-neutral-200 bg-white p-6 sm:p-8 space-y-4">
           <div className="h-3.5 w-40 rounded bg-neutral-100 animate-pulse" />
           <div className="h-6 w-56 rounded bg-neutral-200 animate-pulse" />
@@ -343,7 +344,7 @@ export default function CertTypeDownloadPage() {
 
   if (error || !certType) {
     return (
-      <Shell showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo}>
+      <Shell showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo} showName={event?.showName !== false}>
         <div className="w-full max-w-md mx-auto rounded-lg border border-neutral-200 bg-white p-6 sm:p-8">
           <h1 className="text-lg font-semibold text-neutral-900">This certificate link is not available</h1>
           <p className="text-sm text-neutral-600 mt-2">{error || "This certificate page could not be loaded."}</p>
@@ -357,7 +358,7 @@ export default function CertTypeDownloadPage() {
   const showPreview = step === "preview" && !!selectedRecipient
 
   return (
-    <Shell typeId={typeId} showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo}>
+    <Shell typeId={typeId} showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo} showName={event?.showName !== false}>
       <div className="w-full max-w-md mx-auto rounded-lg border border-neutral-200 bg-white p-6 sm:p-8">
           {step === "search" && (
             <form onSubmit={handleSearch} noValidate>
@@ -596,7 +597,7 @@ function trackClick(body: Record<string, string>) {
 
 // The organiser is the hero of the download page: their logo and name in the header.
 // CertiStage appears only in the footer line, and not at all when the organiser hid it (paid plan).
-function Shell({ children, typeId, showPoweredBy = true, brand, logo }: { children: React.ReactNode; typeId?: string; showPoweredBy?: boolean; brand?: string | null; logo?: string | null }) {
+function Shell({ children, typeId, showPoweredBy = true, brand, logo, showName = true }: { children: React.ReactNode; typeId?: string; showPoweredBy?: boolean; brand?: string | null; logo?: string | null; showName?: boolean }) {
   // Clicks on any CertiStage link here are how recipients become organisers; count them per certificate
   const recordCta = () => { if (typeId) trackClick({ kind: "cta", typeId }) }
   const hasBrand = !!(logo || brand)
@@ -607,8 +608,8 @@ function Shell({ children, typeId, showPoweredBy = true, brand, logo }: { childr
           {hasBrand ? (
             <div className="flex items-center gap-3 min-w-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {logo && <img src={logo} alt={brand || "Organiser logo"} className="h-12 max-w-[200px] w-auto object-contain" />}
-              {brand && <span className="font-semibold text-[20px] tracking-tight truncate">{brand}</span>}
+              {logo && <img src={logo} alt={brand || "Organiser logo"} className="h-14 max-w-[240px] w-auto object-contain" />}
+              {brand && (!logo || showName) && <span className="font-semibold text-[20px] tracking-tight truncate">{brand}</span>}
             </div>
           ) : showPoweredBy ? (
             <a href="https://www.certistage.com?utm_source=download_page&utm_medium=header" target="_blank" rel="noopener" onClick={recordCta} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">

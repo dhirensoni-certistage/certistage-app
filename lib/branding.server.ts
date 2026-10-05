@@ -12,6 +12,8 @@ import { getPlanById } from "@/lib/plan-config.server"
 export interface IssuerBranding {
   organization: string | null
   logo: string | null
+  /** With a logo, the name is shown only when the organiser asked for it */
+  showName: boolean
   showPoweredBy: boolean
 }
 
@@ -30,14 +32,15 @@ export async function canHidePoweredBy(user: PlanHolder): Promise<boolean> {
 }
 
 export async function getIssuerBranding(ownerId: unknown): Promise<IssuerBranding> {
-  if (!ownerId) return { organization: null, logo: null, showPoweredBy: true }
+  if (!ownerId) return { organization: null, logo: null, showName: true, showPoweredBy: true }
   const owner = await User.findById(ownerId)
-    .select("organization logo plan planExpiresAt hidePoweredBy")
-    .lean<{ organization?: string; logo?: string; plan?: string; planExpiresAt?: Date; hidePoweredBy?: boolean }>()
+    .select("organization logo showNameWithLogo plan planExpiresAt hidePoweredBy")
+    .lean<{ organization?: string; logo?: string; showNameWithLogo?: boolean; plan?: string; planExpiresAt?: Date; hidePoweredBy?: boolean }>()
   const hidden = !!owner?.hidePoweredBy && (await canHidePoweredBy(owner))
   return {
     organization: owner?.organization?.trim() || null,
     logo: owner?.logo || null,
+    showName: !owner?.logo || !!owner?.showNameWithLogo,
     showPoweredBy: !hidden
   }
 }

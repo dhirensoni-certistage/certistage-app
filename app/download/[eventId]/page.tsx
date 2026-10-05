@@ -44,6 +44,7 @@ interface EventData {
   description?: string
   organization?: string | null
   logo?: string | null
+  showName?: boolean
   showPoweredBy?: boolean
 }
 
@@ -410,7 +411,7 @@ export default function EventDownloadPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <Header showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo} />
+        <Header showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo} showName={event?.showName !== false} />
         <main className="flex-1 flex items-center justify-center p-4">
           <Card className="max-w-md w-full">
             <CardContent className="py-12 text-center">
@@ -429,7 +430,7 @@ export default function EventDownloadPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo} />
+      <Header showPoweredBy={event?.showPoweredBy !== false} brand={event?.organization || event?.name} logo={event?.logo} showName={event?.showName !== false} />
 
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="max-w-xl w-full space-y-6">
@@ -771,7 +772,7 @@ export default function EventDownloadPage() {
 // showPoweredBy=false (organiser hid it on a paid plan): the header shows the organiser's
 // name instead of the CertiStage mark and the footer line is gone.
 // The organiser is the hero: their logo and name. CertiStage only in the footer line.
-function Header({ showPoweredBy = true, brand, logo }: { showPoweredBy?: boolean; brand?: string | null; logo?: string | null }) {
+function Header({ showPoweredBy = true, brand, logo, showName = true }: { showPoweredBy?: boolean; brand?: string | null; logo?: string | null; showName?: boolean }) {
   const hasBrand = !!(logo || brand)
   return (
     <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
@@ -779,8 +780,8 @@ function Header({ showPoweredBy = true, brand, logo }: { showPoweredBy?: boolean
         {hasBrand ? (
           <div className="flex items-center gap-3 min-w-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            {logo && <img src={logo} alt={brand || "Organiser logo"} className="h-10 max-w-[180px] w-auto object-contain" />}
-            {brand && <span className="font-semibold text-lg truncate">{brand}</span>}
+            {logo && <img src={logo} alt={brand || "Organiser logo"} className="h-11 max-w-[200px] w-auto object-contain" />}
+            {brand && (!logo || showName) && <span className="font-semibold text-lg truncate">{brand}</span>}
           </div>
         ) : showPoweredBy ? (
           <div className="flex items-center gap-2">
