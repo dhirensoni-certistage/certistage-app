@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, RefreshCw, Loader2, Mail, AlertTriangle } from "lucide-react"
+import { Search, RefreshCw, Loader2, AlertTriangle, Send } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
@@ -29,6 +29,8 @@ interface Ticket {
   pageUrl?: string
   status: "open" | "in_progress" | "closed"
   adminNote?: string
+  replies?: { author: "admin" | "customer"; name: string; message: string; at: string; emailSent?: boolean }[]
+  lastReplyBy?: "admin" | "customer"
   emailSent: boolean
   emailError?: string
   createdAt: string
@@ -51,6 +53,7 @@ export default function AdminSupportPage() {
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Ticket | null>(null)
   const [note, setNote] = useState("")
+  const [reply, setReply] = useState("")
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
@@ -69,13 +72,18 @@ export default function AdminSupportPage() {
 
   useEffect(() => { load() }, [load])
 
-  const update = async (id: string, patch: { status?: Ticket["status"]; adminNote?: string }) => {
+  const update = async (id: string, patch: { status?: Ticket["status"]; adminNote?: string; reply?: string }) => {
     setSaving(true)
     try {
       const res = await fetch("/api/admin/support", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...patch }) })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(data.error || "Could not update"); return }
-      toast.success("Ticket updated")
+      if (patch.reply) {
+        setReply("")
+        toast[data.emailSent ? "success" : "warning"](data.emailSent ? "Reply sent to the customer by email and on their Support page" : "Reply saved on the ticket, but the email to the customer failed")
+      } else {
+        toast.success("Ticket updated")
+      }
       setSelected(data.ticket)
       load()
     } catch { toast.error("Could not update") }
@@ -134,7 +142,7 @@ export default function AdminSupportPage() {
                   ) : tickets.length === 0 ? (
                     <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground">No tickets here.</TableCell></TableRow>
                   ) : tickets.map((t) => (
-                    <TableRow key={t._id} className="cursor-pointer" onClick={() => { setSelected(t); setNote(t.adminNote || "") }}>
+                    <TableRow key={t._id} className="cursor-pointer" onClick={() => { setSelected(t); setNote(t.adminNote || ""); setReply("") }}>
                       <TableCell className="font-mono text-xs">{t.number}</TableCell>
                       <TableCell className="font-medium max-w-[320px] truncate">{t.subject}</TableCell>
                       <TableCell>
@@ -144,6 +152,7 @@ export default function AdminSupportPage() {
                       <TableCell className="capitalize text-sm">{t.plan}</TableCell>
                       <TableCell>
                         <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium", STATUS_CLASS[t.status])}>{STATUS_LABEL[t.status]}</span>
+                        {t.lastReplyBy === "customer" && t.status !== "closed" && <span className="ml-1.5 text-[11px] text-blue-700 font-medium">customer replied</span>}
                         {!t.emailSent && <AlertTriangle className="inline h-3.5 w-3.5 ml-1.5 text-amber-600" aria-label="Email to admin failed" />}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{fmt(t.createdAt)}</TableCell>
@@ -167,16 +176,44 @@ export default function AdminSupportPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="rounded-lg border bg-muted/40 p-4 text-sm whitespace-pre-wrap leading-relaxed">{selected.message}</div>
-                <div className="grid sm:grid-cols-2 gap-3 text-sm">
-                  <p><span className="text-muted-foreground">Email: </span><a href={`mailto:${selected.email}?subject=${encodeURIComponent(`Re: [${selected.number}] ${selected.subject}`)}`} className="underline underline-offset-4">{selected.email}</a></p>
+                {/* Thread: first message, then every reply */}
+                <div className="max-h-[320px] overflow-y-auto space-y-2.5 pr-1">
+                  <div className="rounded-lg border bg-muted/40 p-3.5 text-sm">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{selected.name || selected.email} · {fmt(selected.createdAt)}</p>
+                    <p className="whitespace-pre-wrap leading-relaxed">{selected.message}</p>
+                  </div>
+                  {(selected.replies || []).map((r, i) => (
+                    <div key={i} className={cn("rounded-lg border p-3.5 text-sm", r.author === "admin" ? "bg-amber-50/60 border-amber-200" : "bg-muted/40")}>
+                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
+                        {r.author === "admin" ? "You (support)" : selected.name || "Customer"} · {fmt(r.at)}
+                        {r.author === "admin" && r.emailSent === false && <span className="ml-2 text-amber-700 normal-case tracking-normal">email failed</span>}
+                      </p>
+                      <p className="whitespace-pre-wrap leading-relaxed">{r.message}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Reply: emailed to the customer and shown on their Support page */}
+                <div className="space-y-1.5">
+                  <label className="text-xs uppercase tracking-wider text-muted-foreground">Reply to {selected.name || selected.email}</label>
+                  <Textarea rows={4} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write the answer. It goes to the customer by email and appears on their Support page." />
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">Sent from {selected.email ? "CertiStage" : ""} with Reply-To set to the admin inbox.</p>
+                    <Button size="sm" disabled={saving || !reply.trim()} onClick={() => update(selected._id, { reply })}>
+                      <Send className="h-3.5 w-3.5 mr-1.5" /> {saving ? "Sending..." : "Send reply"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3 text-sm border-t pt-4">
+                  <p><span className="text-muted-foreground">Email: </span>{selected.email}</p>
                   <p><span className="text-muted-foreground">Phone: </span>{selected.phone || "-"}</p>
                   <p><span className="text-muted-foreground">Event: </span>{selected.eventName || "-"}</p>
                   <p><span className="text-muted-foreground">Admin email: </span>{selected.emailSent ? "sent" : <span className="text-amber-700">failed{selected.emailError ? ` (${selected.emailError})` : ""}</span>}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs uppercase tracking-wider text-muted-foreground">Internal note</label>
-                  <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was done, or what is pending" />
+                  <label className="text-xs uppercase tracking-wider text-muted-foreground">Internal note (not shown to the customer)</label>
+                  <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was done, or what is pending" />
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex gap-2">
@@ -186,12 +223,7 @@ export default function AdminSupportPage() {
                       </Button>
                     ))}
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" disabled={saving} onClick={() => update(selected._id, { adminNote: note })}>Save note</Button>
-                    <Button size="sm" variant="outline" asChild>
-                      <a href={`mailto:${selected.email}?subject=${encodeURIComponent(`Re: [${selected.number}] ${selected.subject}`)}`}><Mail className="h-4 w-4 mr-1.5" /> Reply by email</a>
-                    </Button>
-                  </div>
+                  <Button size="sm" variant="outline" disabled={saving} onClick={() => update(selected._id, { adminNote: note })}>Save note</Button>
                 </div>
               </div>
             </>

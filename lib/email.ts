@@ -396,6 +396,21 @@ export const emailTemplates = {
     }
   },
 
+  supportReply: (data: { name: string; ticketNumber: string; subject: string; reply: string; url: string }) => ({
+    subject: `Re: [${data.ticketNumber}] ${data.subject}`,
+    html: emailLayout({
+      preheader: `CertiStage support replied to your request: ${data.subject}`,
+      body: `
+        ${h1('A reply from CertiStage support')}
+        ${para(`Hi ${esc(data.name)}, here is our reply to your request <strong style="color:${EMAIL_BRAND.ink};">${esc(data.subject)}</strong> (ticket ${esc(data.ticketNumber)}):`)}
+        <div style="margin:0 0 18px;padding:16px;background:${EMAIL_BRAND.page};border-radius:8px;font-family:${FONT};font-size:14px;line-height:1.6;color:${EMAIL_BRAND.ink};white-space:pre-wrap;">${esc(data.reply)}</div>
+        ${para('You can answer from the Support page in your account, or simply reply to this email.')}
+        ${button(data.url, 'Open the conversation')}
+      `,
+      footerNote: 'You received this email because you contacted CertiStage support.'
+    })
+  }),
+
   adminNotification: (type: 'signup' | 'payment', data: any) => {
     const title = type === 'signup' ? 'New signup' : 'New payment'
     const rows: Array<[string, unknown]> = type === 'signup'
