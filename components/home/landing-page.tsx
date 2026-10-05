@@ -1,6 +1,6 @@
 ﻿"use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type ReactNode as React_ReactNode } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Ticket, ArrowRight, Shield, Check, BarChart3, Gift, Briefcase, Crown, Gem, LayoutTemplate, PenTool, Sparkles, Award, Download, Search, FileSpreadsheet, Quote, ChevronDown, Mail, Linkedin, Building2, PackagePlus } from "lucide-react"
@@ -56,8 +56,8 @@ const FAQS: { q: string; a: string; href?: string; linkText?: string }[] = [
     a: "Yes, on every plan. Upload your logo in Settings and it appears with your organisation name at the top of every download page. Annual plans can also remove CertiStage branding from the download pages entirely."
   },
   {
-    q: "Can colleges and training institutes use it?",
-    a: "Yes. An \"event\" can be a convocation, a course batch, a workshop or a conference. Everything works the same way."
+    q: "Can colleges, training institutes and webinar hosts use it?",
+    a: "Yes. An \"event\" can be a convocation, a course batch, a workshop, a webinar or a conference. Export the attendee list, import it, and everything works the same way."
   },
   {
     q: "Can I try it before paying?",
@@ -144,8 +144,8 @@ function planHighlights(plan: PlanConfig): string[] {
   if (l.maxCertificates) items.push(l.maxCertificates === -1 ? "Unlimited certificates" : `${n(l.maxCertificates)} certificates${oneTime ? "" : " a year"}`)
   if (l.maxEvents) items.push(l.maxEvents === -1 ? "Unlimited events" : `${n(l.maxEvents)} event${l.maxEvents === 1 ? "" : "s"}`)
   if (l.maxCertificateTypes) items.push(l.maxCertificateTypes === -1 ? "Unlimited certificate designs" : `${n(l.maxCertificateTypes)} certificate design${l.maxCertificateTypes === 1 ? "" : "s"}`)
-  items.push(l.canImportData ? "Excel import and reports" : "Add recipients one by one")
-  items.push(plan.price > 0 ? "Email delivery with open and click tracking" : "Email delivery for your first recipients")
+  if (!l.canImportData) items.push("No Excel import, add one by one")
+  items.push(plan.price > 0 ? "Email delivery with tracking" : "Email delivery for your first recipients")
   if (oneTime) items.push(`Organiser access for ${planValidityDays(plan)} days`)
   if (l.canRemoveBranding) items.push("Remove CertiStage branding")
   const seen = new Set(items.map((i) => i.toLowerCase()))
@@ -153,7 +153,7 @@ function planHighlights(plan: PlanConfig): string[] {
   const repeats = (text: string) => /certificate|event|design|type|import|excel|template|email delivery/i.test(text)
   for (const f of plan.features || []) {
     const text = String(f || "").trim()
-    if (text && !seen.has(text.toLowerCase()) && !repeats(text) && items.length < 7) {
+    if (text && !seen.has(text.toLowerCase()) && !repeats(text) && items.length < 6) {
       seen.add(text.toLowerCase())
       items.push(text)
     }
@@ -179,11 +179,28 @@ const USE_CASES: { title: string; desc: string; tags: string[] }[] = [
     tags: ["course completion", "internship", "skill programs"]
   },
   {
-    title: "Hackathons, fests and corporate events",
+    title: "Webinars and online courses",
+    desc: "Attendance certificates for every webinar, masterclass or cohort, straight from the Zoom or registration export. Email them the same evening, with Add to LinkedIn for the shares that bring the next batch.",
+    tags: ["webinar attendance", "masterclass", "cohort completion"]
+  },
+  {
+    title: "Hackathons, fests and student events",
     desc: "Thousands of one-time participants, messy email lists and a deadline. Import the sheet, share one link, done. Winners and volunteers get their own designs.",
     tags: ["participation", "winner", "volunteer"]
+  },
+  {
+    title: "Corporate training and HR",
+    desc: "Completion certificates for internal training, inductions and compliance programs, with the employee ID as the lookup. Reports show who finished and who has not.",
+    tags: ["L&D", "compliance", "induction"]
   }
 ]
+
+/** Small uppercase label above a section heading, so each block reads as its own chapter */
+const Eyebrow = ({ children }: { children: React_ReactNode }) => (
+  <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold-light mb-4">
+    <span className="h-px w-5 bg-gold" /> {children} <span className="h-px w-5 bg-gold" />
+  </p>
+)
 
 const formatPrice = (amountInPaise: number, currency: string) => {
   const amount = amountInPaise / 100
@@ -293,16 +310,19 @@ export default function HomePage() {
       <SiteHeader />
 
       {/* Hero */}
-      <section className="pt-16 md:pt-20 pb-16 md:pb-24 px-6">
-        <div className="max-w-4xl mx-auto text-center">
+      <section className="relative overflow-hidden pt-14 md:pt-20 pb-14 md:pb-20 px-6">
+        {/* Dot grid with a soft gold glow behind the headline, fading out before the mockup */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 landing-dots [mask-image:radial-gradient(ellipse_at_top,black_0%,transparent_65%)]" />
+        <div aria-hidden className="pointer-events-none absolute left-1/2 top-0 h-[420px] w-[820px] -translate-x-1/2 rounded-full bg-gold/15 blur-3xl" />
+        <div className="relative max-w-4xl mx-auto text-center">
           <Reveal y={12}>
             <p className="inline-flex items-center gap-2 text-xs font-medium text-gold-deep dark:text-gold-light bg-gold-soft dark:bg-gold/10 border border-gold/30 dark:border-gold/30 rounded-full px-3 py-1 mb-6">
               <Award className="h-3.5 w-3.5" />
-              <span>Bulk certificate generator for events, colleges, institutes and training programs</span>
+              <span>Certificates for conferences, colleges, webinars and training programs</span>
             </p>
           </Reveal>
           <Reveal delay={0.08}>
-            <h1 className="text-[40px] md:text-[56px] font-bold tracking-tight text-neutral-900 dark:text-white leading-[1.1] mb-6">
+            <h1 className="text-[36px] md:text-[52px] font-bold tracking-[-0.02em] text-neutral-900 dark:text-white leading-[1.08] mb-5">
               Issue <span className="text-gold-deep dark:text-gold-light">certificates</span> to thousands{" "}
               <br className="hidden md:block" />
               of people in minutes
@@ -310,7 +330,7 @@ export default function HomePage() {
           </Reveal>
 
           <Reveal delay={0.16}>
-            <p className="text-lg md:text-xl text-neutral-600 dark:text-neutral-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-[17px] md:text-lg text-neutral-600 dark:text-neutral-400 mb-8 max-w-2xl mx-auto leading-relaxed">
               Upload your certificate design and an Excel sheet of names. Every attendee, student or participant finds and downloads their own certificate, or gets it by email with one click. Add to LinkedIn built in.
             </p>
           </Reveal>
@@ -436,13 +456,14 @@ export default function HomePage() {
       )}
 
       {/* Features */}
-      <section id="features" className="py-24 px-6 scroll-mt-16">
+      <section id="features" className="py-20 md:py-24 px-6 scroll-mt-16">
         <div className="max-w-6xl mx-auto">
-          <Reveal className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold text-neutral-900 dark:text-white mb-4">
+          <Reveal className="text-center mb-12">
+            <Eyebrow>Features</Eyebrow>
+            <h2 className="text-[28px] md:text-[38px] font-bold tracking-tight text-neutral-900 dark:text-white mb-3">
               Everything you need to issue certificates
             </h2>
-            <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
+            <p className="text-base md:text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
               From a 50-person workshop to a 10,000-attendee conference or an entire graduating batch.
             </p>
           </Reveal>
@@ -452,12 +473,12 @@ export default function HomePage() {
               <Reveal
                 key={feature.title}
                 delay={i * 0.07}
-                className={`${feature.wide ? "md:col-span-2" : ""} p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-gold/50 dark:hover:border-gold/50 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-neutral-900/5 transition-[border-color,transform,box-shadow] duration-300`}
+                className={`${feature.wide ? "md:col-span-2" : ""} p-7 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-gold/50 dark:hover:border-gold/50 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-neutral-900/5 transition-[border-color,transform,box-shadow] duration-300`}
               >
-                <div className="w-10 h-10 rounded-lg bg-gold-soft dark:bg-gold/10 flex items-center justify-center text-gold-deep dark:text-gold-light mb-6">
+                <div className="w-10 h-10 rounded-lg bg-gold-soft dark:bg-gold/10 flex items-center justify-center text-gold-deep dark:text-gold-light mb-5">
                   <feature.icon className="w-5 h-5" />
                 </div>
-                <h3 className={`${feature.wide ? "text-xl" : "text-lg"} font-semibold text-neutral-900 dark:text-white mb-3`}>
+                <h3 className={`${feature.wide ? "text-lg" : "text-[17px]"} font-semibold text-neutral-900 dark:text-white mb-2.5`}>
                   {feature.title}
                 </h3>
                 <p className={`${feature.wide ? "text-[15px]" : "text-sm"} text-neutral-600 dark:text-neutral-400 leading-relaxed`}>
@@ -471,12 +492,12 @@ export default function HomePage() {
           <Reveal y={28} amount={0.1} className="mt-4 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-white dark:bg-neutral-950">
             <div className="p-6 md:p-8 border-b border-neutral-200 dark:border-neutral-800">
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-1">One dashboard for every event and batch</h3>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">Attendees, downloads, pending recipients and completion rate, all in one place.</p>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">Recipients, downloads, pending, completion rate and LinkedIn adds, with downloads by day and by certificate.</p>
             </div>
-            <div className="relative w-full aspect-[16/7] bg-white dark:bg-neutral-950">
+            <div className="relative w-full aspect-[16/7] bg-[#FDFDFD] dark:bg-neutral-950">
               <Image
                 src="/dashboard-preview.png"
-                alt="CertiStage dashboard showing attendees, downloads and completion rate"
+                alt="CertiStage dashboard: recipients, downloads, completion rate, downloads by certificate and over time"
                 fill
                 className="object-cover object-top"
               />
@@ -486,20 +507,21 @@ export default function HomePage() {
       </section>
 
       {/* Who it is for */}
-      <section id="use-cases" className="py-24 px-6 scroll-mt-16">
+      <section id="use-cases" className="py-20 md:py-24 px-6 scroll-mt-16 bg-neutral-50 dark:bg-neutral-950 border-y border-neutral-200/70 dark:border-neutral-800">
         <div className="max-w-6xl mx-auto">
-          <Reveal className="text-center mb-14">
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
+          <Reveal className="text-center mb-12">
+            <Eyebrow>Who it is for</Eyebrow>
+            <h2 className="text-[28px] md:text-[38px] font-bold tracking-tight text-neutral-900 dark:text-white mb-3">
               Certificates for every kind of organiser
             </h2>
-            <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
+            <p className="text-base md:text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
               Conference secretaries, IQAC coordinators, training heads and student committees use the same three steps.
             </p>
           </Reveal>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {USE_CASES.map((u, i) => (
-              <Reveal key={u.title} delay={i * 0.06} className="p-7 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-gold/50 transition-colors">
-                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">{u.title}</h3>
+              <Reveal key={u.title} delay={i * 0.06} className="p-6 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-gold/50 transition-colors">
+                <h3 className="text-[17px] font-semibold text-neutral-900 dark:text-white mb-2">{u.title}</h3>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">{u.desc}</p>
                 <ul className="mt-4 flex flex-wrap gap-2">
                   {u.tags.map((t) => (
@@ -513,13 +535,14 @@ export default function HomePage() {
       </section>
 
       {/* How it Works - Simple Steps */}
-      <section id="how-it-works" className="py-24 px-6 bg-neutral-50 dark:bg-neutral-950 scroll-mt-16">
+      <section id="how-it-works" className="py-20 md:py-24 px-6 scroll-mt-16">
         <div className="max-w-5xl mx-auto">
-          <Reveal className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
-              How it works
+          <Reveal className="text-center mb-12">
+            <Eyebrow>How it works</Eyebrow>
+            <h2 className="text-[28px] md:text-[38px] font-bold tracking-tight text-neutral-900 dark:text-white mb-3">
+              Live in three steps
             </h2>
-            <p className="text-lg text-neutral-600 dark:text-neutral-400">
+            <p className="text-base md:text-lg text-neutral-600 dark:text-neutral-400">
               From setup to delivery in three simple steps
             </p>
           </Reveal>
@@ -571,13 +594,14 @@ export default function HomePage() {
       )}
 
       {/* Pricing - Clean Cards */}
-      <section id="pricing" className="py-24 px-6 scroll-mt-16">
+      <section id="pricing" className="py-20 md:py-24 px-6 scroll-mt-16 bg-neutral-50 dark:bg-neutral-950 border-y border-neutral-200/70 dark:border-neutral-800">
         <div className="max-w-6xl mx-auto">
-          <Reveal className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
+          <Reveal className="text-center mb-12">
+            <Eyebrow>Pricing</Eyebrow>
+            <h2 className="text-[28px] md:text-[38px] font-bold tracking-tight text-neutral-900 dark:text-white mb-3">
               Simple, transparent pricing
             </h2>
-            <p className="text-lg text-neutral-600 dark:text-neutral-400">
+            <p className="text-base md:text-lg text-neutral-600 dark:text-neutral-400">
               Pay once for a single event, or yearly for more. Prices in INR, UPI accepted.
             </p>
           </Reveal>
@@ -603,7 +627,7 @@ export default function HomePage() {
                 <Reveal
                   key={plan.id}
                   delay={i * 0.07}
-                  className={`h-full flex flex-col p-6 rounded-xl border ${plan.highlight
+                  className={`h-full flex flex-col p-5 rounded-xl border ${plan.highlight
                     ? "border-gold dark:border-gold-light shadow-lg shadow-gold/10"
                     : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700"
                     } bg-white dark:bg-neutral-950 hover:-translate-y-0.5 transition-[border-color,transform] duration-300 relative`}
@@ -614,23 +638,23 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  <div className="mb-5">
-                    <Icon className="w-8 h-8 text-gold-deep dark:text-gold-light mb-4" />
-                    <h3 className="font-semibold text-lg text-neutral-900 dark:text-white mb-1">{plan.name}</h3>
+                  <div className="mb-4">
+                    <Icon className="w-7 h-7 text-gold-deep dark:text-gold-light mb-3" />
+                    <h3 className="font-semibold text-[15px] text-neutral-900 dark:text-white mb-1">{plan.name}</h3>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold text-neutral-900 dark:text-white">{priceLabel}</span>
+                      <span className="text-[26px] font-bold tracking-tight text-neutral-900 dark:text-white">{priceLabel}</span>
                       {periodLabel && (
                         <span className="text-sm text-neutral-500 dark:text-neutral-500">{periodLabel}</span>
                       )}
                     </div>
-                    <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-500 min-h-[32px] leading-snug">{plan.description}</p>
+                    <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-500 leading-snug">{plan.description}</p>
                   </div>
 
                   {/* The list grows, the button stays on one line across the row */}
-                  <ul className="space-y-2.5 mb-6 flex-1">
+                  <ul className="space-y-2 mb-5 flex-1 border-t border-neutral-100 dark:border-neutral-800 pt-4">
                     {features.map((feature, idx) => (
-                      <li key={`${plan.id}-feature-${idx}`} className="flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-                        <Check className="w-4 h-4 text-gold-deep dark:text-gold-light shrink-0 mt-0.5" />
+                      <li key={`${plan.id}-feature-${idx}`} className="flex items-start gap-2 text-[13px] leading-snug text-neutral-600 dark:text-neutral-400">
+                        <Check className="w-3.5 h-3.5 text-gold-deep dark:text-gold-light shrink-0 mt-0.5" />
                         <span>{feature}</span>
                       </li>
                     ))}
@@ -638,7 +662,7 @@ export default function HomePage() {
 
                   <Button
                     variant={plan.highlight ? "default" : "outline"}
-                    className="w-full text-sm h-10 mt-auto"
+                    className="w-full text-[13px] h-9 mt-auto"
                     asChild
                   >
                     <Link href={ctaHref}>{ctaLabel}</Link>
@@ -648,16 +672,17 @@ export default function HomePage() {
             })}
           </div>
 
-          <Reveal delay={0.2} className="mt-6 grid gap-3 md:grid-cols-3 text-sm text-neutral-600 dark:text-neutral-400">
-            <p className="flex items-start gap-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
+          <p className="mt-5 text-center text-[13px] text-neutral-500 dark:text-neutral-500">All paid plans include Excel import, reports, the organiser dashboard and your logo on every download page.</p>
+          <Reveal delay={0.2} className="mt-5 grid gap-3 md:grid-cols-3 text-[13px] text-neutral-600 dark:text-neutral-400">
+            <p className="flex items-start gap-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 py-3">
               <PackagePlus className="h-4 w-4 mt-0.5 shrink-0 text-gold-deep dark:text-gold-light" />
               <span>Need more? One-time packs of extra certificates and emails on every plan. They never expire.</span>
             </p>
-            <p className="flex items-start gap-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
+            <p className="flex items-start gap-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 py-3">
               <Ticket className="h-4 w-4 mt-0.5 shrink-0 text-gold-deep dark:text-gold-light" />
               <span>Start with One event; move to an annual plan within 180 days and the ₹799 is credited.</span>
             </p>
-            <p className="flex items-start gap-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
+            <p className="flex items-start gap-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 py-3">
               <Shield className="h-4 w-4 mt-0.5 shrink-0 text-gold-deep dark:text-gold-light" />
               <span>No auto-renewal. Paid through Razorpay with UPI, cards or net banking; receipt by email.</span>
             </p>
@@ -666,13 +691,14 @@ export default function HomePage() {
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="py-24 px-6 bg-neutral-50 dark:bg-neutral-950 scroll-mt-16">
+      <section id="faq" className="py-20 md:py-24 px-6 scroll-mt-16">
         <div className="max-w-3xl mx-auto">
-          <Reveal className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
+          <Reveal className="text-center mb-10">
+            <Eyebrow>FAQ</Eyebrow>
+            <h2 className="text-[28px] md:text-[38px] font-bold tracking-tight text-neutral-900 dark:text-white mb-3">
               Questions organizers ask
             </h2>
-            <p className="text-lg text-neutral-600 dark:text-neutral-400">
+            <p className="text-base md:text-lg text-neutral-600 dark:text-neutral-400">
               Anything else? <Link href="/contact" className="text-gold-deep dark:text-gold-light underline underline-offset-4">Contact us</Link>
             </p>
           </Reveal>
@@ -709,21 +735,23 @@ export default function HomePage() {
       </section>
 
       {/* CTA - Minimal */}
-      <section className="py-24 px-6 border-y border-neutral-200 dark:border-neutral-800">
-        <Reveal className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-4">
+      <section className="relative overflow-hidden py-20 md:py-24 px-6 bg-neutral-950 text-white">
+        <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 h-[360px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold/20 blur-3xl" />
+        <Reveal className="relative max-w-3xl mx-auto text-center">
+          <h2 className="text-[28px] md:text-[38px] font-bold tracking-tight text-white mb-3">
             Ready to issue your next batch of certificates?
           </h2>
-          <p className="text-lg text-neutral-600 dark:text-neutral-400 mb-8">
+          <p className="text-base md:text-lg text-white/70 mb-8">
             {publicStats && publicStats.organizations >= 50
               ? `Join ${formatApproxCount(publicStats.organizations)} organizations using CertiStage`
               : "Join event organizers and institutions using CertiStage"}
           </p>
-          <Button size="lg" asChild className="group h-11 px-6 text-sm">
+          <Button size="lg" asChild className="group h-11 px-6 text-sm bg-white text-neutral-900 hover:bg-neutral-100">
             <Link href="/signup">
               Start free <ArrowRight className="h-4 w-4 ml-1.5 transition-transform duration-200 ease-out group-hover:translate-x-1" />
             </Link>
           </Button>
+          <p className="mt-4 text-[13px] text-white/50">Free plan, no card. One event from ₹799.</p>
         </Reveal>
       </section>
 
