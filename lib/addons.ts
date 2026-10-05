@@ -22,16 +22,27 @@ export const findEmailPack = (id: unknown, packs: EmailPack[] = EMAIL_PACKS): Em
  * same rates): under 10,000 at 10 paise, from 10,000 at 8 paise, from 50,000 at 6 paise.
  */
 export const CUSTOM_EMAILS = { min: 1000, max: 500000, step: 100 }
-export const EMAIL_RATE_TIERS = [
+export interface EmailRateTier {
+  from: number // applies from this many emails
+  paise: number // per email
+}
+
+// Defaults; Admin > Plans > Add-on packs overrides them (highest "from" wins, sorted here)
+export const EMAIL_RATE_TIERS: EmailRateTier[] = [
   { from: 50000, paise: 6 },
   { from: 10000, paise: 8 },
   { from: 0, paise: 10 },
 ]
 
-export const emailRate = (emails: number) => (EMAIL_RATE_TIERS.find((t) => emails >= t.from) || EMAIL_RATE_TIERS[EMAIL_RATE_TIERS.length - 1]).paise
+const sortedTiers = (tiers: EmailRateTier[]) => [...tiers].sort((a, b) => b.from - a.from)
+
+export const emailRate = (emails: number, tiers: EmailRateTier[] = EMAIL_RATE_TIERS) => {
+  const sorted = sortedTiers(tiers)
+  return (sorted.find((t) => emails >= t.from) || sorted[sorted.length - 1]).paise
+}
 
 /** Price in paise for a number of emails */
-export const customEmailPrice = (emails: number) => emails * emailRate(emails)
+export const customEmailPrice = (emails: number, tiers: EmailRateTier[] = EMAIL_RATE_TIERS) => emails * emailRate(emails, tiers)
 
 /** A valid custom quantity, or null */
 export function parseCustomEmails(value: unknown): number | null {
@@ -41,11 +52,11 @@ export function parseCustomEmails(value: unknown): number | null {
 }
 
 /** When the next volume tier gives more emails for the same or less money, that offer */
-export function betterTierOffer(emails: number): { emails: number; price: number } | null {
-  const next = [...EMAIL_RATE_TIERS].reverse().find((t) => t.from > emails)
+export function betterTierOffer(emails: number, tiers: EmailRateTier[] = EMAIL_RATE_TIERS): { emails: number; price: number } | null {
+  const next = sortedTiers(tiers).reverse().find((t) => t.from > emails)
   if (!next) return null
-  const price = customEmailPrice(next.from)
-  return price <= customEmailPrice(emails) ? { emails: next.from, price } : null
+  const price = customEmailPrice(next.from, tiers)
+  return price <= customEmailPrice(emails, tiers) ? { emails: next.from, price } : null
 }
 
 export const emailPackName = (pack: { emails: number }) => `${pack.emails.toLocaleString("en-IN")} certificate emails`
@@ -74,6 +85,8 @@ export const findCertPack = (id: unknown, packs: CertPack[] = CERT_PACKS): CertP
 export interface AddonConfig {
   emailPacks: EmailPack[]
   certPacks: CertPack[]
+  /** Per-email rates for custom quantities, by volume */
+  emailRateTiers: EmailRateTier[]
 }
 
 const positiveInt = (v: unknown, fallback: number) => {
@@ -82,7 +95,7 @@ const positiveInt = (v: unknown, fallback: number) => {
 }
 
 export function mergeAddonConfig(value: unknown): AddonConfig {
-  const raw = (value && typeof value === "object" ? value : {}) as { emailPacks?: unknown; certPacks?: unknown }
+  const raw = (value && typeof value === "object" ? value : {}) as { emailPacks?: unknown; certPacks?: unknown; emailRateTiers?: unknown }
   const emailPacks = EMAIL_PACKS.map((def) => {
     const o = Array.isArray(raw.emailPacks) ? raw.emailPacks.find((p: any) => p?.id === def.id) : null
     return { id: def.id, emails: positiveInt(o?.emails, def.emails), price: positiveInt(o?.price, def.price) }
@@ -91,7 +104,14 @@ export function mergeAddonConfig(value: unknown): AddonConfig {
     const o = Array.isArray(raw.certPacks) ? raw.certPacks.find((p: any) => p?.id === def.id) : null
     return { id: def.id, certificates: positiveInt(o?.certificates, def.certificates), price: positiveInt(o?.price, def.price) }
   })
-  return { emailPacks, certPacks }
+  // Same three tiers as the defaults, each with its own threshold and rate; the first always starts at 0
+  const emailRateTiers = sortedTiers(EMAIL_RATE_TIERS).reverse().map((def, i) => {
+    const o = Array.isArray(raw.emailRateTiers) ? sortedTiers(raw.emailRateTiers.filter((t: any) => t && Number.isFinite(Number(t.from)))).reverse()[i] : null
+    const from = i === 0 ? 0 : Math.max(1, Math.round(Number(o?.from ?? def.from)))
+    const paise = Number(o?.paise)
+    return { from, paise: Number.isFinite(paise) && paise > 0 ? Math.round(paise * 100) / 100 : def.paise }
+  })
+  return { emailPacks, certPacks, emailRateTiers: sortedTiers(emailRateTiers) }
 }
 
 export const certPackName = (pack: { certificates: number }) => `${pack.certificates.toLocaleString("en-IN")} extra certificates`

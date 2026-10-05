@@ -18,15 +18,15 @@ const paise = (price: number, emails: number) => `${(price / emails).toFixed(2).
  */
 export function EmailPacks({ onBought, compact = false }: { onBought?: (emails: number) => void; compact?: boolean }) {
   const { buy, busyPack } = useBuyEmails(onBought)
-  const { emailPacks: packs } = useAddonConfig()
+  const { emailPacks: packs, emailRateTiers: tiers } = useAddonConfig()
   const BASE_RATE = packs[0].price / packs[0].emails
   const [selected, setSelected] = useState(EMAIL_PACKS[1].id)
   const [customInput, setCustomInput] = useState("2500")
   const isCustom = selected === "custom"
   const customEmails = parseCustomEmails(customInput)
-  const offer = isCustom && customEmails ? betterTierOffer(customEmails) : null
+  const offer = isCustom && customEmails ? betterTierOffer(customEmails, tiers) : null
   const pack = isCustom
-    ? customEmails ? { id: "custom", emails: customEmails, price: customEmailPrice(customEmails) } : null
+    ? customEmails ? { id: "custom", emails: customEmails, price: Math.round(customEmailPrice(customEmails, tiers)) } : null
     : packs.find((p) => p.id === selected) || packs[0]
 
   return (
@@ -91,7 +91,7 @@ export function EmailPacks({ onBought, compact = false }: { onBought?: (emails: 
             </span>
             <span className="flex-1">
               <span className="block text-[15px] font-semibold text-neutral-900">Custom amount</span>
-              <span className="block text-[12px] text-neutral-500 mt-0.5">Buy exactly what you need · 10, 8 or 6 paise per email by volume</span>
+              <span className="block text-[12px] text-neutral-500 mt-0.5">Buy exactly what you need · {[...tiers].sort((a, b) => a.from - b.from).map((t) => t.paise).join(", ")} paise per email by volume</span>
             </span>
             {isCustom && pack && <span className="text-[17px] font-semibold text-neutral-900 tabular-nums">{formatInr(pack.price)}</span>}
           </button>
@@ -114,7 +114,7 @@ export function EmailPacks({ onBought, compact = false }: { onBought?: (emails: 
               </div>
               {customEmails ? (
                 <p className="mt-1.5 text-[12px] text-neutral-500">
-                  {customEmails.toLocaleString("en-IN")} × {emailRate(customEmails)} paise = <span className="font-medium text-neutral-900">{formatInr(customEmailPrice(customEmails))}</span>
+                  {customEmails.toLocaleString("en-IN")} × {emailRate(customEmails, tiers)} paise = <span className="font-medium text-neutral-900">{formatInr(Math.round(customEmailPrice(customEmails, tiers)))}</span>
                 </p>
               ) : (
                 <p className="mt-1.5 text-[12px] text-red-600">
