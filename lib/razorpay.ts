@@ -37,6 +37,7 @@ export function getRazorpayConfig() {
 // Plan pricing in paise (Razorpay uses smallest currency unit)
 export const PLAN_PRICES = {
   free: 0,
+  event: 79900,         // ₹799, paid once for one event
   test: 100,            // ₹1 (test plan)
   professional: 499900, // ₹4,999
   enterprise: 999900,   // ₹9,999
@@ -51,6 +52,12 @@ export const PLAN_DETAILS = {
     price: 0,
     displayPrice: "₹0",
     description: "Trial - 50 certificates"
+  },
+  event: {
+    name: "One event",
+    price: 79900,
+    displayPrice: "₹799 once",
+    description: "1 event, 1,000 certificates, 60 days"
   },
   test: {
     name: "Test",
@@ -78,7 +85,7 @@ export const PLAN_DETAILS = {
   }
 } as const
 
-export function getPlanDisplayDetails(plan: PlanId): { name: string; description?: string } {
+export function getPlanDisplayDetails(plan: PlanId): { name: string; description?: string; billingPeriod?: string } {
   if (typeof window !== "undefined") {
     const raw = localStorage.getItem("plan_config")
     if (raw) {
@@ -86,7 +93,7 @@ export function getPlanDisplayDetails(plan: PlanId): { name: string; description
         const plans = JSON.parse(raw)
         const match = Array.isArray(plans) ? plans.find((p: any) => p.id === plan) : null
         if (match?.name) {
-          return { name: match.name, description: match.description }
+          return { name: match.name, description: match.description, billingPeriod: match.billingPeriod }
         }
       } catch {
         // Ignore parse errors
@@ -95,7 +102,13 @@ export function getPlanDisplayDetails(plan: PlanId): { name: string; description
   }
 
   const fallback = (PLAN_DETAILS as Record<string, { name: string; description?: string }>)[plan]
-  return { name: fallback?.name || String(plan), description: fallback?.description }
+  return { name: fallback?.name || String(plan), description: fallback?.description, billingPeriod: plan === "event" ? "one-time" : "year" }
+}
+
+/** Line shown in the Razorpay checkout window */
+export function checkoutDescription(plan: PlanId): string {
+  const details = getPlanDisplayDetails(plan)
+  return details.billingPeriod === "one-time" ? `${details.name} plan - one event, paid once` : `${details.name} Plan - Annual Subscription`
 }
 
 export type PlanId = string
@@ -201,14 +214,12 @@ export async function openRazorpayCheckout(
     return
   }
   
-  const planDetails = getPlanDisplayDetails(plan)
-  
   const options = {
     key: config.keyId,
     amount: order.amount,
     currency: order.currency,
     name: "CertiStage",
-    description: `${planDetails.name} Plan - Annual Subscription`,
+    description: checkoutDescription(plan),
     order_id: order.id,
     prefill: {
       name: user.name,

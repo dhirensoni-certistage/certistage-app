@@ -12,7 +12,8 @@ import {
   ChevronLeft,
   LogOut,
   Mail,
-  Tag
+  Tag,
+  LifeBuoy
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -25,24 +26,28 @@ interface SidebarCounts {
   pendingPayments: number
   newUsersToday: number
   activeEvents: number
+  openTickets: number
 }
 
 const navigationItems = [
-  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-  { name: 'Users', href: '/admin/users', icon: Users },
-  { name: 'Events', href: '/admin/events', icon: CalendarDays },
-  { name: 'Revenue', href: '/admin/revenue', icon: IndianRupee, countKey: 'pendingPayments' as const },
-  { name: 'Plans', href: '/admin/plans', icon: Tag },
-  { name: 'Email Logs', href: '/admin/email-logs', icon: Mail },
-  { name: 'Analytics', href: '/admin/analytics', icon: ChartColumnIncreasing },
-  { name: 'Settings', href: '/admin/settings', icon: Settings2 },
+  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, shortcut: 'G D' },
+  { name: 'Users', href: '/admin/users', icon: Users, shortcut: 'G U' },
+  { name: 'Events', href: '/admin/events', icon: Calendar, shortcut: 'G E' },
+  { name: 'Revenue', href: '/admin/revenue', icon: IndianRupee, shortcut: 'G R', countKey: 'pendingPayments' as const },
+  { name: 'Plans', href: '/admin/plans', icon: Tag, shortcut: 'G P' },
+  { name: 'Email Logs', href: '/admin/email-logs', icon: Mail, shortcut: 'G M' },
+  { name: 'Support', href: '/admin/support', icon: LifeBuoy, shortcut: 'G T', countKey: 'openTickets' as const },
+  { name: 'Analytics', href: '/admin/analytics', icon: BarChart3, shortcut: 'G A' },
+  { name: 'Settings', href: '/admin/settings', icon: Settings, shortcut: 'G S' },
 ]
 
 export function AdminSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const [collapsed, setCollapsedState] = useState(false)
-  const [counts, setCounts] = useState<SidebarCounts>({ pendingPayments: 0, newUsersToday: 0, activeEvents: 0 })
+  const { theme, setTheme } = useTheme()
+  const [collapsed, setCollapsed] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [counts, setCounts] = useState<SidebarCounts>({ pendingPayments: 0, newUsersToday: 0, activeEvents: 0, openTickets: 0 })
 
   const setCollapsed = (value: boolean) => {
     setCollapsedState(value)

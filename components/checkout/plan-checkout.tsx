@@ -5,7 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Check, Loader2, Lock, ShieldCheck, Zap, Receipt, Award, CalendarDays, Layers } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { formatInr, mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
+import { formatInr, mergePlanConfigWithDefaults, isOneTimePlan, planExpiryFrom, planPeriodLabel, planTermLabel, type PlanConfig } from "@/lib/plan-config"
 
 /** The plan as currently on sale (Admin > Plans), or null when it isn't. `loaded` turns true once the live list is in. */
 export function useLivePlan(planId: string | null) {
@@ -45,7 +45,7 @@ const planTitle = (name: string) => (/\bplan$/i.test(name.trim()) ? name.trim() 
 function includedItems(plan: PlanConfig): string[] {
   const l = plan.limits
   const items: string[] = []
-  if (l.maxCertificates) items.push(l.maxCertificates === -1 ? "Unlimited certificates" : `${n(l.maxCertificates)} certificates a year`)
+  if (l.maxCertificates) items.push(l.maxCertificates === -1 ? "Unlimited certificates" : `${n(l.maxCertificates)} certificates${isOneTimePlan(plan) ? "" : " a year"}`)
   if (l.maxEvents) items.push(l.maxEvents === -1 ? "Unlimited events" : `Up to ${n(l.maxEvents)} event${l.maxEvents === 1 ? "" : "s"}`)
   if (l.maxCertificateTypes) items.push(l.maxCertificateTypes === -1 ? "Unlimited certificate designs" : `Up to ${n(l.maxCertificateTypes)} certificate design${l.maxCertificateTypes === 1 ? "" : "s"}`)
   if (l.canImportData) items.push("Excel import for recipient lists")
@@ -103,7 +103,7 @@ export function PlanCheckout({
   onSkip?: () => void
 }) {
   const l = plan.limits
-  const validUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+  const validUntil = planExpiryFrom(plan).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
   const stat = (v: number) => (v === -1 ? "Unlimited" : n(v))
   const title = planTitle(plan.name)
 
@@ -139,7 +139,7 @@ export function PlanCheckout({
           <section>
             {(l.maxCertificates || l.maxEvents || l.maxCertificateTypes) ? (
               <div className="grid grid-cols-3 gap-3 max-w-xl">
-                <Stat icon={Award} value={stat(l.maxCertificates)} label="certificates / year" />
+                <Stat icon={Award} value={stat(l.maxCertificates)} label={isOneTimePlan(plan) ? "certificates" : "certificates / year"} />
                 <Stat icon={CalendarDays} value={stat(l.maxEvents)} label={l.maxEvents === 1 ? "event" : "events"} />
                 <Stat icon={Layers} value={stat(l.maxCertificateTypes)} label={l.maxCertificateTypes === 1 ? "design" : "designs"} />
               </div>
@@ -180,14 +180,14 @@ export function PlanCheckout({
                 <p className="mt-1.5 text-[19px] font-semibold">{title}</p>
                 <p className="mt-3 flex items-baseline gap-1.5">
                   <span className="text-[34px] font-semibold tracking-tight tabular-nums leading-none">{formatInr(plan.price)}</span>
-                  <span className="text-[13px] text-white/50">/ year</span>
+                  <span className="text-[13px] text-white/50">{planPeriodLabel(plan)}</span>
                 </p>
               </div>
 
               <div className="px-6 py-5">
                 <dl className="space-y-2.5 text-[13.5px]">
                   <div className="flex justify-between gap-3">
-                    <dt className="text-neutral-500">{title}, 1 year</dt>
+                    <dt className="text-neutral-500">{title}, {planTermLabel(plan)}</dt>
                     <dd className="text-neutral-900 tabular-nums">{formatInr(plan.price)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">

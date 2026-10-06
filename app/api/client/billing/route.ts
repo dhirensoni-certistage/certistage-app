@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { addonItemName } from "@/lib/addons"
 import connectDB from "@/lib/mongodb"
 import { requireClientUser } from "@/lib/client-auth.server"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
@@ -32,7 +33,9 @@ export async function GET(request: NextRequest) {
       },
       payments: payments.map((p) => ({
         id: String(p._id),
-        description: `${planName(p.plan)}${/\bplan$/i.test(planName(p.plan)) ? "" : " plan"}, 1 year`,
+        description: p.kind === "addon"
+          ? `${addonItemName(p)} (add-on)`
+          : `${planName(p.plan)}${/\bplan$/i.test(planName(p.plan)) ? "" : " plan"}, 1 year`,
         amount: p.amount,
         currency: p.currency || "INR",
         status: p.status,

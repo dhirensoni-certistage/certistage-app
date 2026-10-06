@@ -3,6 +3,7 @@ import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import Event from "@/models/Event"
 import Payment from "@/models/Payment"
+import SupportTicket from "@/models/SupportTicket"
 
 export async function GET() {
   try {
@@ -11,19 +12,21 @@ export async function GET() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const [pendingPayments, newUsersToday, activeEvents] = await Promise.all([
+    const [pendingPayments, newUsersToday, activeEvents, openTickets] = await Promise.all([
       Payment.countDocuments({ status: "pending" }),
       User.countDocuments({ createdAt: { $gte: today } }),
-      Event.countDocuments({ status: "active" })
+      Event.countDocuments({ status: "active" }),
+      SupportTicket.countDocuments({ status: "open" })
     ])
 
     return NextResponse.json({
       pendingPayments,
       newUsersToday,
-      activeEvents
+      activeEvents,
+      openTickets
     })
   } catch (error) {
     console.error("Sidebar counts error:", error)
-    return NextResponse.json({ pendingPayments: 0, newUsersToday: 0, activeEvents: 0 })
+    return NextResponse.json({ pendingPayments: 0, newUsersToday: 0, activeEvents: 0, openTickets: 0 })
   }
 }

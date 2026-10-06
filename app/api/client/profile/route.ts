@@ -3,6 +3,7 @@ import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import { requireClientUser } from "@/lib/client-auth.server"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
+import { canHidePoweredBy } from "@/lib/branding.server"
 
 // GET - Get the logged-in user's profile
 export async function GET(request: NextRequest) {
@@ -29,7 +30,11 @@ export async function GET(request: NextRequest) {
         pendingPlan: user.pendingPlan || null,
         planExpiresAt: user.planExpiresAt,
         isActive: user.isActive,
-        createdAt: user.createdAt
+        createdAt: user.createdAt,
+        hidePoweredBy: !!user.hidePoweredBy,
+        canHidePoweredBy: await canHidePoweredBy(user),
+        logo: user.logo || null,
+        showNameWithLogo: !!user.showNameWithLogo
       }
     })
   } catch (error) {
@@ -46,13 +51,24 @@ export async function PUT(request: NextRequest) {
     const auth = await requireClientUser(request)
     if (auth.response) return auth.response
     const userId = auth.userId
-    const { name, phone, organization } = await request.json()
+    const { name, phone, organization, hidePoweredBy, showNameWithLogo } = await request.json()
 
     // Build update object (only allow certain fields to be updated)
     const updateData: Record<string, unknown> = {}
     if (name) updateData.name = name
     if (phone) updateData.phone = phone
     if (organization !== undefined) updateData.organization = organization
+    if (typeof showNameWithLogo === "boolean") updateData.showNameWithLogo = showNameWithLogo
+    if (typeof hidePoweredBy === "boolean") {
+      // Hiding the line is a paid-plan feature; showing it is always allowed
+      if (hidePoweredBy) {
+        const current = await User.findById(userId).select("plan planExpiresAt").lean<{ plan?: string; planExpiresAt?: Date }>()
+        if (!(await canHidePoweredBy(current))) {
+          return NextResponse.json({ error: "Hiding \"Powered by CertiStage\" is included with annual plans. Upgrade to switch it off." }, { status: 403 })
+        }
+      }
+      updateData.hidePoweredBy = hidePoweredBy
+    }
 
     const user = await User.findByIdAndUpdate(
       userId,
@@ -73,7 +89,11 @@ export async function PUT(request: NextRequest) {
         phone: user.phone,
         organization: user.organization,
         plan: user.plan,
-        planExpiresAt: user.planExpiresAt
+        planExpiresAt: user.planExpiresAt,
+        hidePoweredBy: !!user.hidePoweredBy,
+        canHidePoweredBy: await canHidePoweredBy(user),
+        logo: user.logo || null,
+        showNameWithLogo: !!user.showNameWithLogo
       },
       message: "Profile updated successfully"
     })

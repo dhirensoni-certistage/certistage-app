@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { planExpiresAtFor } from "@/lib/plan-config.server"
 import connectDB from "@/lib/mongodb"
 import Payment from "@/models/Payment"
 import User from "@/models/User"
+import { completeAddonPayment } from "@/lib/addon-payments.server"
 
 // Helper to make Razorpay API calls
 async function razorpayFetch(endpoint: string) {
@@ -25,13 +27,7 @@ async function razorpayFetch(endpoint: string) {
   return response.json()
 }
 
-// Plan durations in days
-const PLAN_DURATIONS: Record<string, number> = {
-  test: 365,
-  professional: 365,
-  enterprise: 365,
-  premium: 365
-}
+// Plan validity comes from Admin > Plans (365 days for annual plans, 60 for the one-event plan)
 
 export async function POST(request: NextRequest) {
   try {
@@ -76,6 +72,12 @@ export async function POST(request: NextRequest) {
       const paymentsData = await razorpayFetch(`/orders/${payment.orderId}/payments`)
       const successfulPayment = paymentsData.items?.find((p: any) => p.status === "captured")
 
+      // Add-on purchases add emails and never change the plan
+      if (payment.kind === "addon") {
+        await completeAddonPayment(payment.orderId, successfulPayment?.id, "sync")
+        return NextResponse.json({ message: "Add-on payment synced", status: "success", synced: true, plan: "addon" })
+      }
+
       // Update payment record
       payment.status = "success"
       if (successfulPayment) {
@@ -87,7 +89,8 @@ export async function POST(request: NextRequest) {
       const user = await User.findById(payment.userId)
       if (user) {
         user.plan = payment.plan
-        user.planExpiresAt = new Date(Date.now() + PLAN_DURATIONS[payment.plan] * 24 * 60 * 60 * 1000)
+        user.planStartDate = new Date()
+        user.planExpiresAt = await planExpiresAtFor(payment.plan)
         await user.save()
       }
 
@@ -148,6 +151,13 @@ export async function PUT(request: NextRequest) {
           const paymentsData = await razorpayFetch(`/orders/${payment.orderId}/payments`)
           const successfulPayment = paymentsData.items?.find((p: any) => p.status === "captured")
 
+          if (payment.kind === "addon") {
+            await completeAddonPayment(payment.orderId, successfulPayment?.id, "sync")
+            results.success++
+            results.synced++
+            continue
+          }
+
           payment.status = "success"
           if (successfulPayment) {
             payment.paymentId = successfulPayment.id
@@ -158,7 +168,8 @@ export async function PUT(request: NextRequest) {
           const user = await User.findById(payment.userId)
           if (user) {
             user.plan = payment.plan
-            user.planExpiresAt = new Date(Date.now() + PLAN_DURATIONS[payment.plan] * 24 * 60 * 60 * 1000)
+            user.planStartDate = new Date()
+            user.planExpiresAt = await planExpiresAtFor(payment.plan)
             await user.save()
           }
 

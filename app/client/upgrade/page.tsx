@@ -9,7 +9,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useRazorpay } from "@/hooks/use-razorpay"
-import { DEFAULT_PLAN_CONFIG, mergePlanConfigWithDefaults, formatRupees } from "@/lib/plan-config"
+import { DEFAULT_PLAN_CONFIG, mergePlanConfigWithDefaults, formatRupees, planPeriodLabel, isOneTimePlan, planValidityDays } from "@/lib/plan-config"
 
 interface ProRataInfo {
   originalPrice: number
@@ -18,9 +18,11 @@ interface ProRataInfo {
   daysRemaining: number
   savings: number
   savingsPercent: number
+  label?: string | null
 }
 
 const planBadges: Record<string, string> = {
+  event: "Pay once",
   professional: "Most popular"
 }
 
@@ -90,6 +92,31 @@ function UpgradePageContent() {
     loadPlans()
   }, [])
 
+  // Credit the customer would get on each annual plan (unused days, or a recent one-event plan)
+  useEffect(() => {
+    if (!userId) return
+    const paid = planConfig.filter((p) => p.enabled !== false && p.price > 0 && !isOneTimePlan(p) && p.id !== currentPlan)
+    if (paid.length === 0) return
+    let cancelled = false
+    setLoadingProRata(true)
+    Promise.all(paid.map(async (p) => {
+      try {
+        const res = await fetch("/api/razorpay/calculate-pro-rata", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: p.id }) })
+        const data = await res.json().catch(() => ({}))
+        return [p.id, res.ok && data?.proRata ? (data.proRata as ProRataInfo) : null] as const
+      } catch {
+        return [p.id, null] as const
+      }
+    })).then((entries) => {
+      if (cancelled) return
+      const next: Record<string, ProRataInfo> = {}
+      for (const [id, info] of entries) if (info) next[id] = info
+      setProRataInfo(next)
+      setLoadingProRata(false)
+    })
+    return () => { cancelled = true }
+  }, [userId, currentPlan, planConfig])
+
   const handleUpgrade = async (planId: PlanType) => {
     if (!userId) {
       toast.error("Session expired")
@@ -111,7 +138,7 @@ function UpgradePageContent() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
           <h1 className="text-[28px] font-semibold text-neutral-900 tracking-tight leading-none">Plans</h1>
-          <p className="text-[14px] text-neutral-500 mt-2 max-w-xl">Billed yearly in INR. Upgrade any time; when you move up from a paid plan, the unused part of your current plan is credited.</p>
+          <p className="text-[14px] text-neutral-500 mt-2 max-w-xl">Pay once for a single event, or yearly for more. Upgrade any time; when you move up from a paid plan, the unused part of your current plan is credited.</p>
         </div>
         <p className="text-[13px] text-neutral-600 md:text-right">
           You are on the <span className="font-medium text-neutral-900">{currentName}</span> plan
@@ -119,7 +146,13 @@ function UpgradePageContent() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+      {currentPlan === "event" && (
+        <div className="mb-6 rounded-xl border border-gold/60 bg-gold-soft px-5 py-4 text-[13px] text-neutral-800">
+          Running more than one event? <span className="font-medium">Professional</span> covers 3 events and 2,000 certificates for a whole year, about the price of six one-event plans. The unused days of your one-event plan are credited when you switch.
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-10">
         {planConfig
           .filter((plan) => plan.enabled !== false && plan.id !== "free")
           .map((plan) => {
@@ -145,7 +178,7 @@ function UpgradePageContent() {
                 <h2 className="text-[16px] font-semibold text-neutral-900">{plan.name || plan.id}</h2>
                 <p className="mt-3 flex items-baseline gap-1.5 whitespace-nowrap">
                   <span className="text-[32px] font-semibold tracking-tight text-neutral-900 leading-none">{formatRupees(plan.price)}</span>
-                  <span className="text-[13px] text-neutral-500">/ year</span>
+                  <span className="text-[13px] text-neutral-500">{planPeriodLabel(plan)}</span>
                 </p>
                 <p className="text-[13px] text-neutral-500 mt-2 min-h-[40px]">{plan.description}</p>
 
@@ -163,20 +196,34 @@ function UpgradePageContent() {
                     "w-full h-10 mt-6 text-[14px] font-medium",
                     highlighted ? "bg-neutral-900 text-white hover:bg-black" : "border-neutral-200 hover:bg-neutral-50"
                   )}
-                  disabled={isCurrent || isLoading || isProcessing}
+                  disabled={(isCurrent && !isOneTimePlan(plan)) || isLoading || isProcessing}
                   onClick={() => handleUpgrade(plan.id as PlanType)}
                 >
-                  {isCurrent ? "Your current plan" : isProcessing ? "Processing" : isPending ? "Complete payment" : currentPlan === "free" ? `Choose ${plan.name || plan.id}` : `Switch to ${plan.name || plan.id}`}
+                  {isCurrent && isOneTimePlan(plan) ? "Buy again for a new event" : isCurrent ? "Your current plan" : isProcessing ? "Processing" : isPending ? "Complete payment" : currentPlan === "free" ? `Choose ${plan.name || plan.id}` : `Switch to ${plan.name || plan.id}`}
                 </Button>
+                {isOneTimePlan(plan) && (
+                  <p className="text-[12px] text-neutral-500 mt-2 text-center">Organiser access for {planValidityDays(plan)} days. Recipients can keep downloading after that.</p>
+                )}
                 {!isCurrent && proRataInfo[plan.id] && proRataInfo[plan.id].unusedCredit > 0 && (
-                  <p className="text-[12px] text-neutral-500 mt-2 text-center">
-                    You pay {formatRupees(proRataInfo[plan.id].finalAmount)} after {formatRupees(proRataInfo[plan.id].unusedCredit)} credit for the unused part of your current plan.
+                  <p className="text-[12px] text-neutral-600 mt-2 text-center">
+                    You pay <span className="font-medium text-neutral-900">{formatRupees(proRataInfo[plan.id].finalAmount)}</span> after {formatRupees(proRataInfo[plan.id].unusedCredit)} credit{proRataInfo[plan.id].label ? ` (${proRataInfo[plan.id].label})` : " for the unused part of your current plan"}.
                   </p>
                 )}
               </div>
             )
           })}
       </div>
+
+      <Link
+        href="/client/addons"
+        className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-white px-5 py-4 hover:border-neutral-400 transition-colors"
+      >
+        <div>
+          <p className="text-[14px] font-semibold text-neutral-900">Add-ons</p>
+          <p className="text-[13px] text-neutral-500">Certificate email packs from ₹200, WhatsApp delivery and more. No plan change needed.</p>
+        </div>
+        <span className="text-[13px] font-medium text-neutral-900">See add-ons →</span>
+      </Link>
 
       <div className="rounded-xl border border-neutral-200 bg-white px-5 py-4 text-[13px] text-neutral-600 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <p>Payments are processed by Razorpay (UPI, cards, net banking). A receipt is emailed after every payment.</p>

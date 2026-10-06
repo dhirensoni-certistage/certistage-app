@@ -27,7 +27,8 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
+import { DEFAULT_PLAN_CONFIG, mergePlanConfigWithDefaults, type PlanConfig } from "@/lib/plan-config"
+import { mergeAddonConfig, type AddonConfig } from "@/lib/addons"
 import { Check, Plus, Pencil, Trash2, Sparkles, Layers, Tag } from "lucide-react"
 
 const ACCENT_PALETTE = ["#f97316", "#3b82f6", "#22c55e", "#e11d48", "#f59e0b", "#14b8a6"]
@@ -72,6 +73,7 @@ const makeEmptyPlan = (index: number): PlanConfig => ({
     canExportReport: false,
     downloadLimit: 0,
     canUpgrade: true,
+    canRemoveBranding: false,
   },
 })
 
@@ -114,6 +116,35 @@ export default function AdminPlansPage() {
   useEffect(() => {
     fetchPlans()
   }, [])
+
+  // Add-on packs (emails, extra certificates): quantities and prices, saved to Settings "addon_config"
+  const [addons, setAddons] = useState<AddonConfig>(() => mergeAddonConfig(null))
+  const [addonsLoaded, setAddonsLoaded] = useState(false)
+  const [savingAddons, setSavingAddons] = useState(false)
+  useEffect(() => {
+    fetch("/api/admin/addons")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (data) setAddons(mergeAddonConfig(data)) })
+      .catch(() => {})
+      .finally(() => setAddonsLoaded(true))
+  }, [])
+  const saveAddons = async () => {
+    setSavingAddons(true)
+    try {
+      const res = await fetch("/api/admin/addons", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(addons) })
+      if (res.ok) {
+        setAddons(mergeAddonConfig(await res.json()))
+        toast.success("Add-on packs saved")
+      } else {
+        toast.error("Failed to save add-on packs")
+      }
+    } catch {
+      toast.error("Failed to save add-on packs")
+    }
+    setSavingAddons(false)
+  }
+  const rupees = (paise: number) => String(Math.round(paise) / 100)
+  const toPaise = (value: string) => Math.max(0, Math.round(Number(value || 0) * 100))
 
   const persistPlans = async (nextPlans: PlanConfig[]) => {
     setSaving(true)
@@ -163,6 +194,14 @@ export default function AdminPlansPage() {
       toast.error("Free plan cannot be deleted")
       return
     }
+    // Built-in plans come back from the defaults if removed, so they are switched off instead
+    if (DEFAULT_PLAN_CONFIG.some((plan) => plan.id === planId)) {
+      if (!confirm("This is a built-in plan, so it will be taken off sale (disabled) rather than deleted. Continue?")) return
+      const nextPlans = sortedPlans.map((plan) => (plan.id === planId ? { ...plan, enabled: false } : plan))
+      setPlans(nextPlans)
+      await persistPlans(nextPlans)
+      return
+    }
     if (!confirm("Delete this plan? This will remove it from pricing.")) return
     const nextPlans = sortedPlans.filter((plan) => plan.id !== planId)
     setPlans(nextPlans)
@@ -200,6 +239,7 @@ export default function AdminPlansPage() {
       description: draft.description?.trim() || undefined,
       currency: draft.currency?.trim() || "INR",
       billingPeriod: draft.billingPeriod?.trim() || "year",
+      validityDays: Number(draft.validityDays) > 0 ? Number(draft.validityDays) : undefined,
       features: draft.features.map((f) => f.trim()).filter(Boolean),
       limits: {
         ...draft.limits,
@@ -257,7 +297,7 @@ export default function AdminPlansPage() {
                 const preview = features.slice(0, 4)
                 const extraCount = Math.max(0, features.length - preview.length)
                 const billingSuffix =
-                  plan.price > 0 && plan.billingPeriod ? `/${plan.billingPeriod}` : ""
+                  plan.price > 0 ? (plan.billingPeriod === "one-time" ? " once" : `/${plan.billingPeriod || "year"}`) : ""
 
                 return (
                   <Card
@@ -360,6 +400,92 @@ export default function AdminPlansPage() {
               })}
             </div>
           )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Add-on packs</CardTitle>
+              <CardDescription>One-time packs sold on the Add-ons page. Prices in rupees; quantities are what the customer receives. Custom email quantities are priced per email by volume with the tiers below.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <p className="text-sm font-medium mb-2">Certificate emails</p>
+                  <div className="space-y-2">
+                    {addons.emailPacks.map((p, i) => (
+                      <div key={p.id} className="grid grid-cols-[1fr_1fr] gap-2 items-end">
+                        <div className="space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Emails</Label>}
+                          <Input type="number" min="1" value={String(p.emails)} onChange={(e) => setAddons({ ...addons, emailPacks: addons.emailPacks.map((x) => (x.id === p.id ? { ...x, emails: Math.max(1, Math.round(Number(e.target.value || 1))) } : x)) })} />
+                        </div>
+                        <div className="space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Price (INR)</Label>}
+                          <Input type="number" min="1" step="1" value={rupees(p.price)} onChange={(e) => setAddons({ ...addons, emailPacks: addons.emailPacks.map((x) => (x.id === p.id ? { ...x, price: toPaise(e.target.value) } : x)) })} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-2">Extra certificates</p>
+                  <div className="space-y-2">
+                    {addons.certPacks.map((p, i) => (
+                      <div key={p.id} className="grid grid-cols-[1fr_1fr] gap-2 items-end">
+                        <div className="space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Certificates</Label>}
+                          <Input type="number" min="1" value={String(p.certificates)} onChange={(e) => setAddons({ ...addons, certPacks: addons.certPacks.map((x) => (x.id === p.id ? { ...x, certificates: Math.max(1, Math.round(Number(e.target.value || 1))) } : x)) })} />
+                        </div>
+                        <div className="space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Price (INR)</Label>}
+                          <Input type="number" min="1" step="1" value={rupees(p.price)} onChange={(e) => setAddons({ ...addons, certPacks: addons.certPacks.map((x) => (x.id === p.id ? { ...x, price: toPaise(e.target.value) } : x)) })} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-1">Custom email quantity: rate per email</p>
+                <p className="text-xs text-muted-foreground mb-2">Three volume tiers. The first always starts at 0 emails; set where the next two begin and the paise per email for each.</p>
+                <div className="grid gap-2 md:grid-cols-3">
+                  {[...addons.emailRateTiers].sort((a, b) => a.from - b.from).map((t, i) => (
+                    <div key={i} className="grid grid-cols-[1fr_1fr] gap-2 items-end rounded-lg border p-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">From (emails)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          disabled={i === 0}
+                          value={String(t.from)}
+                          onChange={(e) => {
+                            const sorted = [...addons.emailRateTiers].sort((a, b) => a.from - b.from)
+                            sorted[i] = { ...sorted[i], from: Math.max(0, Math.round(Number(e.target.value || 0))) }
+                            setAddons({ ...addons, emailRateTiers: sorted })
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Paise / email</Label>
+                        <Input
+                          type="number"
+                          min="0.01"
+                          step="0.5"
+                          value={String(t.paise)}
+                          onChange={(e) => {
+                            const sorted = [...addons.emailRateTiers].sort((a, b) => a.from - b.from)
+                            sorted[i] = { ...sorted[i], paise: Math.max(0.01, Number(e.target.value || 0)) }
+                            setAddons({ ...addons, emailRateTiers: sorted })
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={saveAddons} disabled={savingAddons || !addonsLoaded}>{savingAddons ? "Saving..." : "Save add-on packs"}</Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
@@ -428,6 +554,17 @@ export default function AdminPlansPage() {
                       <SelectItem value="one-time">One-time</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Validity (days)</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={draft.validityDays ? String(draft.validityDays) : ""}
+                    onChange={(e) => setDraft({ ...draft, validityDays: Number(e.target.value || 0) || undefined })}
+                    placeholder={draft.billingPeriod === "one-time" ? "60" : draft.billingPeriod === "month" ? "30" : "365"}
+                  />
+                  <p className="text-xs text-muted-foreground">How long a payment keeps the plan active. Blank uses the billing period&apos;s default.</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Sort Order</Label>
@@ -582,6 +719,16 @@ export default function AdminPlansPage() {
                       checked={draft.limits.canUpgrade}
                       onCheckedChange={(value) =>
                         setDraft({ ...draft, limits: { ...draft.limits, canUpgrade: value } })
+                      }
+                      className="shrink-0 data-[state=checked]:bg-emerald-500"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <span className="text-sm">Can hide &quot;Powered by&quot;</span>
+                    <Switch
+                      checked={!!draft.limits.canRemoveBranding}
+                      onCheckedChange={(value) =>
+                        setDraft({ ...draft, limits: { ...draft.limits, canRemoveBranding: value } })
                       }
                       className="shrink-0 data-[state=checked]:bg-emerald-500"
                     />

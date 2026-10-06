@@ -9,6 +9,12 @@ export interface IPayment extends Document {
   invoiceBaseAmount?: number
   invoiceGatewayFee?: number
   plan: string
+  /** "addon" payments buy extras (lib/addons) and never change the plan */
+  kind?: "plan" | "addon"
+  addonId?: string
+  addonEmails?: number
+  addonCertificates?: number
+  creditsGrantedAt?: Date
   amount: number
   currency: string
   status: "pending" | "success" | "failed" | "refunded"
@@ -19,6 +25,11 @@ export interface IPayment extends Document {
   refundedAt?: Date
   /** Set once the receipt and admin emails for this payment have gone out */
   receiptSentAt?: Date
+  /** Credit applied to this payment (unused days of the previous plan, or a one-event plan bought earlier) */
+  creditAmount?: number
+  creditLabel?: string
+  /** For a one-event payment: the annual-plan order its ₹ were credited to (used once) */
+  creditedToOrderId?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -33,6 +44,11 @@ const PaymentSchema = new Schema<IPayment>(
     invoiceBaseAmount: { type: Number },
     invoiceGatewayFee: { type: Number, default: 0 },
     plan: { type: String, required: true },
+    kind: { type: String, enum: ["plan", "addon"], default: "plan" },
+    addonId: { type: String },
+    addonEmails: { type: Number },
+    addonCertificates: { type: Number },
+    creditsGrantedAt: { type: Date },
     amount: { type: Number, required: true },
     currency: { type: String, default: "INR" },
     status: { 
@@ -45,7 +61,10 @@ const PaymentSchema = new Schema<IPayment>(
     failureReason: { type: String },
     refundAmount: { type: Number },
     refundedAt: { type: Date },
-    receiptSentAt: { type: Date }
+    receiptSentAt: { type: Date },
+    creditAmount: { type: Number },
+    creditLabel: { type: String },
+    creditedToOrderId: { type: String }
   },
   { timestamps: true }
 )

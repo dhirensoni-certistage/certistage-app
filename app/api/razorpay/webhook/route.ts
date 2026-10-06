@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
+import { planExpiresAtFor } from "@/lib/plan-config.server"
+import { consumeOneEventCredit } from "@/lib/plan-credit.server"
+import { completeAddonPayment } from "@/lib/addon-payments.server"
 import { sendPlanPaymentEmails } from "@/lib/plan-payment-emails.server"
 import crypto from "crypto"
 import connectDB from "@/lib/mongodb"
@@ -107,6 +110,13 @@ async function handlePaymentCaptured(payment: any) {
   // Find existing payment record by order ID
   const existingPayment = await Payment.findOne({ orderId })
   const now = new Date()
+
+  // Add-on purchases (lib/addons) add emails and never touch the plan
+  if (existingPayment?.kind === "addon" || (!existingPayment && notes?.kind === "addon")) {
+    if (!existingPayment) await createAddonPaymentFromNotes(orderId, paymentId, amount, notes, "pending")
+    await completeAddonPayment(orderId, paymentId, "webhook")
+    return
+  }
   
   if (existingPayment) {
     // Update existing payment
@@ -124,7 +134,7 @@ async function handlePaymentCaptured(payment: any) {
       const user = await User.findById(existingPayment.userId)
       if (user && user.plan !== existingPayment.plan) {
         const planStartDate = new Date()
-        const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        const planExpiresAt = await planExpiresAtFor(existingPayment.plan, planStartDate)
         
         user.plan = existingPayment.plan
         user.pendingPlan = null
@@ -142,8 +152,10 @@ async function handlePaymentCaptured(payment: any) {
   } else if (notes?.userId && notes?.plan) {
     // Create new payment record from webhook (backup if client verification failed)
     const planStartDate = new Date()
-    const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+    const planExpiresAt = await planExpiresAtFor(notes.plan, planStartDate)
     
+    const credit = creditFromNotes(notes)
+    if (credit) await consumeOneEventCredit(notes.creditPaymentId || undefined, orderId)
     await Payment.create({
       userId: notes.userId,
       orderId,
@@ -153,9 +165,10 @@ async function handlePaymentCaptured(payment: any) {
       currency: "INR",
       status: "success",
       webhookVerified: true,
+      ...(credit || {}),
       invoiceNumber: generateInvoiceNumber(),
       invoiceIssuedAt: now,
-      invoiceBaseAmount: amount,
+      invoiceBaseAmount: credit ? amount + credit.creditAmount : amount,
       invoiceGatewayFee: 0
     })
     
@@ -180,8 +193,14 @@ async function handlePaymentFailed(payment: any) {
   
   // Update or create failed payment record
   const existingPayment = await Payment.findOne({ orderId })
+  if (!existingPayment && notes?.kind === "addon") {
+    await createAddonPaymentFromNotes(orderId, paymentId, payment.amount, notes, "failed", error_description)
+    return
+  }
   
   if (existingPayment) {
+    // A late failure event must not undo an add-on that was already paid
+    if (existingPayment.kind === "addon" && existingPayment.status === "success") return
     existingPayment.paymentId = paymentId
     existingPayment.status = "failed"
     existingPayment.failureReason = error_description
@@ -206,6 +225,12 @@ async function handlePaymentFailed(payment: any) {
 
 async function handleOrderPaid(order: any, payment?: any) {
   const { id: orderId, amount, notes } = order
+
+  if (notes?.kind === "addon" || (await Payment.exists({ orderId, kind: "addon" }))) {
+    if (!(await Payment.exists({ orderId }))) await createAddonPaymentFromNotes(orderId, payment?.id, amount, notes, "pending")
+    await completeAddonPayment(orderId, payment?.id, "webhook")
+    return
+  }
   
   if (!notes?.userId || !notes?.plan) {
     console.log("Webhook: order.paid missing notes", orderId)
@@ -221,9 +246,11 @@ async function handleOrderPaid(order: any, payment?: any) {
   
   const now = new Date()
   const planStartDate = now
-  const planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+  const planExpiresAt = await planExpiresAtFor(notes.plan, now)
   
   // Create or update payment
+  const credit = creditFromNotes(notes)
+  if (credit) await consumeOneEventCredit(notes.creditPaymentId || undefined, orderId)
   await Payment.findOneAndUpdate(
     { orderId },
     {
@@ -235,9 +262,10 @@ async function handleOrderPaid(order: any, payment?: any) {
       currency: "INR",
       status: "success",
       webhookVerified: true,
+      ...(credit || {}),
       invoiceNumber: generateInvoiceNumber(),
       invoiceIssuedAt: now,
-      invoiceBaseAmount: amount,
+      invoiceBaseAmount: credit ? amount + credit.creditAmount : amount,
       invoiceGatewayFee: 0
     },
     { upsert: true }
@@ -277,4 +305,31 @@ async function handleRefundCreated(refund: any) {
     
     console.log("Webhook: Refund processed", { paymentId, amount })
   }
+}
+
+/** Backup record for an add-on order the browser never reported (lib/addons) */
+async function createAddonPaymentFromNotes(orderId: string, paymentId: string | undefined, amount: number, notes: any, status: "pending" | "failed", failureReason?: string) {
+  if (!notes?.userId) return
+  await Payment.create({
+    userId: notes.userId,
+    orderId,
+    paymentId,
+    plan: "addon",
+    kind: "addon",
+    addonId: notes.addonId,
+    addonEmails: Number(notes.emails) || 0,
+    addonCertificates: Number(notes.certificates) || 0,
+    amount,
+    currency: "INR",
+    status,
+    webhookVerified: true,
+    ...(failureReason ? { failureReason } : {})
+  })
+}
+
+/** Credit applied to a plan order (set by create-order in the order notes) */
+function creditFromNotes(notes: any): { creditAmount: number; creditLabel: string } | null {
+  const creditAmount = Math.max(0, Number(notes?.credit) || 0)
+  if (!creditAmount) return null
+  return { creditAmount, creditLabel: String(notes?.creditLabel || "Credit") }
 }

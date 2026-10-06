@@ -1,4 +1,7 @@
 import { jsPDF } from "jspdf"
+import { addonItemName } from "@/lib/addons"
+import { getPlanById } from "@/lib/plan-config.server"
+import { isOneTimePlan, planExpiryFrom, planTermLabel } from "@/lib/plan-config"
 import { readFile } from "fs/promises"
 import path from "path"
 
@@ -78,7 +81,9 @@ export async function renderInvoicePdf(payment: any, user: InvoicePdfUser | null
     normalizedOrg !== "certificate generation platform" &&
     normalizedOrg !== String(user?.name || "").trim().toLowerCase()
   const issuedAt = payment.invoiceIssuedAt || payment.createdAt || new Date()
-  const validUntil = new Date(issuedAt.getTime() + 365 * 24 * 60 * 60 * 1000)
+  const planCfg = payment.kind === "addon" ? null : await getPlanById(String(payment.plan || ""))
+  const validUntil = planExpiryFrom(planCfg, issuedAt)
+  const oneTime = isOneTimePlan(planCfg)
   const baseAmount = payment.invoiceBaseAmount || payment.amount
   const gatewayFee =
     typeof payment.invoiceGatewayFee === "number"
@@ -149,7 +154,8 @@ export async function renderInvoicePdf(payment: any, user: InvoicePdfUser | null
   drawTextPair(
     doc,
     "Valid Until",
-    new Date(validUntil).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+    // Add-on emails never expire
+    payment.kind === "addon" ? "No expiry" : new Date(validUntil).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
     margin + 170,
     y,
     140
@@ -205,13 +211,14 @@ export async function renderInvoicePdf(payment: any, user: InvoicePdfUser | null
   doc.setFont("helvetica", "normal")
   doc.setFontSize(11)
   doc.setTextColor(17, 24, 39)
-  doc.text(planLabel(planName || capitalize(payment.plan)), margin + 12, y)
+  const isAddon = payment.kind === "addon"
+  doc.text(isAddon ? addonItemName(payment) : planLabel(planName || capitalize(payment.plan)), margin + 12, y)
   doc.setFont("helvetica", "normal")
   doc.setFontSize(9)
   doc.setTextColor(107, 114, 128)
-  doc.text("Annual Subscription - CertiStage", margin + 12, y + 14)
+  doc.text(isAddon ? "Add-on - CertiStage" : oneTime ? "One-event plan - CertiStage" : "Annual Subscription - CertiStage", margin + 12, y + 14)
   doc.setTextColor(17, 24, 39)
-  doc.text("1 Year", margin + contentWidth - 150, y)
+  doc.text(isAddon ? "One-time" : planTermLabel(planCfg).replace(/^(\d+) year$/, "$1 Year"), margin + contentWidth - 150, y)
   doc.text(formatInr(baseAmount), margin + contentWidth - 12, y, { align: "right" })
   y += 28
   doc.setDrawColor(229, 231, 235)
@@ -221,12 +228,17 @@ export async function renderInvoicePdf(payment: any, user: InvoicePdfUser | null
   // Totals card
   const totalCardX = margin + contentWidth - 250
   const totalCardW = 250
-  const totalCardH = showGatewayFee ? 112 : 92
+  const creditAmount = Math.max(0, Number(payment.creditAmount) || 0)
+  const totalCardH = 92 + (showGatewayFee ? 20 : 0) + (creditAmount > 0 ? 20 : 0)
   doc.setFillColor(249, 250, 251)
   doc.roundedRect(totalCardX, y, totalCardW, totalCardH, 8, 8, "F")
 
   drawTextPair(doc, "Plan Amount", formatInr(baseAmount), totalCardX + 12, y + 24, totalCardW - 24)
   let totalY = y + 44
+  if (creditAmount > 0) {
+    drawTextPair(doc, String(payment.creditLabel || "Credit").slice(0, 32), `- ${formatInr(creditAmount)}`, totalCardX + 12, totalY, totalCardW - 24)
+    totalY += 20
+  }
   if (showGatewayFee) {
     drawTextPair(
       doc,

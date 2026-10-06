@@ -4,14 +4,10 @@ import Event from "@/models/Event"
 import CertificateType from "@/models/CertificateType"
 import Recipient from "@/models/Recipient"
 import User from "@/models/User"
+import { getIssuerBranding } from "@/lib/branding.server"
 
-// The organiser's organisation name, shown as the issuer on LinkedIn ("Add to profile").
-// Falls back to null; the page then uses the event name.
-async function getIssuerName(ownerId: unknown): Promise<string | null> {
-  if (!ownerId) return null
-  const owner = await User.findById(ownerId).select("organization").lean<{ organization?: string }>()
-  return owner?.organization?.trim() || null
-}
+// event.organization is the issuer shown on LinkedIn ("Add to profile"); null means use the
+// event name. event.showPoweredBy drives the footer line (see lib/branding.server.ts).
 
 // GET - Get certificate data for download page
 export async function GET(request: NextRequest) {
@@ -88,7 +84,7 @@ export async function GET(request: NextRequest) {
           id: event._id.toString(),
           name: event.name,
           ownerId: event.ownerId?.toString(),
-          organization: await getIssuerName(event.ownerId)
+          ...(await getIssuerBranding(event.ownerId))
         }
       })
     }
@@ -138,7 +134,8 @@ export async function GET(request: NextRequest) {
         event: {
           id: event._id,
           name: event.name,
-          description: event.description
+          description: event.description,
+          ...(await getIssuerBranding(event.ownerId))
         },
         certificateTypes: certTypes
       })
@@ -164,7 +161,7 @@ export async function GET(request: NextRequest) {
           id: event._id,
           name: event.name,
           ownerId: event.ownerId,
-          organization: await getIssuerName(event.ownerId)
+          ...(await getIssuerBranding(event.ownerId))
         },
         certificateType: {
           id: certType._id,

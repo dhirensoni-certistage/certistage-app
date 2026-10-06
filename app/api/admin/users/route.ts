@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
+import { planExpiryFrom } from "@/lib/plan-config"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import Event from "@/models/Event"
 import bcrypt from "bcryptjs"
-import { getPlanConfigFromDb } from "@/lib/plan-config.server"
+import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
 import { backfillOAuthUsers } from "@/lib/oauth-user.server"
 
 export async function GET(request: NextRequest) {
@@ -122,9 +123,13 @@ export async function POST(request: NextRequest) {
     
     if (selectedPlan && selectedPlan !== "free") {
       planStartDate = new Date()
-      const durationMonths = planDuration || 12 // Default 12 months
-      planExpiresAt = new Date()
-      planExpiresAt.setMonth(planExpiresAt.getMonth() + durationMonths)
+      if (planDuration) {
+        planExpiresAt = new Date()
+        planExpiresAt.setMonth(planExpiresAt.getMonth() + Number(planDuration))
+      } else {
+        // The plan's own term: 1 year, or 60 days for the one-event plan
+        planExpiresAt = planExpiryFrom(getPlanMap(planConfig)[selectedPlan], planStartDate)
+      }
     }
 
     // Create user
