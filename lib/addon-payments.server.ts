@@ -33,7 +33,7 @@ export async function completeAddonPayment(orderId: string, paymentId?: string, 
   await connectDB()
   const now = new Date()
   const paid = await Payment.findOneAndUpdate(
-    { orderId, kind: "addon" },
+    { orderId, kind: "addon", ...(source === "sync" ? { status: { $in: ["pending", "failed"] } } : {}) },
     {
       $set: {
         status: "success",

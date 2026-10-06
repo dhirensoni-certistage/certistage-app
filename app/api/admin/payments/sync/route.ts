@@ -3,12 +3,12 @@ import { planExpiresAtFor } from "@/lib/plan-config.server"
 import connectDB from "@/lib/mongodb"
 import Payment from "@/models/Payment"
 import User from "@/models/User"
-import { completeAddonPayment } from "@/lib/addon-payments.server"
+import { completeAddonPayment, getRazorpayKeys } from "@/lib/addon-payments.server"
+import { matchingCapturedPayment, ReconciliationReviewError } from "@/lib/payment-reconciliation"
 
 // Helper to make Razorpay API calls
 async function razorpayFetch(endpoint: string) {
-  const keyId = process.env.RAZORPAY_KEY_ID
-  const keySecret = process.env.RAZORPAY_KEY_SECRET
+  const { keyId, keySecret } = await getRazorpayKeys()
 
   if (!keyId || !keySecret) {
     throw new Error("Razorpay credentials not configured")
@@ -17,7 +17,8 @@ async function razorpayFetch(endpoint: string) {
   const response = await fetch(`https://api.razorpay.com/v1${endpoint}`, {
     headers: {
       "Authorization": `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`
-    }
+    },
+    signal: AbortSignal.timeout(15000),
   })
 
   if (!response.ok) {
@@ -33,9 +34,10 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB()
 
-    const { paymentId } = await request.json()
+    const body = await request.json().catch(() => null)
+    const paymentId = body && typeof body === "object" ? body.paymentId : undefined
 
-    if (!paymentId) {
+    if (typeof paymentId !== "string" || !/^[a-f0-9]{24}$/i.test(paymentId)) {
       return NextResponse.json({ error: "Payment ID is required" }, { status: 400 })
     }
 
@@ -46,13 +48,19 @@ export async function POST(request: NextRequest) {
     }
 
     // If already successful, no need to sync
-    if (payment.status === "success") {
+    if (payment.status === "success" || payment.status === "refunded") {
       return NextResponse.json({ 
-        message: "Payment already successful", 
-        status: "success",
+        message: "Payment already reconciled", 
+        status: payment.status,
         synced: false 
       })
     }
+
+    if (!/^order_[A-Za-z0-9]+$/.test(payment.orderId)) {
+      return NextResponse.json({ error: "This payment has no Razorpay order to reconcile" }, { status: 400 })
+    }
+    const keys = await getRazorpayKeys()
+    if (!keys.keyId || !keys.keySecret) return NextResponse.json({ error: "Connect Razorpay in Settings to enable reconciliation" }, { status: 503 })
 
     // Fetch payment status from Razorpay using order ID
     let razorpayOrder
@@ -70,27 +78,27 @@ export async function POST(request: NextRequest) {
     if (razorpayOrder.status === "paid") {
       // Get payment details from order
       const paymentsData = await razorpayFetch(`/orders/${payment.orderId}/payments`)
-      const successfulPayment = paymentsData.items?.find((p: any) => p.status === "captured")
+      const successfulPayment = matchingCapturedPayment(paymentsData.items || [], { orderId: payment.orderId, amount: payment.amount, currency: payment.currency || "INR" })
 
       // Add-on purchases add emails and never change the plan
       if (payment.kind === "addon") {
-        await completeAddonPayment(payment.orderId, successfulPayment?.id, "sync")
+        const completed = await completeAddonPayment(payment.orderId, successfulPayment.id, "sync")
+        if (!completed.payment) return NextResponse.json({ message: "Payment changed during reconciliation. Refresh to view its status.", synced: false })
         return NextResponse.json({ message: "Add-on payment synced", status: "success", synced: true, plan: "addon" })
       }
 
       // Update payment record
-      payment.status = "success"
-      if (successfulPayment) {
-        payment.paymentId = successfulPayment.id
-      }
-      await payment.save()
+      const claimed = await Payment.findOneAndUpdate({ _id: payment._id, status: { $in: ["pending", "failed"] } }, { $set: { status: "success", paymentId: successfulPayment.id } }, { new: true })
+      if (!claimed) return NextResponse.json({ message: "Payment changed during reconciliation. Refresh to view its status.", synced: false })
 
       // Update user plan
       const user = await User.findById(payment.userId)
-      if (user) {
+      const latestPaidPlan = await Payment.findOne({ userId: payment.userId, status: "success", kind: { $ne: "addon" } }).sort({ createdAt: -1, _id: -1 })
+      if (user && String(latestPaidPlan?._id) === String(payment._id)) {
+        const paidAt = successfulPayment.created_at ? new Date(successfulPayment.created_at * 1000) : payment.createdAt
         user.plan = payment.plan
-        user.planStartDate = new Date()
-        user.planExpiresAt = await planExpiresAtFor(payment.plan)
+        user.planStartDate = paidAt
+        user.planExpiresAt = await planExpiresAtFor(payment.plan, paidAt)
         await user.save()
       }
 
@@ -100,16 +108,6 @@ export async function POST(request: NextRequest) {
         synced: true,
         plan: payment.plan,
         userName: user?.name
-      })
-    } else if (razorpayOrder.status === "attempted") {
-      // Payment was attempted but failed
-      payment.status = "failed"
-      await payment.save()
-
-      return NextResponse.json({
-        message: "Payment was attempted but failed",
-        status: "failed",
-        synced: true
       })
     } else {
       // Still pending
@@ -122,6 +120,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("Payment sync error:", error)
+    if (error instanceof ReconciliationReviewError) return NextResponse.json({ error: error.message }, { status: 409 })
     return NextResponse.json({ error: "Failed to sync payment" }, { status: 500 })
   }
 }
@@ -131,8 +130,11 @@ export async function PUT(request: NextRequest) {
   try {
     await connectDB()
 
+    const keys = await getRazorpayKeys()
+    if (!keys.keyId || !keys.keySecret) return NextResponse.json({ error: "Connect Razorpay in Settings to enable reconciliation" }, { status: 503 })
+
     // Find all pending payments
-    const pendingPayments = await Payment.find({ status: "pending" })
+    const pendingPayments = await Payment.find({ status: "pending", orderId: { $regex: "^order_[A-Za-z0-9]+$" } }).sort({ createdAt: 1 }).limit(50)
     
     const results = {
       total: pendingPayments.length,
@@ -149,36 +151,31 @@ export async function PUT(request: NextRequest) {
 
         if (razorpayOrder.status === "paid") {
           const paymentsData = await razorpayFetch(`/orders/${payment.orderId}/payments`)
-          const successfulPayment = paymentsData.items?.find((p: any) => p.status === "captured")
+          const successfulPayment = matchingCapturedPayment(paymentsData.items || [], { orderId: payment.orderId, amount: payment.amount, currency: payment.currency || "INR" })
 
           if (payment.kind === "addon") {
-            await completeAddonPayment(payment.orderId, successfulPayment?.id, "sync")
+            const completed = await completeAddonPayment(payment.orderId, successfulPayment.id, "sync")
+            if (!completed.payment) { results.errors++; continue }
             results.success++
             results.synced++
             continue
           }
 
-          payment.status = "success"
-          if (successfulPayment) {
-            payment.paymentId = successfulPayment.id
-          }
-          await payment.save()
+          const claimed = await Payment.findOneAndUpdate({ _id: payment._id, status: "pending" }, { $set: { status: "success", paymentId: successfulPayment.id } }, { new: true })
+          if (!claimed) { results.stillPending++; continue }
 
           // Update user plan
           const user = await User.findById(payment.userId)
-          if (user) {
+          const latestPaidPlan = await Payment.findOne({ userId: payment.userId, status: "success", kind: { $ne: "addon" } }).sort({ createdAt: -1, _id: -1 })
+          if (user && String(latestPaidPlan?._id) === String(payment._id)) {
+            const paidAt = successfulPayment.created_at ? new Date(successfulPayment.created_at * 1000) : payment.createdAt
             user.plan = payment.plan
-            user.planStartDate = new Date()
-            user.planExpiresAt = await planExpiresAtFor(payment.plan)
+            user.planStartDate = paidAt
+            user.planExpiresAt = await planExpiresAtFor(payment.plan, paidAt)
             await user.save()
           }
 
           results.success++
-          results.synced++
-        } else if (razorpayOrder.status === "attempted") {
-          payment.status = "failed"
-          await payment.save()
-          results.failed++
           results.synced++
         } else {
           results.stillPending++

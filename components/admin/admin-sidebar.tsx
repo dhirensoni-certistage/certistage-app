@@ -32,27 +32,35 @@ interface SidebarCounts {
 const navigationItems = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, shortcut: 'G D' },
   { name: 'Users', href: '/admin/users', icon: Users, shortcut: 'G U' },
-  { name: 'Events', href: '/admin/events', icon: Calendar, shortcut: 'G E' },
+  { name: 'Events', href: '/admin/events', icon: CalendarDays, shortcut: 'G E' },
   { name: 'Revenue', href: '/admin/revenue', icon: IndianRupee, shortcut: 'G R', countKey: 'pendingPayments' as const },
   { name: 'Plans', href: '/admin/plans', icon: Tag, shortcut: 'G P' },
   { name: 'Email Logs', href: '/admin/email-logs', icon: Mail, shortcut: 'G M' },
   { name: 'Support', href: '/admin/support', icon: LifeBuoy, shortcut: 'G T', countKey: 'openTickets' as const },
-  { name: 'Analytics', href: '/admin/analytics', icon: BarChart3, shortcut: 'G A' },
-  { name: 'Settings', href: '/admin/settings', icon: Settings, shortcut: 'G S' },
+  { name: 'Analytics', href: '/admin/analytics', icon: ChartColumnIncreasing, shortcut: 'G A' },
+  { name: 'Settings', href: '/admin/settings', icon: Settings2, shortcut: 'G S' },
 ]
 
 export function AdminSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { theme, setTheme } = useTheme()
-  const [collapsed, setCollapsed] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const [collapsedPreference, setCollapsedState] = useState(false)
+  const [compactViewport, setCompactViewport] = useState(false)
+  const collapsed = collapsedPreference || compactViewport
   const [counts, setCounts] = useState<SidebarCounts>({ pendingPayments: 0, newUsersToday: 0, activeEvents: 0, openTickets: 0 })
 
   const setCollapsed = (value: boolean) => {
     setCollapsedState(value)
     try { localStorage.setItem("adminSidebarCollapsed", value ? "1" : "0") } catch {}
   }
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)")
+    const updateViewport = () => setCompactViewport(mediaQuery.matches)
+    updateViewport()
+    mediaQuery.addEventListener("change", updateViewport)
+    return () => mediaQuery.removeEventListener("change", updateViewport)
+  }, [])
 
   useEffect(() => {
     try { setCollapsedState(localStorage.getItem("adminSidebarCollapsed") === "1") } catch {}
@@ -181,7 +189,7 @@ export function AdminSidebar() {
 
         {/* Footer Actions */}
         <div className={cn("p-3 border-t border-neutral-200 space-y-1", collapsed && "flex flex-col items-center")}>
-          {collapsed && (
+          {collapsed && !compactViewport && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

@@ -1,8 +1,8 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useMemo, useState } from "react"
 import { AdminHeader } from "@/components/admin/admin-header"
-import { Breadcrumbs } from "@/components/admin/breadcrumbs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,7 +31,7 @@ import { DEFAULT_PLAN_CONFIG, mergePlanConfigWithDefaults, type PlanConfig } fro
 import { mergeAddonConfig, type AddonConfig } from "@/lib/addons"
 import { Check, Plus, Pencil, Trash2, Sparkles, Layers, Tag } from "lucide-react"
 
-const ACCENT_PALETTE = ["#f97316", "#3b82f6", "#22c55e", "#e11d48", "#f59e0b", "#14b8a6"]
+const ACCENT_PALETTE = ["#b8860b", "#ca9a32", "#a67c24"]
 
 const formatLimit = (value: number) => {
   if (value === -1) return "Unlimited"
@@ -80,6 +80,7 @@ const makeEmptyPlan = (index: number): PlanConfig => ({
 export default function AdminPlansPage() {
   const [plans, setPlans] = useState<PlanConfig[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [draft, setDraft] = useState<PlanConfig | null>(null)
@@ -97,15 +98,18 @@ export default function AdminPlansPage() {
 
   const fetchPlans = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const res = await fetch("/api/admin/plans")
       if (res.ok) {
         const data = await res.json()
         setPlans(mergePlanConfigWithDefaults(data.plans))
       } else {
+        setLoadError(true)
         toast.error("Failed to load plans")
       }
     } catch (error) {
+      setLoadError(true)
       console.error("Failed to load plans:", error)
       toast.error("Failed to load plans")
     } finally {
@@ -120,12 +124,13 @@ export default function AdminPlansPage() {
   // Add-on packs (emails, extra certificates): quantities and prices, saved to Settings "addon_config"
   const [addons, setAddons] = useState<AddonConfig>(() => mergeAddonConfig(null))
   const [addonsLoaded, setAddonsLoaded] = useState(false)
+  const [addonError, setAddonError] = useState(false)
   const [savingAddons, setSavingAddons] = useState(false)
   useEffect(() => {
     fetch("/api/admin/addons")
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => { if (!res.ok) throw new Error("Load failed"); return res.json() })
       .then((data) => { if (data) setAddons(mergeAddonConfig(data)) })
-      .catch(() => {})
+      .catch(() => setAddonError(true))
       .finally(() => setAddonsLoaded(true))
   }, [])
   const saveAddons = async () => {
@@ -158,15 +163,18 @@ export default function AdminPlansPage() {
         const data = await res.json()
         setPlans(mergePlanConfigWithDefaults(data.plans))
         toast.success("Plans saved")
+        return true
       } else {
-        toast.error("Failed to save plans")
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Failed to save plans")
       }
     } catch (error) {
       console.error("Save plans error:", error)
-      toast.error("Failed to save plans")
+      toast.error("Failed to save plans. Check the configuration; assigned plans must be disabled rather than deleted.")
     } finally {
       setSaving(false)
     }
+    return false
   }
 
   const openAdd = () => {
@@ -185,7 +193,6 @@ export default function AdminPlansPage() {
     const nextPlans = sortedPlans.map((plan) =>
       plan.id === planId ? { ...plan, enabled } : plan
     )
-    setPlans(nextPlans)
     await persistPlans(nextPlans)
   }
 
@@ -198,13 +205,11 @@ export default function AdminPlansPage() {
     if (DEFAULT_PLAN_CONFIG.some((plan) => plan.id === planId)) {
       if (!confirm("This is a built-in plan, so it will be taken off sale (disabled) rather than deleted. Continue?")) return
       const nextPlans = sortedPlans.map((plan) => (plan.id === planId ? { ...plan, enabled: false } : plan))
-      setPlans(nextPlans)
       await persistPlans(nextPlans)
       return
     }
     if (!confirm("Delete this plan? This will remove it from pricing.")) return
     const nextPlans = sortedPlans.filter((plan) => plan.id !== planId)
-    setPlans(nextPlans)
     await persistPlans(nextPlans)
   }
 
@@ -254,32 +259,32 @@ export default function AdminPlansPage() {
       ? sortedPlans.map((plan) => (plan.id === editingId ? normalized : plan))
       : [...sortedPlans, normalized]
 
-    setDialogOpen(false)
-    setDraft(null)
-    setEditingId(null)
-    setPlans(nextPlans)
-    await persistPlans(nextPlans)
+    if (await persistPlans(nextPlans)) handleDialogChange(false)
   }
 
   return (
     <>
-      <AdminHeader title="Plans" description="Create and manage pricing plans" />
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <Breadcrumbs />
+      <AdminHeader title="Plans" compact />
+      <div className="flex-1 overflow-auto bg-slate-50/40 p-4 md:p-6">
+        <div className="max-w-[1600px] mx-auto space-y-6">
+          
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold">Pricing Plans</h2>
-              <p className="text-sm text-muted-foreground">Manage plan visibility, pricing, and limits</p>
+              <h1 className="text-3xl font-semibold tracking-tight">Plans & Pricing</h1>
+              <p className="text-sm text-muted-foreground">Manage your product catalog, purchase availability and usage limits.</p>
             </div>
-            <Button onClick={openAdd} disabled={saving}>
+            <Button variant="outline" className="border-gold/35 bg-white text-gold-deep hover:bg-gold-soft" onClick={openAdd} disabled={saving || loading || loadError}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Plan
+              Create Plan
             </Button>
           </div>
 
-          {loading ? (
+          <Tabs defaultValue="plans" className="space-y-5">
+            <TabsList className="h-11 border bg-white"><TabsTrigger value="plans" className="data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep">Pricing plans</TabsTrigger><TabsTrigger value="addons" className="data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep">Add-on pricing</TabsTrigger></TabsList>
+            <TabsContent value="plans" className="space-y-5">
+              <p className="text-sm text-muted-foreground">Manage pricing, features and usage limits. Changes are shared with the customer pricing page.</p>
+          {loadError ? <Card><CardContent className="py-10 text-center"><p className="mb-3">Unable to load plans.</p><Button variant="outline" onClick={fetchPlans}>Retry</Button></CardContent></Card> : loading ? (
             <Card>
               <CardContent className="py-10 text-center text-muted-foreground">Loading plans...</CardContent>
             </Card>
@@ -292,7 +297,7 @@ export default function AdminPlansPage() {
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {sortedPlans.map((plan) => {
-                const accent = plan.accent || ACCENT_PALETTE[0]
+                const accent = ACCENT_PALETTE[0]
                 const features = plan.features || []
                 const preview = features.slice(0, 4)
                 const extraCount = Math.max(0, features.length - preview.length)
@@ -303,19 +308,19 @@ export default function AdminPlansPage() {
                   <Card
                     key={plan.id}
                     className={cn(
-                      "relative overflow-hidden border",
-                      plan.highlight ? "border-primary/60 shadow-lg" : "border-border"
+                      "relative overflow-hidden rounded-xl border bg-white py-0 shadow-none",
+                      plan.highlight ? "border-gold/40" : "border-border"
                     )}
                   >
                     <div className="h-1 w-full" style={{ backgroundColor: accent }} />
-                    <CardHeader className="space-y-3">
+                    <CardHeader className="space-y-3 pt-5">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <CardTitle className="text-lg">{plan.name}</CardTitle>
                             {plan.badge && <Badge variant="secondary">{plan.badge}</Badge>}
                             {plan.highlight && (
-                              <Badge variant="default" className="gap-1">
+                              <Badge variant="outline" className="gap-1 border-gold/20 bg-gold-soft text-gold-deep">
                                 <Sparkles className="h-3 w-3" />
                                 Featured
                               </Badge>
@@ -334,7 +339,7 @@ export default function AdminPlansPage() {
                             size="icon"
                             className="text-destructive hover:text-destructive"
                             onClick={() => handleDelete(plan.id)}
-                            disabled={plan.id === "free"}
+                            disabled={saving || plan.id === "free"}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -352,17 +357,17 @@ export default function AdminPlansPage() {
                         </div>
                         <div className="flex items-center gap-2 rounded-full border bg-muted/40 px-2.5 py-1">
                           <span className={cn("text-xs font-medium", plan.enabled ? "text-foreground" : "text-muted-foreground")}>
-                            {plan.enabled ? "Active" : "Disabled"}
+                            {plan.enabled ? "Available" : "Off sale"}
                           </span>
                           <Switch
-                            checked={plan.enabled}
+                            disabled={saving} aria-label={`Purchase availability for ${plan.name}`} checked={plan.enabled}
                             onCheckedChange={(value) => handleToggleEnabled(plan.id, value)}
-                            className="shrink-0 data-[state=checked]:bg-emerald-500"
+                            className="shrink-0 data-[state=checked]:bg-gold"
                           />
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-4 pb-5">
                       <div className="flex flex-wrap gap-2">
                         <Badge variant="outline">
                           <Layers className="h-3 w-3 mr-1" />
@@ -384,7 +389,7 @@ export default function AdminPlansPage() {
                           <ul className="space-y-1 text-sm text-muted-foreground">
                             {preview.map((feature, idx) => (
                               <li key={`${plan.id}-feature-${idx}`} className="flex items-start gap-2">
-                                <Check className="h-4 w-4 mt-0.5 text-emerald-500" />
+                                <Check className="h-4 w-4 mt-0.5 text-gold-deep" />
                                 <span>{feature}</span>
                               </li>
                             ))}
@@ -401,12 +406,13 @@ export default function AdminPlansPage() {
             </div>
           )}
 
-          <Card>
+            </TabsContent><TabsContent value="addons">
+          <Card className="rounded-xl shadow-none">
             <CardHeader>
-              <CardTitle className="text-base">Add-on packs</CardTitle>
+              <CardTitle className="text-xl">Add-on packs</CardTitle>
               <CardDescription>One-time packs sold on the Add-ons page. Prices in rupees; quantities are what the customer receives. Custom email quantities are priced per email by volume with the tiers below.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6"><fieldset disabled={!addonsLoaded || addonError || savingAddons} className="space-y-6">{addonError && <p className="text-destructive">Unable to load add-on pricing. Refresh to retry.</p>}
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
                   <p className="text-sm font-medium mb-2">Certificate emails</p>
@@ -419,7 +425,7 @@ export default function AdminPlansPage() {
                         </div>
                         <div className="space-y-1">
                           {i === 0 && <Label className="text-xs text-muted-foreground">Price (INR)</Label>}
-                          <Input type="number" min="1" step="1" value={rupees(p.price)} onChange={(e) => setAddons({ ...addons, emailPacks: addons.emailPacks.map((x) => (x.id === p.id ? { ...x, price: toPaise(e.target.value) } : x)) })} />
+                          <Input type="number" min="1" step="0.01" value={rupees(p.price)} onChange={(e) => setAddons({ ...addons, emailPacks: addons.emailPacks.map((x) => (x.id === p.id ? { ...x, price: toPaise(e.target.value) } : x)) })} />
                         </div>
                       </div>
                     ))}
@@ -436,7 +442,7 @@ export default function AdminPlansPage() {
                         </div>
                         <div className="space-y-1">
                           {i === 0 && <Label className="text-xs text-muted-foreground">Price (INR)</Label>}
-                          <Input type="number" min="1" step="1" value={rupees(p.price)} onChange={(e) => setAddons({ ...addons, certPacks: addons.certPacks.map((x) => (x.id === p.id ? { ...x, price: toPaise(e.target.value) } : x)) })} />
+                          <Input type="number" min="1" step="0.01" value={rupees(p.price)} onChange={(e) => setAddons({ ...addons, certPacks: addons.certPacks.map((x) => (x.id === p.id ? { ...x, price: toPaise(e.target.value) } : x)) })} />
                         </div>
                       </div>
                     ))}
@@ -482,15 +488,17 @@ export default function AdminPlansPage() {
                 </div>
               </div>
               <div className="flex justify-end">
-                <Button onClick={saveAddons} disabled={savingAddons || !addonsLoaded}>{savingAddons ? "Saving..." : "Save add-on packs"}</Button>
+                <Button variant="outline" className="border-gold/35 bg-white text-gold-deep hover:bg-gold-soft" onClick={saveAddons} disabled={savingAddons || !addonsLoaded || addonError}>{savingAddons ? "Saving..." : "Save add-on packs"}</Button>
               </div>
+              </fieldset>
             </CardContent>
           </Card>
+            </TabsContent></Tabs>
         </div>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={handleDialogChange}>
-        <DialogContent className="w-[min(94vw,960px)] max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="w-[96vw] max-w-[calc(100%-1rem)] sm:max-w-6xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit Plan" : "Add New Plan"}</DialogTitle>
             <DialogDescription>Configure pricing, limits, and features for this plan.</DialogDescription>
@@ -605,7 +613,7 @@ export default function AdminPlansPage() {
                   <Switch
                     checked={draft.highlight || false}
                     onCheckedChange={(value) => setDraft({ ...draft, highlight: value })}
-                    className="shrink-0 data-[state=checked]:bg-emerald-500"
+                    className="shrink-0 data-[state=checked]:bg-gold"
                   />
                 </div>
                 <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
@@ -616,7 +624,7 @@ export default function AdminPlansPage() {
                   <Switch
                     checked={draft.enabled}
                     onCheckedChange={(value) => setDraft({ ...draft, enabled: value })}
-                    className="shrink-0 data-[state=checked]:bg-emerald-500"
+                    className="shrink-0 data-[state=checked]:bg-gold"
                   />
                 </div>
               </div>
@@ -690,7 +698,7 @@ export default function AdminPlansPage() {
                       onCheckedChange={(value) =>
                         setDraft({ ...draft, limits: { ...draft.limits, canCreateEvent: value } })
                       }
-                      className="shrink-0 data-[state=checked]:bg-emerald-500"
+                      className="shrink-0 data-[state=checked]:bg-gold"
                     />
                   </div>
                   <div className="flex items-center justify-between rounded-lg border p-3">
@@ -700,7 +708,7 @@ export default function AdminPlansPage() {
                       onCheckedChange={(value) =>
                         setDraft({ ...draft, limits: { ...draft.limits, canImportData: value } })
                       }
-                      className="shrink-0 data-[state=checked]:bg-emerald-500"
+                      className="shrink-0 data-[state=checked]:bg-gold"
                     />
                   </div>
                   <div className="flex items-center justify-between rounded-lg border p-3">
@@ -710,7 +718,7 @@ export default function AdminPlansPage() {
                       onCheckedChange={(value) =>
                         setDraft({ ...draft, limits: { ...draft.limits, canExportReport: value } })
                       }
-                      className="shrink-0 data-[state=checked]:bg-emerald-500"
+                      className="shrink-0 data-[state=checked]:bg-gold"
                     />
                   </div>
                   <div className="flex items-center justify-between rounded-lg border p-3">
@@ -720,7 +728,7 @@ export default function AdminPlansPage() {
                       onCheckedChange={(value) =>
                         setDraft({ ...draft, limits: { ...draft.limits, canUpgrade: value } })
                       }
-                      className="shrink-0 data-[state=checked]:bg-emerald-500"
+                      className="shrink-0 data-[state=checked]:bg-gold"
                     />
                   </div>
                   <div className="flex items-center justify-between rounded-lg border p-3">
@@ -730,7 +738,7 @@ export default function AdminPlansPage() {
                       onCheckedChange={(value) =>
                         setDraft({ ...draft, limits: { ...draft.limits, canRemoveBranding: value } })
                       }
-                      className="shrink-0 data-[state=checked]:bg-emerald-500"
+                      className="shrink-0 data-[state=checked]:bg-gold"
                     />
                   </div>
                 </div>
@@ -759,7 +767,7 @@ export default function AdminPlansPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveDraft} disabled={saving}>
+            <Button variant="outline" className="border-gold/35 bg-white text-gold-deep hover:bg-gold-soft" onClick={handleSaveDraft} disabled={saving}>
               {saving ? "Saving..." : "Save Plan"}
             </Button>
           </DialogFooter>
@@ -768,3 +776,7 @@ export default function AdminPlansPage() {
     </>
   )
 }
+
+
+
+

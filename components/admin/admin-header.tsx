@@ -19,6 +19,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
 import { toast } from "sonner"
+import Link from "next/link"
+import { Home } from "lucide-react"
 
 interface Notification {
   _id: string
@@ -32,9 +34,10 @@ interface Notification {
 interface AdminHeaderProps {
   title: string
   description?: string
+  compact?: boolean
 }
 
-export function AdminHeader({ title, description }: AdminHeaderProps) {
+export function AdminHeader({ title, description, compact = false }: AdminHeaderProps) {
   const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -47,7 +50,7 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch("/api/admin/notifications")
+      const res = await fetch("/api/admin/notifications", { cache: "no-store" })
       if (res.ok) {
         const data = await res.json()
         setNotifications(data.notifications)
@@ -60,21 +63,27 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
 
   const markAsRead = async (id: string) => {
     try {
-      await fetch(`/api/admin/notifications/${id}/read`, { method: "POST" })
-      setNotifications(prev => prev.map(n => n._id === id ? { ...n, read: true } : n))
-      setUnreadCount(prev => Math.max(0, prev - 1))
+      const res = await fetch("/api/admin/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationId: id }),
+      })
+      if (!res.ok) throw new Error("Failed to save notification read status")
+      await fetchNotifications()
     } catch (error) {
       console.error("Failed to mark as read:", error)
+      toast.error("Failed to mark notification as read. Please try again.")
     }
   }
 
   const markAllAsRead = async () => {
     try {
-      await fetch("/api/admin/notifications/read-all", { method: "POST" })
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-      setUnreadCount(0)
+      const res = await fetch("/api/admin/notifications", { method: "POST" })
+      if (!res.ok) throw new Error("Failed to save notification read status")
+      await fetchNotifications()
     } catch (error) {
       console.error("Failed to mark all as read:", error)
+      toast.error("Failed to mark notifications as read. Please try again.")
     }
   }
 
@@ -96,8 +105,15 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
   return (
     <header className="sticky top-0 z-40 bg-neutral-50/85 backdrop-blur-sm px-6 py-4 flex items-center justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 truncate">{title}</h1>
-        {description && <p className="text-sm text-neutral-500 mt-0.5 truncate">{description}</p>}
+        {compact ? (
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[13px]">
+            <Link href="/admin/dashboard" aria-label="Admin dashboard" className="text-neutral-400 hover:text-neutral-700"><Home className="h-3.5 w-3.5" /></Link>
+            <span className="text-neutral-400">/</span><span className="font-medium text-neutral-700" aria-current="page">{title}</span>
+          </nav>
+        ) : (
+          <><h1 className="text-2xl font-semibold tracking-tight text-neutral-900 truncate">{title}</h1>
+          {description && <p className="text-sm text-neutral-500 mt-0.5 truncate">{description}</p>}</>
+        )}
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">

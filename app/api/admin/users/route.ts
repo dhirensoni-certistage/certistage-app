@@ -6,6 +6,8 @@ import Event from "@/models/Event"
 import bcrypt from "bcryptjs"
 import { getPlanConfigFromDb, getPlanMap } from "@/lib/plan-config.server"
 import { backfillOAuthUsers } from "@/lib/oauth-user.server"
+import { buildAdminUsersQuery, parseUsersPagination } from "@/lib/admin-users-query"
+import type { PipelineStage } from "mongoose"
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,37 +16,46 @@ export async function GET(request: NextRequest) {
     await backfillOAuthUsers()
 
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get("page") || "1")
-    const limit = parseInt(searchParams.get("limit") || "10")
-    const search = searchParams.get("search") || ""
-    const plan = searchParams.get("plan") || ""
-
-    // Build query
-    const query: Record<string, unknown> = {}
-    
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-        { organization: { $regex: search, $options: "i" } }
-      ]
-    }
-    
-    if (plan && plan !== "all") {
-      query.plan = plan
-    }
+    let { page } = parseUsersPagination(searchParams)
+    const { limit } = parseUsersPagination(searchParams)
+    const query = buildAdminUsersQuery(searchParams)
+    const allowedSorts = new Set(["name", "email", "plan", "isActive", "eventsCount", "createdAt"])
+    const requestedSort = searchParams.get("sort") || "createdAt"
+    const sortField = allowedSorts.has(requestedSort) ? requestedSort : "createdAt"
+    const direction = searchParams.get("direction") === "asc" ? 1 : -1
 
     // Get total count
     const total = await User.countDocuments(query)
     const totalPages = Math.ceil(total / limit)
+    page = Math.min(page, Math.max(1, totalPages))
 
     // Get users
-    const users = await User.find(query)
+    let users = await User.find(query)
       .select("_id name email plan isActive createdAt")
-      .sort({ createdAt: -1 })
+      .sort({ [sortField === "eventsCount" ? "createdAt" : sortField]: direction, _id: direction })
+      .collation({ locale: "en", strength: 2 })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean()
+
+    if (sortField === "eventsCount") {
+      const pipeline: PipelineStage[] = [
+        { $match: query },
+        { $lookup: {
+          from: Event.collection.name,
+          localField: "_id",
+          foreignField: "ownerId",
+          pipeline: [{ $count: "count" }],
+          as: "eventCount",
+        } },
+        { $set: { eventsCount: { $ifNull: [{ $arrayElemAt: ["$eventCount.count", 0] }, 0] } } },
+        { $sort: { eventsCount: direction, _id: direction } },
+        { $skip: (page - 1) * limit },
+        { $limit: limit },
+        { $project: { _id: 1, name: 1, email: 1, plan: 1, isActive: 1, createdAt: 1 } },
+      ]
+      users = await User.aggregate(pipeline)
+    }
 
     // Get events count for each user
     const userIds = users.map(u => u._id)
