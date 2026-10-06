@@ -21,6 +21,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 
+const HEADER_ROW = "bg-neutral-50 hover:bg-neutral-50 border-neutral-200"
+const HEADER_CELL = "h-10 text-[11px] font-medium uppercase tracking-wide text-neutral-500"
+
 export interface Column<T> {
   key: string
   header: string
@@ -114,13 +117,13 @@ export function DataTable<T extends object>({
 
   if (loading) {
     return (
-      <div className="rounded-md border">
+      <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className={HEADER_ROW}>
               {selectable && <TableHead className="w-12"><Skeleton className="h-4 w-4" /></TableHead>}
               {columns.map((col) => (
-                <TableHead key={col.key} className={col.className}>{col.header}</TableHead>
+                <TableHead key={col.key} className={cn(HEADER_CELL, col.className)}>{col.header}</TableHead>
               ))}
             </TableRow>
           </TableHeader>
@@ -141,13 +144,13 @@ export function DataTable<T extends object>({
 
   if (data.length === 0) {
     return (
-      <div className="rounded-md border">
+      <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className={HEADER_ROW}>
               {selectable && <TableHead className="w-12" />}
               {columns.map((col) => (
-                <TableHead key={col.key} className={col.className}>{col.header}</TableHead>
+                <TableHead key={col.key} className={cn(HEADER_CELL, col.className)}>{col.header}</TableHead>
               ))}
             </TableRow>
           </TableHeader>
@@ -167,7 +170,7 @@ export function DataTable<T extends object>({
     <div className="space-y-4">
       {/* Bulk Actions Bar */}
       {selectable && selectedIds.size > 0 && bulkActions.length > 0 && (
-        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
+        <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
           <span className="text-sm font-medium">{selectedIds.size} selected</span>
           <div className="flex-1" />
           {bulkActions.map((action, index) => (
@@ -187,10 +190,10 @@ export function DataTable<T extends object>({
         </div>
       )}
 
-      <div className="rounded-md border">
+      <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className={HEADER_ROW}>
               {selectable && (
                 <TableHead className="w-12">
                   <Checkbox
@@ -204,7 +207,7 @@ export function DataTable<T extends object>({
                 </TableHead>
               )}
               {columns.map((col) => (
-                <TableHead key={col.key} className={col.className}>{col.header}</TableHead>
+                <TableHead key={col.key} className={cn(HEADER_CELL, col.className)}>{col.header}</TableHead>
               ))}
             </TableRow>
           </TableHeader>
@@ -217,9 +220,9 @@ export function DataTable<T extends object>({
                 <TableRow
                   key={itemId}
                   className={cn(
+                    "border-neutral-100 hover:bg-neutral-50/60",
                     onRowClick && "cursor-pointer",
-                    isSelected && "bg-muted/50",
-                    "hover:bg-muted/50"
+                    isSelected && "bg-gold-soft/60 hover:bg-gold-soft/60"
                   )}
                   onClick={(e) => {
                     // Don't trigger row click if clicking checkbox

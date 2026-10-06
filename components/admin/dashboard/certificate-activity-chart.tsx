@@ -3,8 +3,8 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { DashboardCard } from "@/components/admin/dashboard/dashboard-card"
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -13,68 +13,69 @@ import {
   type TooltipProps,
 } from "recharts"
 
-interface UserGrowthChartProps {
+interface CertificateActivityChartProps {
   data: Array<{ date: string; count: number }>
   loading?: boolean
 }
 
-function GrowthTooltip({ active, payload, label }: TooltipProps<number, string>) {
+const GOLD = "#C8961E"
+
+function ActivityTooltip({ active, payload, label }: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 shadow-sm">
       <p className="text-xs text-neutral-500">{label}</p>
-      <p className="text-sm font-semibold text-neutral-900">{payload[0].value} new users</p>
+      <p className="text-sm font-semibold text-neutral-900">{payload[0].value?.toLocaleString("en-IN")} certificates</p>
     </div>
   )
 }
 
-export function UserGrowthChart({ data, loading }: UserGrowthChartProps) {
+export function CertificateActivityChart({ data, loading }: CertificateActivityChartProps) {
   const formattedData = data.map((item) => ({
     ...item,
-    date: new Date(item.date).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
+    label: new Date(item.date).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
   }))
+  const hasActivity = data.some((d) => d.count > 0)
 
   return (
-    <DashboardCard title="User Growth" description="New signups over the last 30 days">
-      <div className="h-[240px]">
+    <DashboardCard title="Certificate Activity" description="Number of certificates issued over the last 30 days">
+      <div className="h-[280px]">
         {loading ? (
           <Skeleton className="h-full w-full" />
-        ) : data.length === 0 ? (
+        ) : !hasActivity ? (
           <div className="h-full flex items-center justify-center text-sm text-neutral-500">
-            No data available
+            No certificates issued in the last 30 days
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={formattedData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#171717" stopOpacity={0.12} />
-                  <stop offset="95%" stopColor="#171717" stopOpacity={0} />
-                </linearGradient>
-              </defs>
+            <LineChart data={formattedData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#E5E5E5" />
               <XAxis
-                dataKey="date"
+                dataKey="label"
                 tick={{ fill: "#737373", fontSize: 12 }}
                 axisLine={{ stroke: "#E5E5E5" }}
                 tickLine={false}
                 minTickGap={24}
+                interval="preserveStartEnd"
               />
               <YAxis
                 allowDecimals={false}
                 tick={{ fill: "#737373", fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
+                width={48}
               />
-              <Tooltip content={<GrowthTooltip />} cursor={{ stroke: "#D4D4D4", strokeDasharray: "3 3" }} />
-              <Area
-                type="monotone"
+              <Tooltip content={<ActivityTooltip />} cursor={{ stroke: "#D4D4D4", strokeDasharray: "3 3" }} />
+              <Line
+                type="linear"
                 dataKey="count"
-                stroke="#171717"
-                strokeWidth={1.75}
-                fill="url(#colorUsers)"
+                stroke={GOLD}
+                strokeWidth={2}
+                dot={{ r: 3, fill: "#FFFFFF", stroke: GOLD, strokeWidth: 1.5 }}
+                activeDot={{ r: 5, fill: GOLD, stroke: "#FFFFFF", strokeWidth: 2 }}
+                isAnimationActive={false}
               />
-            </AreaChart>
+            </LineChart>
           </ResponsiveContainer>
         )}
       </div>

@@ -4,19 +4,19 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AdminHeader } from "@/components/admin/admin-header"
 import { MetricCard } from "@/components/admin/dashboard/metric-card"
+import { CertificateActivityChart } from "@/components/admin/dashboard/certificate-activity-chart"
+import { EventPerformance, type TopEvent } from "@/components/admin/dashboard/event-performance"
+import { RecentCertificates, type RecentCertificate } from "@/components/admin/dashboard/recent-certificates"
 import { UserGrowthChart } from "@/components/admin/dashboard/user-growth-chart"
 import { PlanDistributionChart } from "@/components/admin/dashboard/plan-distribution-chart"
 import { ActivityFeed } from "@/components/admin/dashboard/activity-feed"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { 
-  Users, Calendar, Award, IndianRupee, AlertCircle, 
-  ArrowRight, CreditCard, UserPlus, RefreshCw, TrendingUp,
-  Clock, CheckCircle2
+import {
+  CalendarDays, Award, IndianRupee, AlertCircle, Users,
+  ArrowRight, CreditCard, UserPlus, RefreshCw, Clock
 } from "lucide-react"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 interface ActionItem {
   id: string
@@ -38,7 +38,18 @@ interface DashboardData {
     newUsersToday: number
     pendingPayments: number
     conversionRate: number
+    certificatesToday: number
+    totalRecipients: number
+    eventsCreatedThisMonth: number
   }
+  trends: {
+    certificatesToday: number | null
+    totalRecipients: number | null
+    revenueThisMonth: number | null
+  }
+  certificateActivity: Array<{ date: string; count: number }>
+  topEvents: TopEvent[]
+  recentCertificates: RecentCertificate[]
   userGrowth: Array<{ date: string; count: number }>
   planDistribution: Array<{ plan: string; count: number }>
   recentActivity: Array<{
@@ -48,6 +59,12 @@ interface DashboardData {
     userId?: string
   }>
   actionItems: ActionItem[]
+}
+
+const PRIORITY_STYLES: Record<ActionItem["priority"], string> = {
+  high: "bg-red-50 text-red-700",
+  medium: "bg-amber-50 text-amber-700",
+  low: "bg-blue-50 text-blue-700",
 }
 
 export default function DashboardPage() {
@@ -92,135 +109,120 @@ export default function DashboardPage() {
     }
   }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high": return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-      case "medium": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-      default: return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+  const getActionIcon = (type: ActionItem["type"]) => {
+    switch (type) {
+      case "pending_payment": return <CreditCard className="h-4 w-4 text-amber-600" />
+      case "new_user": return <UserPlus className="h-4 w-4 text-blue-600" />
+      case "failed_payment": return <AlertCircle className="h-4 w-4 text-red-600" />
+      default: return <Clock className="h-4 w-4 text-neutral-500" />
     }
   }
 
-  const getActionIcon = (type: string) => {
-    switch (type) {
-      case "pending_payment": return <CreditCard className="h-4 w-4 text-yellow-500" />
-      case "new_user": return <UserPlus className="h-4 w-4 text-blue-500" />
-      case "failed_payment": return <AlertCircle className="h-4 w-4 text-red-500" />
-      default: return <Clock className="h-4 w-4" />
-    }
-  }
+  const actionItems = data?.actionItems ?? []
 
   return (
     <>
-      <AdminHeader title="Dashboard" description="Overview of your platform metrics and activity" />
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          
-          {/* Action Required Section */}
-          {(data?.actionItems?.length ?? 0) > 0 && (
-            <Card className="border-yellow-200 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-900/10">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-yellow-600" />
-                    <CardTitle className="text-base">Action Required</CardTitle>
-                    <Badge variant="secondary" className="ml-2">{data?.actionItems?.length}</Badge>
-                  </div>
-                  {(data?.metrics?.pendingPayments ?? 0) > 0 && (
-                    <Button variant="outline" size="sm" onClick={handleSyncPayments} disabled={syncing}>
-                      {syncing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                      Sync Payments
-                    </Button>
-                  )}
+      <AdminHeader title="Dashboard" description="Overview of your e-certificate platform" />
+      <div className="flex-1 overflow-auto px-6 pb-6 pt-1">
+        <div className="space-y-5">
+
+          {/* Action Required */}
+          {actionItems.length > 0 && (
+            <section className="rounded-xl border border-amber-200 bg-amber-50/50 p-5">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-600" />
+                  <h2 className="text-[15px] font-semibold text-neutral-900">Action Required</h2>
+                  <span className="ml-1 rounded-full bg-white border border-amber-200 px-2 py-0.5 text-xs font-medium text-amber-700">{actionItems.length}</span>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {data?.actionItems?.slice(0, 5).map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 bg-background rounded-lg border">
-                      <div className="flex items-center gap-3">
-                        {getActionIcon(item.type)}
-                        <div>
-                          <p className="text-sm font-medium">{item.title}</p>
-                          <p className="text-xs text-muted-foreground">{item.description}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge className={getPriorityColor(item.priority)}>{item.priority}</Badge>
-                        <Button variant="ghost" size="sm" onClick={() => item.actionHref && router.push(item.actionHref)}>
-                          {item.actionLabel}
-                          <ArrowRight className="h-3 w-3 ml-1" />
-                        </Button>
+                {(data?.metrics?.pendingPayments ?? 0) > 0 && (
+                  <Button variant="outline" size="sm" className="bg-white" onClick={handleSyncPayments} disabled={syncing}>
+                    <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />
+                    Sync Payments
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {actionItems.slice(0, 5).map((item) => (
+                  <div key={item.id} className="flex items-center justify-between gap-3 p-3 bg-white rounded-lg border border-neutral-200">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {getActionIcon(item.type)}
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-medium text-neutral-900 truncate">{item.title}</p>
+                        <p className="text-xs text-neutral-500 truncate">{item.description}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium capitalize", PRIORITY_STYLES[item.priority])}>{item.priority}</span>
+                      <Button variant="ghost" size="sm" onClick={() => item.actionHref && router.push(item.actionHref)}>
+                        {item.actionLabel}
+                        <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
 
-          {/* Quick Stats Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <QuickStat label="Today's Signups" value={data?.metrics?.newUsersToday ?? 0} icon={UserPlus} loading={loading} color="blue" />
-            <QuickStat label="Pending Payments" value={data?.metrics?.pendingPayments ?? 0} icon={Clock} loading={loading} color="yellow" />
-            <QuickStat label="Conversion Rate" value={`${data?.metrics?.conversionRate ?? 0}%`} icon={TrendingUp} loading={loading} color="neutral" />
-            <QuickStat label="Active Events" value={data?.metrics?.activeEvents ?? 0} icon={Calendar} loading={loading} color="purple" />
+          {/* Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <MetricCard
+              title="Today's Certificates"
+              value={data?.metrics.certificatesToday ?? 0}
+              icon={Award}
+              trend={data?.trends?.certificatesToday}
+              trendLabel="vs. yesterday"
+              loading={loading}
+            />
+            <MetricCard
+              title="Active Events"
+              value={data?.metrics.activeEvents ?? 0}
+              icon={CalendarDays}
+              trend={data?.metrics.eventsCreatedThisMonth}
+              trendFormat="number"
+              trendLabel="new this month"
+              loading={loading}
+            />
+            <MetricCard
+              title="Total Recipients"
+              value={data?.metrics.totalRecipients ?? 0}
+              icon={Users}
+              trend={data?.trends?.totalRecipients}
+              trendLabel="this month"
+              loading={loading}
+            />
+            <MetricCard
+              title="Monthly Revenue"
+              value={`₹${(data?.metrics.revenueThisMonth ?? 0).toLocaleString("en-IN")}`}
+              icon={IndianRupee}
+              trend={data?.trends?.revenueThisMonth}
+              trendLabel="vs. last month"
+              loading={loading}
+            />
           </div>
 
-          {/* Main Metric Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard title="Total Users" value={data?.metrics.totalUsers ?? 0} icon={Users} loading={loading} />
-            <MetricCard title="Active Events" value={data?.metrics.activeEvents ?? 0} icon={Calendar} loading={loading} />
-            <MetricCard title="Certificates This Month" value={data?.metrics.certificatesThisMonth ?? 0} icon={Award} loading={loading} />
-            <MetricCard title="Revenue This Month" value={`₹${(data?.metrics.revenueThisMonth ?? 0).toLocaleString()}`} icon={IndianRupee} loading={loading} />
+          {/* Activity + Event Performance */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+            <div className="xl:col-span-7 min-w-0">
+              <CertificateActivityChart data={data?.certificateActivity ?? []} loading={loading} />
+            </div>
+            <div className="xl:col-span-5 min-w-0">
+              <EventPerformance events={data?.topEvents ?? []} loading={loading} />
+            </div>
           </div>
 
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent Certificates */}
+          <RecentCertificates certificates={data?.recentCertificates ?? []} loading={loading} />
+
+          {/* Users, plans and platform activity */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <UserGrowthChart data={data?.userGrowth ?? []} loading={loading} />
             <PlanDistributionChart data={data?.planDistribution ?? []} loading={loading} />
+            <ActivityFeed activities={data?.recentActivity ?? []} loading={loading} />
           </div>
-
-          {/* Activity Feed */}
-          <ActivityFeed activities={data?.recentActivity ?? []} loading={loading} />
         </div>
       </div>
     </>
   )
 }
-
-// Quick Stat Component
-function QuickStat({ label, value, icon: Icon, loading, color }: {
-  label: string
-  value: string | number
-  icon: any
-  loading: boolean
-  color: "blue" | "yellow" | "neutral" | "purple"
-}) {
-  const colorClasses = {
-    blue: "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
-    yellow: "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400",
-    neutral: "bg-neutral-50 dark:bg-neutral-900/20 text-neutral-600 dark:text-neutral-400",
-    purple: "bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
-  }
-
-  if (loading) {
-    return (
-      <div className="p-4 rounded-lg border bg-card">
-        <Skeleton className="h-4 w-20 mb-2" />
-        <Skeleton className="h-6 w-12" />
-      </div>
-    )
-  }
-
-  return (
-    <div className={`p-4 rounded-lg border ${colorClasses[color]}`}>
-      <div className="flex items-center gap-2 mb-1">
-        <Icon className="h-4 w-4" />
-        <span className="text-xs font-medium opacity-80">{label}</span>
-      </div>
-      <p className="text-xl font-bold">{value}</p>
-    </div>
-  )
-}
-
-

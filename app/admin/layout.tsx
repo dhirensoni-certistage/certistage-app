@@ -82,11 +82,11 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-neutral-50 overflow-hidden">
       <CommandPalette />
       <KeyboardShortcuts />
       <AdminSidebar />
-      <main className="flex-1 flex flex-col overflow-y-auto">{children}</main>
+      <main className="flex-1 min-w-0 flex flex-col overflow-y-auto scrollbar-minimal">{children}</main>
     </div>
   )
 }

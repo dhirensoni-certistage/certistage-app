@@ -4,6 +4,15 @@ import User from "@/models/User"
 import Event from "@/models/Event"
 import Recipient from "@/models/Recipient"
 import Payment from "@/models/Payment"
+import CertificateType from "@/models/CertificateType"
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+// Percent change; null when there is no previous value to compare against
+function percentChange(current: number, previous: number): number | null {
+  if (previous <= 0) return null
+  return Math.round(((current - previous) / previous) * 100)
+}
 
 export async function GET() {
   try {
@@ -12,7 +21,14 @@ export async function GET() {
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const startOfYesterday = new Date(startOfToday.getTime() - DAY_MS)
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    // Same point in last month, clamped so short months never spill into this one
+    const sameTimeLastMonth = new Date(Math.min(
+      new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(), now.getHours(), now.getMinutes()).getTime(),
+      startOfMonth.getTime()
+    ))
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * DAY_MS)
 
     // Dashboard Metrics
     const [
@@ -38,6 +54,95 @@ export async function GET() {
 
     const revenueThisMonth = Math.round((revenueResult[0]?.total || 0) / 100)
     const conversionRate = totalUsers > 0 ? Math.round((paidUsers / totalUsers) * 100) : 0
+
+    // Comparison figures for the metric cards
+    const [
+      certificatesToday,
+      certificatesYesterday,
+      totalRecipients,
+      recipientsBeforeThisMonth,
+      eventsCreatedThisMonth,
+      revenueLastMonthResult
+    ] = await Promise.all([
+      Recipient.countDocuments({ createdAt: { $gte: startOfToday } }),
+      Recipient.countDocuments({ createdAt: { $gte: startOfYesterday, $lt: startOfToday } }),
+      Recipient.countDocuments(),
+      Recipient.countDocuments({ createdAt: { $lt: startOfMonth } }),
+      Event.countDocuments({ createdAt: { $gte: startOfMonth } }),
+      Payment.aggregate([
+        { $match: { status: "success", createdAt: { $gte: startOfLastMonth, $lt: sameTimeLastMonth } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ])
+    ])
+    const revenueLastMonthToDate = Math.round((revenueLastMonthResult[0]?.total || 0) / 100)
+
+    const trends = {
+      certificatesToday: percentChange(certificatesToday, certificatesYesterday),
+      totalRecipients: percentChange(totalRecipients, recipientsBeforeThisMonth),
+      revenueThisMonth: percentChange(revenueThisMonth, revenueLastMonthToDate)
+    }
+
+    // Certificates issued per day (last 30 days, every day present)
+    const certificateActivityRaw: Array<{ _id: string; count: number }> = await Recipient.aggregate([
+      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } }
+    ])
+    const activityByDay = new Map(certificateActivityRaw.map((d) => [d._id, d.count]))
+    const certificateActivity = Array.from({ length: 30 }, (_, i) => {
+      const date = new Date(now.getTime() - (29 - i) * DAY_MS).toISOString().slice(0, 10)
+      return { date, count: activityByDay.get(date) ?? 0 }
+    })
+
+    // Top events by certificates issued, with how many recipients downloaded
+    const topEventsRaw: Array<{
+      _id: unknown
+      issued: number
+      downloaded: number
+      event?: { name?: string; createdAt?: Date }
+    }> = await Recipient.aggregate([
+      {
+        $group: {
+          _id: "$eventId",
+          issued: { $sum: 1 },
+          downloaded: { $sum: { $cond: [{ $gt: ["$downloadCount", 0] }, 1, 0] } }
+        }
+      },
+      { $sort: { issued: -1 } },
+      { $limit: 5 },
+      { $lookup: { from: Event.collection.name, localField: "_id", foreignField: "_id", as: "event" } },
+      { $unwind: { path: "$event", preserveNullAndEmptyArrays: true } },
+      { $project: { issued: 1, downloaded: 1, "event.name": 1, "event.createdAt": 1 } }
+    ])
+    const topEvents = topEventsRaw.map((e) => ({
+      eventId: String(e._id),
+      name: e.event?.name || "Deleted event",
+      createdAt: e.event?.createdAt ? new Date(e.event.createdAt).toISOString() : null,
+      issued: e.issued,
+      downloaded: e.downloaded,
+      downloadRate: e.issued > 0 ? Math.round((e.downloaded / e.issued) * 1000) / 10 : 0
+    }))
+
+    // Latest certificates issued across the platform
+    const recentRecipients = await Recipient.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select("name email downloadCount emailStatus createdAt eventId certificateTypeId")
+      .populate("eventId", "name")
+      .populate({ path: "certificateTypeId", select: "name templateImage", model: CertificateType })
+      .lean()
+
+    const recentCertificates = recentRecipients.map((r: any) => ({
+      id: String(r._id),
+      name: r.name || "Unknown",
+      email: r.email || "",
+      eventId: r.eventId?._id ? String(r.eventId._id) : null,
+      eventName: r.eventId?.name || "Deleted event",
+      certificateTypeName: r.certificateTypeId?.name || "",
+      templateImage: r.certificateTypeId?.templateImage || "",
+      downloaded: (r.downloadCount || 0) > 0,
+      emailStatus: r.emailStatus || null,
+      createdAt: new Date(r.createdAt).toISOString()
+    }))
 
     // User Growth (last 30 days)
     const userGrowth = await User.aggregate([
@@ -171,8 +276,15 @@ export async function GET() {
         revenueThisMonth,
         newUsersToday,
         pendingPayments,
-        conversionRate
+        conversionRate,
+        certificatesToday,
+        totalRecipients,
+        eventsCreatedThisMonth
       },
+      trends,
+      certificateActivity,
+      topEvents,
+      recentCertificates,
       userGrowth,
       planDistribution,
       recentActivity,

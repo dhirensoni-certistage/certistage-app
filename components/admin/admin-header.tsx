@@ -92,35 +92,32 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
   }
 
   return (
-    <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm px-6 flex items-center justify-between sticky top-0 z-40">
-      <div>
-        <h1 className="text-lg font-semibold text-foreground">{title}</h1>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+    <header className="sticky top-0 z-40 bg-neutral-50/85 backdrop-blur-sm px-6 py-4 flex items-center justify-between gap-4">
+      <div className="min-w-0">
+        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 truncate">{title}</h1>
+        {description && <p className="text-sm text-neutral-500 mt-0.5 truncate">{description}</p>}
       </div>
-      
-      <div className="flex items-center gap-2">
-        {/* Search Button */}
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" className="hidden md:flex gap-2 text-muted-foreground" onClick={openCommandPalette}>
-                <Search className="h-4 w-4" />
-                <span className="text-sm">Search...</span>
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium">
-                  Ctrl+K
-                </kbd>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Quick Search</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Search (opens the command palette) */}
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          className="hidden md:flex items-center gap-2 h-10 w-72 rounded-lg border border-neutral-200 bg-white pl-3 pr-2 text-left text-[13px] text-neutral-400 hover:border-neutral-300 transition-colors mr-2"
+        >
+          <Search className="h-4 w-4 text-neutral-500 shrink-0" />
+          <span className="flex-1 truncate">Search users, events or payments...</span>
+          <kbd className="pointer-events-none inline-flex h-5 select-none items-center rounded border border-neutral-200 bg-neutral-50 px-1.5 font-mono text-[10px] font-medium text-neutral-500">
+            Ctrl + K
+          </kbd>
+        </button>
 
         {/* Help */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
-                <HelpCircle className="h-5 w-5 text-muted-foreground" />
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100">
+                <HelpCircle className="h-[18px] w-[18px]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Help & Documentation</TooltipContent>
@@ -130,20 +127,26 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-              <Bell className="h-5 w-5 text-muted-foreground" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full relative text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
+              aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+            >
+              <Bell className="h-[18px] w-[18px]" />
               {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-destructive text-destructive-foreground text-[10px] rounded-full flex items-center justify-center font-medium">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
+                <span className="absolute top-1.5 right-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-neutral-50" />
               )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel className="flex items-center justify-between">
-              <span>Notifications</span>
+              <span>
+                Notifications
+                {unreadCount > 0 && <span className="ml-1.5 text-xs font-normal text-neutral-500">{unreadCount > 99 ? "99+" : unreadCount} new</span>}
+              </span>
               {unreadCount > 0 && (
-                <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" onClick={markAllAsRead}>
+                <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-gold-deep hover:text-gold-deep hover:bg-transparent" onClick={markAllAsRead}>
                   Mark all read
                 </Button>
               )}
@@ -169,7 +172,7 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
                         {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                       </p>
                     </div>
-                    {!notification.read && <div className="h-2 w-2 bg-primary rounded-full mt-1.5" />}
+                    {!notification.read && <div className="h-2 w-2 bg-gold rounded-full mt-1.5" />}
                   </DropdownMenuItem>
                 ))
               )}
@@ -180,11 +183,11 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
         {/* Admin Profile */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-9 gap-2 px-2">
-              <Avatar className="h-7 w-7">
-                <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">AD</AvatarFallback>
+            <Button variant="ghost" className="h-10 gap-1.5 pl-1 pr-2 rounded-full hover:bg-neutral-100" aria-label="Admin account">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-neutral-200 text-neutral-900 text-xs font-semibold">AD</AvatarFallback>
               </Avatar>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 text-neutral-500" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
