@@ -54,7 +54,7 @@ export function KeyboardShortcuts() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
         </DialogHeader>
@@ -64,7 +64,7 @@ export function KeyboardShortcuts() {
               <h4 className="text-sm font-medium text-muted-foreground mb-3">{section.category}</h4>
               <div className="space-y-2">
                 {section.items.map((shortcut, index) => (
-                  <div key={index} className="flex items-center justify-between">
+                  <div key={index} className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-sm">{shortcut.description}</span>
                     <div className="flex items-center gap-1">
                       {shortcut.keys.map((key, keyIndex) => (

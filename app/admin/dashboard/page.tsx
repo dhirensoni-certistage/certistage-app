@@ -123,13 +123,13 @@ export default function DashboardPage() {
   return (
     <>
       <AdminHeader title="Dashboard" description="Overview of your e-certificate platform" />
-      <div className="flex-1 overflow-auto px-6 pb-6 pt-1">
+      <div className="flex-1 overflow-auto px-4 sm:px-6 pb-6 pt-1">
         <div className="space-y-5">
 
           {/* Action Required */}
           {actionItems.length > 0 && (
             <section className="rounded-xl border border-amber-200 bg-amber-50/50 p-5">
-              <div className="flex items-center justify-between gap-4 mb-4">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-amber-600" />
                   <h2 className="text-[15px] font-semibold text-neutral-900">Action Required</h2>
@@ -144,7 +144,7 @@ export default function DashboardPage() {
               </div>
               <div className="space-y-2">
                 {actionItems.slice(0, 5).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-3 p-3 bg-white rounded-lg border border-neutral-200">
+                  <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-3 bg-white rounded-lg border border-neutral-200">
                     <div className="flex items-center gap-3 min-w-0">
                       {getActionIcon(item.type)}
                       <div className="min-w-0">

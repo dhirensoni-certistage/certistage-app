@@ -60,7 +60,7 @@ export function CreateEventDialog({ open, onOpenChange, onCreated }: { open: boo
   }
 
   return <Dialog open={open} onOpenChange={value => { if (!creating) onOpenChange(value) }}>
-    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[520px]">
+    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[520px] p-4 sm:p-6">
       <DialogHeader><DialogTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-gold-deep" />Create Event</DialogTitle><DialogDescription>Create an event for a registered user. Their plan’s event limit applies.</DialogDescription></DialogHeader>
       <form onSubmit={create} className="space-y-5">
         <div className="space-y-2"><Label htmlFor="event-name">Event name <span className="text-red-500">*</span></Label><Input id="event-name" placeholder="e.g. Global Tech Summit 2026" value={name} onChange={event => setName(event.target.value)} maxLength={200} required disabled={creating} /></div>

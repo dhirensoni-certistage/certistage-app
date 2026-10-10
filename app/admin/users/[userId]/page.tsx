@@ -163,10 +163,10 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
     return (
       <>
         <AdminHeader title="User Details" description="Loading..." />
-        <div className="flex-1 overflow-auto p-6">
+        <div className="min-w-0 flex-1 overflow-auto p-4 sm:p-6">
           <div className="max-w-4xl mx-auto space-y-6">
             <Skeleton className="h-48 w-full" />
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {[1,2,3].map(i => <Skeleton key={i} className="h-24" />)}
             </div>
             <Skeleton className="h-64 w-full" />
@@ -193,7 +193,7 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
   return (
     <>
       <AdminHeader title={user.name} description={user.email} />
-      <div className="flex-1 overflow-auto p-6">
+      <div className="min-w-0 flex-1 overflow-auto p-4 sm:p-6">
         <div className="max-w-4xl mx-auto space-y-6">
           <Breadcrumbs items={[
             { label: "Users", href: "/admin/users" },
@@ -202,17 +202,17 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
 
           {/* User Profile Card */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <CardHeader className="flex flex-col items-start gap-4 pb-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-4">
+                <div className="h-12 w-12 sm:h-16 sm:w-16 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
                   <span className="text-2xl font-bold text-primary">
                     {user.name.substring(0, 2).toUpperCase()}
                   </span>
                 </div>
-                <div>
-                  <CardTitle className="text-xl">{user.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">{user.email}</p>
-                  <div className="flex items-center gap-2 mt-1">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="break-words text-xl">{user.name}</CardTitle>
+                  <p className="break-words text-sm text-muted-foreground">{user.email}</p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
                     <Select value={user.plan} onValueChange={handlePlanChange}>
                       <SelectTrigger className="w-[140px] h-7">
                         <SelectValue />
@@ -234,7 +234,7 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
               <UserStatusToggle userId={user._id} isActive={user.isActive} onStatusChange={handleStatusChange} />
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                 <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
                   <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="text-sm truncate">{user.email}</span>
@@ -260,8 +260,8 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
               {/* Add-on certificate emails (sold manually until in-app purchase exists) */}
               <div className="mt-6 pt-6 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <p className="font-medium">Add-on emails</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="break-words font-medium">Add-on emails</p>
+                  <p className="break-words text-sm text-muted-foreground">
                     {(user.emailCredits || 0).toLocaleString("en-IN")} left · used after the plan&apos;s emails · never expire
                     {user.emailUsage?.sent ? ` · ${user.emailUsage.sent.toLocaleString("en-IN")} plan emails used this period` : ""}
                   </p>
@@ -280,10 +280,10 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
 
               {/* Delete User Section */}
               <div className="mt-6 pt-6 border-t">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="font-medium text-destructive">Danger Zone</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="break-words text-sm text-muted-foreground">
                       Delete this user and all their data permanently
                     </p>
                   </div>
@@ -294,7 +294,7 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
                         Delete User
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent>
+                    <AlertDialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
                       <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
                           <AlertTriangle className="h-5 w-5 text-destructive" />
@@ -331,10 +331,10 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
           </Card>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <Calendar className="h-8 w-8 text-blue-600" />
                   <div>
                     <p className="text-2xl font-bold text-blue-600">{stats.totalEvents}</p>
@@ -345,7 +345,7 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
             </Card>
             <Card className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <FileText className="h-8 w-8 text-purple-600" />
                   <div>
                     <p className="text-2xl font-bold text-purple-600">{stats.totalCertificates}</p>
@@ -356,7 +356,7 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
             </Card>
             <Card className="bg-neutral-50 dark:bg-neutral-900/20 border-neutral-200 dark:border-neutral-800">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <Users className="h-8 w-8 text-neutral-600" />
                   <div>
                     <p className="text-2xl font-bold text-neutral-600">{stats.totalRecipients}</p>
@@ -370,8 +370,8 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
           {/* Events */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Events</CardTitle>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle className="break-words">Events</CardTitle>
                 <Badge variant="secondary">{events.length} events</Badge>
               </div>
             </CardHeader>
@@ -383,16 +383,16 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
                   {events.map((event) => (
                     <div 
                       key={event._id} 
-                      className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border cursor-pointer hover:bg-muted/70 transition-colors"
+                      className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg bg-muted/50 border cursor-pointer hover:bg-muted/70 transition-colors"
                       onClick={() => router.push(`/admin/events/${event._id}`)}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="h-10 w-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">
                           <Calendar className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium">{event.name}</p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="break-words font-medium">{event.name}</p>
+                          <p className="break-words text-sm text-muted-foreground">
                             {event.certificateTypesCount} types | {event.recipientsCount} recipients
                           </p>
                         </div>
@@ -413,8 +413,8 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
           {/* Payments */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Payment History</CardTitle>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle className="break-words">Payment History</CardTitle>
                 <Badge variant="secondary">{payments.length} payments</Badge>
               </div>
             </CardHeader>
@@ -424,9 +424,9 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
               ) : (
                 <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2">
                   {payments.map((payment) => (
-                    <div key={payment._id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border">
-                      <div className="flex items-center gap-3">
-                        <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+                    <div key={payment._id} className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg bg-muted/50 border">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className={`h-10 w-10 shrink-0 rounded-lg flex items-center justify-center ${
                           payment.status === "success" ? "bg-neutral-500/10" : "bg-yellow-500/10"
                         }`}>
                           <CreditCard className={`h-5 w-5 ${
@@ -435,14 +435,14 @@ export default function UserDetailsPage({ params }: { params: Promise<{ userId: 
                         </div>
                         <div>
                           <p className="font-medium capitalize">{payment.plan} Plan</p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="break-words text-sm text-muted-foreground">
                             {new Date(payment.createdAt).toLocaleDateString("en-IN", {
                               day: "numeric", month: "short", year: "numeric"
                             })}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
                         <p className="font-bold text-lg">₹{(payment.amount / 100).toLocaleString()}</p>
                         <Badge variant={payment.status === "success" ? "default" : payment.status === "pending" ? "secondary" : "destructive"}>
                           {payment.status}

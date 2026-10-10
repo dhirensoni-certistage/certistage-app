@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
 import { CommandPalette } from "@/components/admin/command-palette"
 import { KeyboardShortcuts } from "@/components/admin/keyboard-shortcuts"
+import { AdminNavigationProvider } from "@/components/admin/admin-navigation"
 
 // Page title mapping
 const pageTitles: Record<string, string> = {
@@ -82,11 +83,11 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="flex h-screen bg-neutral-50 overflow-hidden">
+    <AdminNavigationProvider><div className="flex h-dvh bg-neutral-50 overflow-hidden">
       <CommandPalette />
       <KeyboardShortcuts />
       <AdminSidebar />
       <main className="flex-1 min-w-0 flex flex-col overflow-y-auto scrollbar-minimal">{children}</main>
-    </div>
+    </div></AdminNavigationProvider>
   )
 }

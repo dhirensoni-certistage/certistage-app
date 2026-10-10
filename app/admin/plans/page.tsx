@@ -295,7 +295,7 @@ export default function AdminPlansPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
               {sortedPlans.map((plan) => {
                 const accent = ACCENT_PALETTE[0]
                 const features = plan.features || []
@@ -314,10 +314,10 @@ export default function AdminPlansPage() {
                   >
                     <div className="h-1 w-full" style={{ backgroundColor: accent }} />
                     <CardHeader className="space-y-3 pt-5">
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <CardTitle className="text-lg">{plan.name}</CardTitle>
+                            <CardTitle className="break-words text-lg">{plan.name}</CardTitle>
                             {plan.badge && <Badge variant="secondary">{plan.badge}</Badge>}
                             {plan.highlight && (
                               <Badge variant="outline" className="gap-1 border-gold/20 bg-gold-soft text-gold-deep">
@@ -345,7 +345,7 @@ export default function AdminPlansPage() {
                           </Button>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                           <div className="text-3xl font-semibold">
                             {formatPrice(plan.price, plan.currency || "INR")}
@@ -498,7 +498,7 @@ export default function AdminPlansPage() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={handleDialogChange}>
-        <DialogContent className="w-[96vw] max-w-[calc(100%-1rem)] sm:max-w-6xl max-h-[92vh] overflow-y-auto">
+        <DialogContent className="w-[96vw] max-w-[calc(100%-1rem)] sm:max-w-6xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit Plan" : "Add New Plan"}</DialogTitle>
             <DialogDescription>Configure pricing, limits, and features for this plan.</DialogDescription>

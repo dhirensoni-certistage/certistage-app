@@ -18,6 +18,8 @@ import {
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { useState, useEffect } from "react"
+import { useAdminNavigation } from "@/components/admin/admin-navigation"
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { LogoutConfirmation } from "@/components/admin/logout-confirmation"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -45,7 +47,8 @@ export function AdminSidebar() {
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [collapsedPreference, setCollapsedState] = useState(false)
   const [compactViewport, setCompactViewport] = useState(false)
-  const collapsed = collapsedPreference || compactViewport
+  const { mobileOpen, setMobileOpen } = useAdminNavigation()
+  const collapsed = collapsedPreference && !compactViewport
   const [counts, setCounts] = useState<SidebarCounts>({ pendingPayments: 0, newUsersToday: 0, activeEvents: 0, openTickets: 0 })
 
   const setCollapsed = (value: boolean) => {
@@ -88,125 +91,44 @@ export function AdminSidebar() {
     return pathname.startsWith(href)
   }
 
+  const sidebarContent = <>
+    <div className={cn("flex h-16 shrink-0 items-center gap-2.5 border-b border-neutral-200", collapsed ? "justify-center px-0" : compactViewport ? "px-4 pr-10" : "px-4")}>
+      <Link href="/admin/dashboard" onClick={() => setMobileOpen(false)} className={cn("flex min-w-0 items-center gap-2.5", !collapsed && "flex-1")}>
+        <Image src="/Certistage_icon.svg" alt="CertiStage" width={32} height={32} className="shrink-0" />
+        {!collapsed && <span className="flex min-w-0 flex-col"><span className="truncate text-[15px] font-semibold text-neutral-900">CertiStage</span><span className="text-xs text-neutral-500">Admin Panel</span></span>}
+      </Link>
+      {!compactViewport && !collapsed && <button type="button" aria-label="Collapse sidebar" onClick={() => setCollapsed(true)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100"><ChevronLeft className="h-4 w-4" /></button>}
+    </div>
+    <nav aria-label="Admin pages" className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4 scrollbar-minimal">
+      {navigationItems.map(item => {
+        const active = isActive(item.href)
+        const Icon = item.icon
+        const count = item.countKey ? counts[item.countKey] : 0
+        return <Tooltip key={item.href}><TooltipTrigger asChild><Link href={item.href} aria-label={item.name} aria-current={active ? "page" : undefined} onClick={() => setMobileOpen(false)} className={cn("relative flex h-11 items-center gap-3 rounded-md text-[13.5px] transition-colors", collapsed ? "mx-auto w-10 justify-center" : "px-3", active ? "bg-gold-soft font-medium text-gold-deep" : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900")}>
+          {active && <span className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gold" />}
+          <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={active ? 2 : 1.75} />
+          {!collapsed && <span className="flex-1 truncate">{item.name}</span>}
+          {count > 0 && <span className={cn("flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] text-white",collapsed ? "absolute -right-1 top-0 h-4" : "h-5")}>{count > 99 ? "99+" : count}</span>}
+        </Link></TooltipTrigger>{collapsed && <TooltipContent side="right" sideOffset={12}>{item.name}</TooltipContent>}</Tooltip>
+      })}
+    </nav>
+    <div className="shrink-0 space-y-1 border-t border-neutral-200 p-3">
+      {collapsed && !compactViewport && <button type="button" aria-label="Expand sidebar" onClick={() => setCollapsed(false)} className="flex h-10 w-full items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-50"><ChevronLeft className="h-4 w-4 rotate-180" /></button>}
+      <button type="button" aria-label="Logout" onClick={() => { setMobileOpen(false); setLogoutOpen(true) }} className={cn("flex h-11 w-full items-center gap-3 rounded-md text-[13.5px] text-neutral-600 hover:bg-neutral-50", collapsed ? "justify-center" : "px-3")}><LogOut className="h-[18px] w-[18px] shrink-0" />{!collapsed && <span>Logout</span>}</button>
+    </div>
+  </>
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "h-screen shrink-0 bg-white border-r border-neutral-200 flex flex-col transition-all duration-200 ease-in-out",
+          "hidden h-dvh shrink-0 bg-white border-r border-neutral-200 md:flex flex-col transition-all duration-200 ease-in-out",
           collapsed ? "w-[72px]" : "w-[260px]"
         )}
       >
-        {/* Brand */}
-        <div className={cn("h-16 flex items-center border-b border-neutral-200 shrink-0", collapsed ? "justify-center" : "px-4 gap-2.5")}>
-          <Link href="/admin/dashboard" className="flex items-center gap-2.5 min-w-0 flex-1">
-            <Image src="/Certistage_icon.svg" alt="CertiStage" width={32} height={32} className="shrink-0" />
-            {!collapsed && (
-              <span className="flex flex-col min-w-0">
-                <span className="font-semibold text-[15px] text-neutral-900 truncate leading-tight">CertiStage</span>
-                <span className="text-[11.5px] text-neutral-500 leading-tight">Admin Panel</span>
-              </span>
-            )}
-          </Link>
-          {!collapsed && (
-            <button
-              type="button"
-              onClick={() => setCollapsed(true)}
-              aria-label="Collapse sidebar"
-              title="Collapse sidebar"
-              className="h-8 w-8 -mr-1 rounded-md flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Navigation */}
-        <nav className={cn("flex-1 overflow-y-auto scrollbar-minimal px-3 py-4", collapsed ? "space-y-1.5" : "space-y-1")}>
-          {navigationItems.map((item) => {
-            const active = isActive(item.href)
-            const Icon = item.icon
-            const count = item.countKey ? counts[item.countKey] : 0
-
-            return (
-              <Tooltip key={item.href}>
-                <TooltipTrigger asChild>
-                  <Link
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "relative flex items-center gap-3 rounded-md text-[13.5px] transition-colors",
-                      collapsed ? "justify-center h-10 w-10 mx-auto" : "h-10 px-3",
-                      active
-                        ? "bg-neutral-100 text-neutral-900 font-medium"
-                        : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50"
-                    )}
-                  >
-                    {active && (
-                      <span className="absolute -left-3 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-gold" />
-                    )}
-                    <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-neutral-900" : "text-neutral-500")} strokeWidth={active ? 2 : 1.75} />
-                    {!collapsed && (
-                      <>
-                        <span className="flex-1 truncate">{item.name}</span>
-                        {count > 0 && (
-                          <span className="h-5 min-w-[20px] px-1.5 rounded-full bg-red-500 text-white text-[11px] font-medium flex items-center justify-center">
-                            {count > 99 ? "99+" : count}
-                          </span>
-                        )}
-                      </>
-                    )}
-                    {collapsed && count > 0 && (
-                      <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
-                        {count > 9 ? "9+" : count}
-                      </span>
-                    )}
-                  </Link>
-                </TooltipTrigger>
-                {collapsed && (
-                  <TooltipContent side="right" sideOffset={12}>
-                    {item.name}{count > 0 ? ` (${count})` : ""}
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            )
-          })}
-        </nav>
-
-        {/* Footer Actions */}
-        <div className={cn("p-3 border-t border-neutral-200 space-y-1", collapsed && "flex flex-col items-center")}>
-          {collapsed && !compactViewport && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => setCollapsed(false)}
-                  aria-label="Expand sidebar"
-                  className="h-10 w-10 rounded-md flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 transition-colors"
-                >
-                  <ChevronLeft className="h-4 w-4 rotate-180" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={12}>Expand</TooltipContent>
-            </Tooltip>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label="Logout" onClick={() => setLogoutOpen(true)}
-                className={cn(
-                  "flex items-center rounded-md text-[13.5px] text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 transition-colors",
-                  collapsed ? "h-10 w-10 justify-center" : "h-10 w-full gap-3 px-3"
-                )}
-              >
-                <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
-                {!collapsed && <span>Logout</span>}
-              </button>
-            </TooltipTrigger>
-            {collapsed && <TooltipContent side="right" sideOffset={12}>Logout</TooltipContent>}
-          </Tooltip>
-        </div>
+        {sidebarContent}
       </aside>
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}><SheetContent side="left" className="w-[280px] max-w-[85vw] gap-0 p-0"><SheetTitle className="sr-only">Admin navigation</SheetTitle><SheetDescription className="sr-only">Navigate between CertiStage admin pages.</SheetDescription>{sidebarContent}</SheetContent></Sheet>
       <LogoutConfirmation open={logoutOpen} onOpenChange={setLogoutOpen} />
     </TooltipProvider>
   )

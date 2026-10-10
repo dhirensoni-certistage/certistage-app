@@ -32,7 +32,7 @@ export function LogoutConfirmation({ open, onOpenChange }: { open: boolean; onOp
   }
 
   return <Dialog open={open} onOpenChange={value => { if (!pending.current) onOpenChange(value) }}>
-    <DialogContent className="sm:max-w-md" showCloseButton={!loading}>
+    <DialogContent className="sm:max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6" showCloseButton={!loading}>
       <DialogHeader>
         <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-gold-soft text-gold-deep"><LogOut className="h-5 w-5" /></div>
         <DialogTitle>Confirm logout</DialogTitle>

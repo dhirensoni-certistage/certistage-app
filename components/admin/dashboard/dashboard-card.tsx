@@ -12,7 +12,7 @@ interface DashboardCardProps {
 export function DashboardCard({ title, description, action, className, contentClassName, children }: DashboardCardProps) {
   return (
     <section className={cn("rounded-xl border border-neutral-200 bg-white flex flex-col min-w-0", className)}>
-      <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-4">
+      <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5 pb-4">
         <div className="min-w-0">
           <h2 className="text-[15px] font-semibold text-neutral-900">{title}</h2>
           {description && <p className="text-[13px] text-neutral-500 mt-0.5">{description}</p>}

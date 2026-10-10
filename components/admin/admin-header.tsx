@@ -20,7 +20,8 @@ import { cn } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
 import { toast } from "sonner"
 import Link from "next/link"
-import { Home } from "lucide-react"
+import { Home, Menu } from "lucide-react"
+import { useAdminNavigation } from "@/components/admin/admin-navigation"
 import { LogoutConfirmation } from "@/components/admin/logout-confirmation"
 
 interface Notification {
@@ -40,6 +41,7 @@ interface AdminHeaderProps {
 
 export function AdminHeader({ title, description, compact = false }: AdminHeaderProps) {
   const router = useRouter()
+  const { mobileOpen, setMobileOpen } = useAdminNavigation()
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -105,17 +107,20 @@ export function AdminHeader({ title, description, compact = false }: AdminHeader
   }
 
   return (
-    <header className="sticky top-0 z-40 bg-neutral-50/85 backdrop-blur-sm px-6 py-4 flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 shrink-0 bg-neutral-50/85 backdrop-blur-sm px-3 py-3 sm:px-6 sm:py-4 flex items-center justify-between gap-2 sm:gap-4">
+      <div className="flex min-w-0 items-center gap-2">
+        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 md:hidden" aria-label="Open admin navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}><Menu className="h-5 w-5" /></Button>
       <div className="min-w-0">
         {compact ? (
           <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[13px]">
             <Link href="/admin/dashboard" aria-label="Admin dashboard" className="text-neutral-400 hover:text-neutral-700"><Home className="h-3.5 w-3.5" /></Link>
-            <span className="text-neutral-400">/</span><span className="font-medium text-neutral-700" aria-current="page">{title}</span>
+            <span className="text-neutral-400">/</span><span className="truncate font-medium text-neutral-700" aria-current="page">{title}</span>
           </nav>
         ) : (
-          <><h1 className="text-2xl font-semibold tracking-tight text-neutral-900 truncate">{title}</h1>
+          <><h1 className="text-lg sm:text-2xl font-semibold tracking-tight text-neutral-900 truncate">{title}</h1>
           {description && <p className="text-sm text-neutral-500 mt-0.5 truncate">{description}</p>}</>
         )}
+      </div>
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
@@ -123,7 +128,7 @@ export function AdminHeader({ title, description, compact = false }: AdminHeader
         <button
           type="button"
           onClick={openCommandPalette}
-          className="hidden md:flex items-center gap-2 h-10 w-72 rounded-lg border border-neutral-200 bg-white pl-3 pr-2 text-left text-[13px] text-neutral-400 hover:border-neutral-300 transition-colors mr-2"
+          className="hidden xl:flex items-center gap-2 h-10 w-72 rounded-lg border border-neutral-200 bg-white pl-3 pr-2 text-left text-[13px] text-neutral-400 hover:border-neutral-300 transition-colors mr-2"
         >
           <Search className="h-4 w-4 text-neutral-500 shrink-0" />
           <span className="flex-1 truncate">Search users, events or payments...</span>
@@ -131,12 +136,13 @@ export function AdminHeader({ title, description, compact = false }: AdminHeader
             Ctrl + K
           </kbd>
         </button>
+        <Button variant="ghost" size="icon" className="h-10 w-10 xl:hidden" aria-label="Search admin" onClick={openCommandPalette}><Search className="h-4 w-4" /></Button>
 
         {/* Help */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100">
+              <Button variant="ghost" size="icon" className="hidden sm:inline-flex h-9 w-9 rounded-full text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100">
                 <HelpCircle className="h-[18px] w-[18px]" />
               </Button>
             </TooltipTrigger>
@@ -159,7 +165,7 @@ export function AdminHeader({ title, description, compact = false }: AdminHeader
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
+          <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-1rem)]">
             <DropdownMenuLabel className="flex items-center justify-between">
               <span>
                 Notifications

@@ -47,10 +47,10 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
     return (
       <>
         <AdminHeader title="Event Details" description="Loading..." />
-        <div className="flex-1 overflow-auto p-6">
+        <div className="min-w-0 flex-1 overflow-auto p-4 sm:p-6">
           <div className="max-w-4xl mx-auto space-y-6">
             <Skeleton className="h-48 w-full" />
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
               {[1,2,3,4].map(i => <Skeleton key={i} className="h-24" />)}
             </div>
             <Skeleton className="h-64 w-full" />
@@ -77,7 +77,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
   return (
     <>
       <AdminHeader title={event.name} description={event.description || "Event details"} />
-      <div className="flex-1 overflow-auto p-6">
+      <div className="min-w-0 flex-1 overflow-auto p-4 sm:p-6">
         <div className="max-w-4xl mx-auto space-y-6">
           <Breadcrumbs items={[
             { label: "Events", href: "/admin/events" },
@@ -86,14 +86,14 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
 
           {/* Event Info Card */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+            <CardHeader className="flex flex-col items-start gap-4 pb-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="h-12 w-12 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">
                   <Calendar className="h-6 w-6 text-primary" />
                 </div>
-                <div>
-                  <CardTitle>{event.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="break-words">{event.name}</CardTitle>
+                  <p className="break-words text-sm text-muted-foreground">
                     Created {new Date(event.createdAt).toLocaleDateString("en-IN", { 
                       day: "numeric", month: "long", year: "numeric" 
                     })}
@@ -104,14 +104,14 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
             </CardHeader>
             <CardContent>
               {owner && (
-                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border mt-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-muted/50 rounded-lg border mt-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="h-10 w-10 shrink-0 rounded-full bg-blue-500/10 flex items-center justify-center">
                       <User className="h-5 w-5 text-blue-500" />
                     </div>
-                    <div>
-                      <p className="font-medium">{owner.name}</p>
-                      <p className="text-sm text-muted-foreground">{owner.email}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words font-medium">{owner.name}</p>
+                      <p className="break-words text-sm text-muted-foreground">{owner.email}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -133,10 +133,10 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
           </Card>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <FileText className="h-8 w-8 text-blue-600" />
                   <div>
                     <p className="text-2xl font-bold text-blue-600">{stats.totalCertificateTypes}</p>
@@ -147,7 +147,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
             </Card>
             <Card className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <Users className="h-8 w-8 text-purple-600" />
                   <div>
                     <p className="text-2xl font-bold text-purple-600">{stats.totalRecipients}</p>
@@ -158,7 +158,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
             </Card>
             <Card className="bg-neutral-50 dark:bg-neutral-900/20 border-neutral-200 dark:border-neutral-800">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <Download className="h-8 w-8 text-neutral-600" />
                   <div>
                     <p className="text-2xl font-bold text-neutral-600">{stats.totalDownloaded}</p>
@@ -169,7 +169,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
             </Card>
             <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <Award className="h-8 w-8 text-amber-600" />
                   <div>
                     <p className="text-2xl font-bold text-amber-600">{stats.downloadRate}%</p>
@@ -183,8 +183,8 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
           {/* Certificate Types */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Certificate Types</CardTitle>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle className="break-words">Certificate Types</CardTitle>
                 <Badge variant="secondary">{certificateTypes.length} types</Badge>
               </div>
             </CardHeader>
@@ -199,14 +199,14 @@ export default function EventDetailsPage({ params }: { params: Promise<{ eventId
                       : 0
                     
                     return (
-                      <div key={ct._id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <div key={ct._id} className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg bg-muted/50 border">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="h-10 w-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">
                             <Award className="h-5 w-5 text-primary" />
                           </div>
-                          <div>
-                            <p className="font-medium">{ct.name}</p>
-                            <p className="text-sm text-muted-foreground">
+                          <div className="min-w-0 flex-1">
+                            <p className="break-words font-medium">{ct.name}</p>
+                            <p className="break-words text-sm text-muted-foreground">
                               {ct.recipientsCount} recipients | {ct.downloadedCount} downloaded ({downloadPercent}%)
                             </p>
                           </div>

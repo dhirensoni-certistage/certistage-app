@@ -170,7 +170,7 @@ export function DataTable<T extends object>({
     <div className="space-y-4">
       {/* Bulk Actions Bar */}
       {selectable && selectedIds.size > 0 && bulkActions.length > 0 && (
-        <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
+        <div className="flex flex-wrap items-center gap-3 p-3 bg-white rounded-xl border border-neutral-200">
           <span className="text-sm font-medium">{selectedIds.size} selected</span>
           <div className="flex-1" />
           {bulkActions.map((action, index) => (
@@ -252,13 +252,13 @@ export function DataTable<T extends object>({
       </div>
 
       {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
             Showing {((pagination.page - 1) * pagination.limit) + 1} to{" "}
             {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
             {pagination.total} results
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => onPageChange?.(pagination.page - 1)} disabled={pagination.page <= 1}>
               <ChevronLeft className="h-4 w-4" />
               Previous

@@ -180,7 +180,7 @@ export function CommandPalette() {
                 onSelect={() => handleSelect(() => router.push(`/admin/users/${user._id}`))}
               >
                 <User className="mr-2 h-4 w-4" />
-                <div className="flex-1">
+                <div className="min-w-0 flex-1 break-words">
                   <span>{user.name}</span>
                   <span className="text-muted-foreground ml-2 text-xs">{user.email}</span>
                 </div>
@@ -198,7 +198,7 @@ export function CommandPalette() {
                 onSelect={() => handleSelect(() => router.push(`/admin/events/${event._id}`))}
               >
                 <Calendar className="mr-2 h-4 w-4" />
-                <div className="flex-1">
+                <div className="min-w-0 flex-1 break-words">
                   <span>{event.name}</span>
                   <span className="text-muted-foreground ml-2 text-xs">by {event.userName}</span>
                 </div>
@@ -216,7 +216,7 @@ export function CommandPalette() {
                 onSelect={() => handleSelect(() => router.push("/admin/revenue"))}
               >
                 <CreditCard className="mr-2 h-4 w-4" />
-                <div className="flex-1">
+                <div className="min-w-0 flex-1 break-words">
                   <span>{payment.userName}</span>
                   <span className="text-muted-foreground ml-2 text-xs">₹{payment.amount}</span>
                 </div>

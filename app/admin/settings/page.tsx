@@ -373,11 +373,11 @@ export default function AdminSettingsPage() {
         <div className="max-w-[1400px] mx-auto space-y-6">
           <div><h1 className="text-3xl font-semibold tracking-tight">Settings</h1><p className="mt-1 text-sm text-muted-foreground">Manage payment configuration, admin access and platform operations.</p></div>
           <Tabs defaultValue="payments" className="space-y-6">
-            <TabsList className="grid h-auto w-full grid-cols-2 gap-1 border bg-white p-1 md:w-fit md:grid-cols-4">
-              <TabsTrigger value="payments" className="gap-2 px-4 py-2.5 data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep"><CreditCard className="h-4 w-4"/>Payments</TabsTrigger>
-              <TabsTrigger value="admins" className="gap-2 px-4 py-2.5 data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep"><UserCog className="h-4 w-4"/>Admin Access</TabsTrigger>
-              <TabsTrigger value="system" className="gap-2 px-4 py-2.5 data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep"><Server className="h-4 w-4"/>System Health</TabsTrigger>
-              <TabsTrigger value="data" className="gap-2 px-4 py-2.5 data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep"><DatabaseBackup className="h-4 w-4"/>Backups & Data</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-2 gap-1 border bg-white p-1 xl:w-fit xl:grid-cols-4">
+              <TabsTrigger value="payments" className="gap-1.5 px-2 py-2.5 text-xs sm:gap-2 sm:px-4 sm:text-sm data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep"><CreditCard className="h-4 w-4"/>Payments</TabsTrigger>
+              <TabsTrigger value="admins" className="gap-1.5 px-2 py-2.5 text-xs sm:gap-2 sm:px-4 sm:text-sm data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep"><UserCog className="h-4 w-4"/>Admin Access</TabsTrigger>
+              <TabsTrigger value="system" className="gap-1.5 px-2 py-2.5 text-xs sm:gap-2 sm:px-4 sm:text-sm data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep"><Server className="h-4 w-4"/>System Health</TabsTrigger>
+              <TabsTrigger value="data" className="gap-1.5 px-2 py-2.5 text-xs sm:gap-2 sm:px-4 sm:text-sm data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep"><DatabaseBackup className="h-4 w-4"/>Backups & Data</TabsTrigger>
             </TabsList>
 
       <TabsContent value="system" className="space-y-5">
@@ -512,7 +512,7 @@ export default function AdminSettingsPage() {
 
       {/* Add Admin Dialog */}
       <Dialog open={showAddAdmin} onOpenChange={setShowAddAdmin}>
-        <DialogContent>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Add New Admin</DialogTitle>
             <DialogDescription>They sign in at /admin/login with this email and password, and can change the password from their Profile.</DialogDescription>
@@ -837,7 +837,7 @@ export default function AdminSettingsPage() {
 
       {/* Clear Data Dialog */}
       <Dialog open={showClearDataDialog} onOpenChange={setShowClearDataDialog}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />

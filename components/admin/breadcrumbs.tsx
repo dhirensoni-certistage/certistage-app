@@ -34,19 +34,19 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
   if (breadcrumbs.length <= 1) return null
 
   return (
-    <nav className={cn("flex items-center text-sm text-muted-foreground mb-4", className)}>
+    <nav className={cn("flex flex-wrap items-center gap-y-2 text-sm text-muted-foreground mb-4", className)}>
       <Link href="/admin/dashboard" className="hover:text-foreground transition-colors">
         <Home className="h-4 w-4" />
       </Link>
       {breadcrumbs.map((item, index) => (
-        <div key={index} className="flex items-center">
+        <div key={index} className="flex min-w-0 items-center">
           <ChevronRight className="h-4 w-4 mx-2" />
           {item.href && index < breadcrumbs.length - 1 ? (
             <Link href={item.href} className="hover:text-foreground transition-colors">
               {item.label}
             </Link>
           ) : (
-            <span className="text-foreground font-medium">{item.label}</span>
+            <span className="break-words text-foreground font-medium">{item.label}</span>
           )}
         </div>
       ))}

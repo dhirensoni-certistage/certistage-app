@@ -65,7 +65,7 @@ export function UserStatusToggle({ userId, isActive, onStatusChange }: UserStatu
       </div>
 
       <AlertDialog open={showDialog} onOpenChange={setShowDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {currentStatus ? "Deactivate User?" : "Activate User?"}
