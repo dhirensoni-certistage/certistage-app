@@ -1,202 +1,42 @@
-﻿"use client"
-
-import { useState, useEffect } from "react"
+"use client"
+import { useEffect, useState } from "react"
+import Link from "next/link"
 import { AdminHeader } from "@/components/admin/admin-header"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { 
-  UserPlus, 
-  CreditCard, 
-  Calendar, 
-  Download, 
-  RefreshCw,
-  ChevronLeft,
-  ChevronRight,
-  Activity
-} from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { UserPlus, CreditCard, CalendarDays, Download, RefreshCw, Search, RotateCcw, ChevronLeft, ChevronRight, Activity, Loader2, AlertCircle, ArrowUpRight } from "lucide-react"
+import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+import { ACTIVITY_TYPES, ACTIVITY_LABELS, activityDescription, type ActivityItem } from "@/lib/admin-activity"
+import { emailLogDate } from "@/lib/admin-email-logs"
 
-interface ActivityItem {
-  _id: string
-  type: "signup" | "payment" | "event_created" | "download"
-  description: string
-  userId?: string
-  userName?: string
-  userEmail?: string
-  metadata?: Record<string, any>
-  createdAt: string
-}
-
-const activityIcons = {
-  signup: UserPlus,
-  payment: CreditCard,
-  event_created: Calendar,
-  download: Download
-}
-
-const activityColors = {
-  signup: "bg-blue-500/10 text-blue-600",
-  payment: "bg-neutral-500/10 text-neutral-600",
-  event_created: "bg-purple-500/10 text-purple-600",
-  download: "bg-amber-500/10 text-amber-600"
-}
-
+const icons = { signup: UserPlus, payment: CreditCard, event_created: CalendarDays, download: Download }
+const tabLabels = { signup: "Signups", payment: "Payments", event_created: "Events", download: "Downloads" }
 export default function AdminActivityPage() {
-  const [activities, setActivities] = useState<ActivityItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState("all")
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-
-  useEffect(() => {
-    fetchActivities()
-  }, [filter, page])
-
-  const fetchActivities = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/admin/activity?type=${filter}&page=${page}&limit=20`)
-      if (res.ok) {
-        const data = await res.json()
-        setActivities(data.activities)
-        setTotalPages(data.totalPages)
-      }
-    } catch (error) {
-      console.error("Failed to fetch activities:", error)
-    } finally {
-      setLoading(false)
-    }
+  const [activities, setActivities] = useState<ActivityItem[]>([]); const [counts, setCounts] = useState<Record<string, number>>({})
+  const [type, setType] = useState("all"); const [search, setSearch] = useState(""); const [debounced, setDebounced] = useState(""); const [dateRange, setDateRange] = useState("all"); const [sort, setSort] = useState("newest")
+  const [page, setPage] = useState(1); const [limit, setLimit] = useState("20"); const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 })
+  const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [refresh, setRefresh] = useState(0); const [exporting, setExporting] = useState(false); const [selected, setSelected] = useState<ActivityItem | null>(null)
+  useEffect(() => { const timer = setTimeout(() => { setDebounced(search); setPage(1) }, 350); return () => clearTimeout(timer) }, [search])
+  const params = new URLSearchParams({ type, search: debounced, dateRange, sort, page: String(page), limit }).toString()
+  useEffect(() => { const controller = new AbortController(); setLoading(true); setError(""); fetch(`/api/admin/activity?${params}`, { signal: controller.signal }).then(async res => { const data = await res.json(); if (!res.ok) throw Error(data.error || "Unable to load activity"); return data }).then(data => { setActivities(data.activities); setCounts(data.counts); setPagination(data.pagination) }).catch(err => { if (!controller.signal.aborted) setError(err.message) }).finally(() => { if (!controller.signal.aborted) setLoading(false) }); return () => controller.abort() }, [params, refresh])
+  function reset() { setSearch(""); setDebounced(""); setType("all"); setDateRange("all"); setSort("newest"); setPage(1) }
+  async function exportCsv() {
+    setExporting(true)
+    try { const res = await fetch(`/api/admin/export/activity?${params}`); if (!res.ok) throw Error((await res.json()).error || "Export failed"); const url = URL.createObjectURL(await res.blob()); const anchor = document.createElement("a"); anchor.href = url; anchor.download = "platform-activity.csv"; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000) } catch (err) { toast.error(err instanceof Error ? err.message : "Export failed") } finally { setExporting(false) }
   }
-
-  const formatTime = (date: string) => {
-    const d = new Date(date)
-    const now = new Date()
-    const diff = now.getTime() - d.getTime()
-    const minutes = Math.floor(diff / 60000)
-    const hours = Math.floor(diff / 3600000)
-    const days = Math.floor(diff / 86400000)
-
-    if (minutes < 1) return "Just now"
-    if (minutes < 60) return `${minutes}m ago`
-    if (hours < 24) return `${hours}h ago`
-    if (days < 7) return `${days}d ago`
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" })
-  }
-
-  return (
-    <>
-      <AdminHeader title="Activity Log" description="Recent platform activity" />
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Filters */}
-          <div className="flex items-center justify-between">
-            <Select value={filter} onValueChange={(v) => { setFilter(v); setPage(1) }}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Activities</SelectItem>
-                <SelectItem value="signup">Signups</SelectItem>
-                <SelectItem value="payment">Payments</SelectItem>
-                <SelectItem value="event_created">Events</SelectItem>
-                <SelectItem value="download">Downloads</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline" size="sm" onClick={fetchActivities}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
-
-          {/* Activity List */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Recent Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <div key={i} className="flex items-center gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="flex-1">
-                        <Skeleton className="h-4 w-3/4 mb-2" />
-                        <Skeleton className="h-3 w-1/4" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : activities.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No activities found</p>
-              ) : (
-                <div className="space-y-4">
-                  {activities.map((activity) => {
-                    const Icon = activityIcons[activity.type] || Activity
-                    const colorClass = activityColors[activity.type] || "bg-gray-500/10 text-gray-600"
-                    
-                    return (
-                      <div key={activity._id} className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${colorClass}`}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{activity.description}</p>
-                          {activity.userEmail && (
-                            <p className="text-xs text-muted-foreground truncate">{activity.userEmail}</p>
-                          )}
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xs text-muted-foreground">{formatTime(activity.createdAt)}</p>
-                          <Badge variant="outline" className="text-[10px] capitalize mt-1">
-                            {activity.type.replace("_", " ")}
-                          </Badge>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {page} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </>
-  )
+  return <><AdminHeader title="Activity Log" compact/><main className="min-w-0 flex-1 overflow-auto bg-slate-50/40 p-4 md:p-6"><div className="mx-auto max-w-[1400px] space-y-6">
+    <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">Activity Log</h1><p className="mt-1 text-sm text-muted-foreground">Review account registrations, payment orders, events and recorded downloads.</p></div><div className="flex gap-2"><Button variant="outline" className="bg-white" disabled={loading || !!error || exporting || !pagination.total} onClick={exportCsv}>{exporting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Download className="h-4 w-4"/>}Export CSV</Button><Button variant="outline" className="border-gold/35 bg-white text-gold-deep hover:bg-gold-soft" disabled={loading} onClick={() => setRefresh(value => value + 1)}><RefreshCw className={cn("h-4 w-4",loading && "animate-spin")}/>Refresh</Button></div></div>
+    <div className="flex flex-wrap gap-2" aria-label="Filter activity type">{["all", ...ACTIVITY_TYPES].map(value => <Button key={value} variant="outline" size="sm" aria-pressed={type === value} className={cn("rounded-lg bg-white",type === value && "border-gold/35 bg-gold-soft text-gold-deep")} onClick={() => { setType(value); setPage(1) }}>{value === "all" ? "All activity" : tabLabels[value as keyof typeof tabLabels]}<span className="ml-1 text-xs opacity-65">{loading || error ? "—" : (value === "all" ? Object.values(counts).reduce((a,b) => a+b,0) : counts[value] || 0).toLocaleString("en-IN")}</span></Button>)}</div>
+    <div className="flex flex-wrap gap-3"><div className="relative min-w-[200px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground"/><Input aria-label="Search activity" className="h-10 bg-white pl-9" placeholder="Search name, email, event or order ID..." value={search} onChange={event => setSearch(event.target.value)}/></div><Select value={dateRange} onValueChange={value => { setDateRange(value); setPage(1) }}><SelectTrigger aria-label="Activity date range" className="h-10 w-[155px] bg-white"><SelectValue/></SelectTrigger><SelectContent>{[["all","All time"],["today","Today (IST)"],["week","Last 7 days"],["month","Last 30 days"]].map(([value,label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select><Select value={sort} onValueChange={value => { setSort(value); setPage(1) }}><SelectTrigger aria-label="Sort activity" className="h-10 w-[145px] bg-white"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="newest">Newest first</SelectItem><SelectItem value="oldest">Oldest first</SelectItem></SelectContent></Select><Button variant="outline" className="h-10 bg-white" onClick={reset}><RotateCcw className="h-4 w-4"/>Reset</Button></div>
+    <p className="text-xs text-muted-foreground">Counts follow your search and date filter. All timestamps are shown in IST.</p>
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white"><div className="flex items-center gap-2 border-b bg-slate-50/50 px-5 py-4"><Activity className="h-4 w-4 text-gold-deep"/><h2 className="text-sm font-semibold">Platform activity</h2></div>
+      {loading ? <div className="py-20 text-center text-sm text-muted-foreground"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-gold-deep"/>Loading activity...</div> : error ? <div className="py-16 text-center"><AlertCircle className="mx-auto mb-3 h-7 w-7 text-rose-500"/><p className="mb-3">{error}</p><Button variant="outline" onClick={() => setRefresh(value => value + 1)}>Try again</Button></div> : !activities.length ? <div className="py-16 text-center"><Activity className="mx-auto mb-3 h-7 w-7 text-gold-deep"/><p className="font-medium">No activity found</p><p className="mt-1 text-sm text-muted-foreground">Try another category or adjust your filters.</p><Button variant="ghost" className="mt-3 text-gold-deep" onClick={reset}>Clear filters</Button></div> : <div className="divide-y divide-slate-100">{activities.map(item => { const Icon = icons[item.type]; return <button key={item._id} className="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-gold-soft/25 md:gap-4 md:px-5" onClick={() => setSelected(item)}><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-soft text-gold-deep"><Icon className="h-4 w-4"/></span><span className="min-w-0 flex-1"><span className="block break-words text-sm font-medium">{activityDescription(item)}</span><span className="mt-1 block break-all text-xs text-muted-foreground">{item.userEmail || "Email not available"}</span><span className="mt-2 flex flex-wrap items-center gap-2"><Badge variant="outline" className="font-normal text-muted-foreground">{ACTIVITY_LABELS[item.type]}</Badge>{item.type === "payment" && <Badge variant="outline" className={cn("capitalize font-normal",item.metadata?.status === "failed" ? "border-rose-200 bg-rose-50 text-rose-700" : item.metadata?.status === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "bg-slate-50")}>{item.metadata?.status || "Unknown"}</Badge>}<span className="text-xs text-muted-foreground md:hidden">{emailLogDate(item.createdAt)}</span></span></span><span className="hidden shrink-0 text-right md:block"><span className="block text-xs text-muted-foreground">{emailLogDate(item.createdAt)}</span><span className="mt-2 block text-xs text-gold-deep">View details →</span></span></button> })}</div>}
+    </section>
+    <div className="flex flex-wrap items-center justify-between gap-4 text-sm"><p className="text-muted-foreground">{loading ? "Loading results…" : error ? "Results unavailable" : `Showing ${pagination.total ? (pagination.page-1)*pagination.limit+1 : 0} to ${Math.min(pagination.page*pagination.limit,pagination.total)} of ${pagination.total.toLocaleString("en-IN")} records`}</p><div className="flex flex-wrap items-center gap-2"><Select value={limit} onValueChange={value => { setLimit(value); setPage(1) }}><SelectTrigger aria-label="Rows per page" className="h-9 w-[100px] bg-white"><SelectValue/></SelectTrigger><SelectContent>{["10","20","50"].map(value => <SelectItem value={value} key={value}>{value} rows</SelectItem>)}</SelectContent></Select><Button variant="outline" size="sm" aria-label="Previous page" disabled={loading || !!error || pagination.page <= 1} onClick={() => setPage(pagination.page-1)}><ChevronLeft className="h-4 w-4"/></Button><span className="text-xs text-muted-foreground">Page {pagination.page} of {pagination.totalPages}</span><Button variant="outline" size="sm" aria-label="Next page" disabled={loading || !!error || pagination.page >= pagination.totalPages} onClick={() => setPage(pagination.page+1)}><ChevronRight className="h-4 w-4"/></Button></div></div>
+    <div className="rounded-lg border bg-white p-4 text-xs leading-relaxed text-muted-foreground">This feed is built from current platform records. Payment dates are order-creation dates; statuses reflect their current state. Downloads show each recipient’s latest recorded download, not every download action. Deleted source records are absent from this feed.</div>
+  </div></main><Dialog open={!!selected} onOpenChange={open => { if (!open) setSelected(null) }}><DialogContent className="sm:max-w-xl max-h-[90vh] overflow-auto"><DialogHeader><DialogTitle>Activity details</DialogTitle><DialogDescription>{selected ? ACTIVITY_LABELS[selected.type] : "Platform record"}</DialogDescription></DialogHeader>{selected && <div className="space-y-4"><p className="break-words font-medium">{activityDescription(selected)}</p><dl className="grid gap-4 rounded-lg border bg-slate-50 p-4 text-sm sm:grid-cols-2">{[["Name",selected.userName || "Unknown"],["Email",selected.userEmail || "—"],["Recorded (IST)",emailLogDate(selected.createdAt)],["Source record",selected.sourceId],...(selected.type === "payment" ? [["Order ID",selected.metadata?.orderId || "—"],["Current payment status",selected.metadata?.status || "—"]] : []),...(selected.type === "download" ? [["Total recorded downloads",String(selected.metadata?.downloadCount || 0)]] : [])].map(([label,value]) => <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-all">{value}</dd></div>)}</dl><div className="flex flex-wrap gap-3">{selected.userId && <Link href={`/admin/users/${selected.userId}`} className="inline-flex items-center gap-1 text-sm text-gold-deep hover:underline">View customer<ArrowUpRight className="h-4 w-4"/></Link>}{selected.eventId && <Link href={`/admin/events/${selected.eventId}`} className="inline-flex items-center gap-1 text-sm text-gold-deep hover:underline">View event<ArrowUpRight className="h-4 w-4"/></Link>}{selected.type === "payment" && <Link href="/admin/revenue" className="inline-flex items-center gap-1 text-sm text-gold-deep hover:underline">View revenue<ArrowUpRight className="h-4 w-4"/></Link>}</div></div>}</DialogContent></Dialog></>
 }
-

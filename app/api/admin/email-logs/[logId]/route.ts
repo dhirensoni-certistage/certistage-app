@@ -10,6 +10,7 @@ export async function GET(
   try {
     await connectDB()
     const { logId } = await params
+    if (!/^[a-f0-9]{24}$/i.test(logId)) return NextResponse.json({ error: "Invalid email log ID" }, { status: 400 })
 
     const log = await EmailLog.findById(logId).lean()
 
@@ -44,8 +45,10 @@ export async function DELETE(
   try {
     await connectDB()
     const { logId } = await params
+    if (!/^[a-f0-9]{24}$/i.test(logId)) return NextResponse.json({ error: "Invalid email log ID" }, { status: 400 })
 
-    await EmailLog.findByIdAndDelete(logId)
+    const deleted = await EmailLog.findByIdAndDelete(logId)
+    if (!deleted) return NextResponse.json({ error: "Email log not found" }, { status: 404 })
 
     return NextResponse.json({ success: true })
   } catch (error) {

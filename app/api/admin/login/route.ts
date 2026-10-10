@@ -4,15 +4,24 @@ import Admin from "@/models/Admin"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import { adminJwtSecret } from "@/lib/admin-auth"
+import AdminCaptcha from "@/models/AdminCaptcha"
+import { CAPTCHA_COOKIE, captchaMatches } from "@/lib/admin-captcha"
 
 export async function POST(request: NextRequest) {
   try {
     await connectDB()
 
-    const { email, password } = await request.json()
+    const body = await request.json().catch(() => null)
+    const { email, password, captchaAnswer } = body || {}
 
-    if (!email || !password) {
+    if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 })
+    }
+
+    const captchaToken = request.cookies.get(CAPTCHA_COOKIE)?.value
+    const challenge = captchaToken ? await AdminCaptcha.findOneAndDelete({ token: captchaToken, expiresAt: { $gt: new Date() } }) : null
+    if (!challenge || typeof captchaAnswer !== "string" || captchaAnswer.length > 20 || !captchaMatches(captchaToken!, captchaAnswer, challenge.answerHash)) {
+      return NextResponse.json({ error: "CAPTCHA is incorrect or expired. Please enter the new code." }, { status: 400 })
     }
 
     // Find admin

@@ -3,6 +3,8 @@ import mongoose from "mongoose"
 import connectDB from "@/lib/mongodb"
 import SupportTicket from "@/models/SupportTicket"
 import { sendEmail, emailTemplates } from "@/lib/email"
+import { supportQuery } from "@/lib/admin-support.server"
+import { parseUsersPagination } from "@/lib/admin-users-query"
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://www.certistage.com").replace(/\/$/, "")
 
@@ -13,25 +15,19 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB()
     const params = new URL(request.url).searchParams
-    const status = params.get("status") || "open"
-    const search = (params.get("search") || "").trim()
-    const page = Math.max(1, parseInt(params.get("page") || "1"))
-    const limit = Math.min(100, Math.max(1, parseInt(params.get("limit") || "25")))
-
-    const query: Record<string, unknown> = {}
-    if (status !== "all") query.status = status
-    if (search) {
-      const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")
-      query.$or = [{ number: re }, { subject: re }, { name: re }, { email: re }, { organization: re }]
-    }
-    const [tickets, total, counts] = await Promise.all([
-      SupportTicket.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+    const { page: requestedPage, limit } = parseUsersPagination(params)
+    const query = supportQuery(params)
+    const [total, counts, plans] = await Promise.all([
       SupportTicket.countDocuments(query),
-      SupportTicket.aggregate([{ $group: { _id: "$status", n: { $sum: 1 } } }])
+      SupportTicket.aggregate([{ $match: supportQuery(params, false) }, { $group: { _id: "$status", n: { $sum: 1 } } }]),
+      SupportTicket.distinct("plan"),
     ])
+    const totalPages = Math.max(1, Math.ceil(total / limit)); const page = Math.min(requestedPage, totalPages)
+    const sort: Record<string, 1 | -1> = params.get("sort") === "oldest" ? { createdAt: 1, _id: 1 } : params.get("sort") === "updated" ? { updatedAt: -1, _id: -1 } : { createdAt: -1, _id: -1 }
+    const tickets = await SupportTicket.find(query).sort(sort).skip((page - 1) * limit).limit(limit).select("number userId name email organization plan subject status lastReplyBy lastReplyAt emailSent createdAt updatedAt").lean()
     const byStatus: Record<string, number> = { open: 0, in_progress: 0, closed: 0 }
     for (const c of counts) byStatus[c._id] = c.n
-    return NextResponse.json({ tickets, total, page, limit, counts: byStatus })
+    return NextResponse.json({ tickets, total, page, limit, counts: byStatus, plans: plans.filter(Boolean).sort(), pagination: { page, limit, total, totalPages } })
   } catch (error) {
     console.error("Admin support GET error:", error)
     return NextResponse.json({ error: "Failed to load tickets" }, { status: 500 })
@@ -45,7 +41,11 @@ export async function PATCH(request: NextRequest) {
   try {
     await connectDB()
     const body = await request.json().catch(() => ({}))
-    if (!mongoose.isValidObjectId(body.id)) return NextResponse.json({ error: "Ticket ID required" }, { status: 400 })
+    if (!body || typeof body !== "object" || typeof body.id !== "string" || !/^[a-f0-9]{24}$/i.test(body.id) || !mongoose.isValidObjectId(body.id)) return NextResponse.json({ error: "Ticket ID required" }, { status: 400 })
+    if (body.status !== undefined && !["open", "in_progress", "closed"].includes(body.status)) return NextResponse.json({ error: "Invalid ticket status" }, { status: 400 })
+    if (body.adminNote !== undefined && (typeof body.adminNote !== "string" || body.adminNote.length > 2000)) return NextResponse.json({ error: "Internal notes must be at most 2,000 characters" }, { status: 400 })
+    if (body.reply !== undefined && (typeof body.reply !== "string" || !body.reply.trim() || body.reply.length > 5000)) return NextResponse.json({ error: "Reply must contain 1–5,000 characters" }, { status: 400 })
+    if (body.status === undefined && body.adminNote === undefined && body.reply === undefined) return NextResponse.json({ error: "No changes supplied" }, { status: 400 })
     const existing = await SupportTicket.findById(body.id)
     if (!existing) return NextResponse.json({ error: "Ticket not found" }, { status: 404 })
 

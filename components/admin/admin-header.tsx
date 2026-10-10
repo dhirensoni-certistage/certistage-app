@@ -21,6 +21,7 @@ import { formatDistanceToNow } from "date-fns"
 import { toast } from "sonner"
 import Link from "next/link"
 import { Home } from "lucide-react"
+import { LogoutConfirmation } from "@/components/admin/logout-confirmation"
 
 interface Notification {
   _id: string
@@ -39,6 +40,7 @@ interface AdminHeaderProps {
 
 export function AdminHeader({ title, description, compact = false }: AdminHeaderProps) {
   const router = useRouter()
+  const [logoutOpen, setLogoutOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -222,17 +224,7 @@ export function AdminHeader({ title, description, compact = false }: AdminHeader
             <DropdownMenuSeparator />
             <DropdownMenuItem 
               className="text-destructive cursor-pointer"
-              onClick={async () => {
-                try {
-                  const res = await fetch("/api/admin/logout", { method: "POST" })
-                  if (res.ok) {
-                    toast.success("Logged out successfully")
-                    router.push("/admin/login")
-                  }
-                } catch (error) {
-                  toast.error("Logout failed")
-                }
-              }}
+              onSelect={() => setLogoutOpen(true)}
             >
               <LogOut className="h-4 w-4 mr-2" />
               Logout
@@ -240,6 +232,7 @@ export function AdminHeader({ title, description, compact = false }: AdminHeader
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      <LogoutConfirmation open={logoutOpen} onOpenChange={setLogoutOpen} />
     </header>
   )
 }

@@ -1,235 +1,43 @@
 "use client"
-
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { AdminHeader } from "@/components/admin/admin-header"
-import { Breadcrumbs } from "@/components/admin/breadcrumbs"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, RefreshCw, Loader2, AlertTriangle, Send } from "lucide-react"
-import { toast } from "sonner"
+import { Search, RefreshCw, Loader2, RotateCcw, MessageSquare, ChevronLeft, ChevronRight, Eye, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { TICKET_LABELS, TICKET_STATUSES, ticketNeedsReply, type AdminTicket } from "@/lib/admin-support"
+import { emailLogDate } from "@/lib/admin-email-logs"
+import { TicketDialog } from "@/components/admin/support/ticket-dialog"
 
-interface Ticket {
-  _id: string
-  number: string
-  name: string
-  email: string
-  phone?: string
-  organization?: string
-  plan: string
-  subject: string
-  message: string
-  eventName?: string
-  pageUrl?: string
-  status: "open" | "in_progress" | "closed"
-  adminNote?: string
-  replies?: { author: "admin" | "customer"; name: string; message: string; at: string; emailSent?: boolean }[]
-  lastReplyBy?: "admin" | "customer"
-  emailSent: boolean
-  emailError?: string
-  createdAt: string
-  closedAt?: string
-}
-
-const STATUS_LABEL: Record<Ticket["status"], string> = { open: "Open", in_progress: "In progress", closed: "Closed" }
-const STATUS_CLASS: Record<Ticket["status"], string> = {
-  open: "bg-amber-50 text-amber-800 border-amber-200",
-  in_progress: "bg-blue-50 text-blue-800 border-blue-200",
-  closed: "bg-neutral-100 text-neutral-600 border-neutral-200"
-}
-const fmt = (iso: string) => new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
-
+const colors = { open: "bg-amber-50 text-amber-700", in_progress: "bg-blue-50 text-blue-700", closed: "bg-emerald-50 text-emerald-700" }
 export default function AdminSupportPage() {
-  const [tickets, setTickets] = useState<Ticket[]>([])
-  const [counts, setCounts] = useState({ open: 0, in_progress: 0, closed: 0 })
-  const [status, setStatus] = useState("open")
-  const [search, setSearch] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState<Ticket | null>(null)
-  const [note, setNote] = useState("")
-  const [reply, setReply] = useState("")
-  const [saving, setSaving] = useState(false)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({ status, search })
-      const res = await fetch(`/api/admin/support?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setTickets(data.tickets || [])
-        setCounts(data.counts || { open: 0, in_progress: 0, closed: 0 })
-      }
-    } catch {}
-    setLoading(false)
-  }, [status, search])
-
-  useEffect(() => { load() }, [load])
-
-  const update = async (id: string, patch: { status?: Ticket["status"]; adminNote?: string; reply?: string }) => {
-    setSaving(true)
-    try {
-      const res = await fetch("/api/admin/support", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...patch }) })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) { toast.error(data.error || "Could not update"); return }
-      if (patch.reply) {
-        setReply("")
-        toast[data.emailSent ? "success" : "warning"](data.emailSent ? "Reply sent to the customer by email and on their Support page" : "Reply saved on the ticket, but the email to the customer failed")
-      } else {
-        toast.success("Ticket updated")
-      }
-      setSelected(data.ticket)
-      load()
-    } catch { toast.error("Could not update") }
-    setSaving(false)
-  }
-
-  return (
-    <>
-      <AdminHeader title="Support" description="Requests sent from the customer Support page" />
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <Breadcrumbs />
-
-          <div className="grid grid-cols-3 gap-4">
-            {(["open", "in_progress", "closed"] as const).map((s) => (
-              <button key={s} type="button" onClick={() => setStatus(s)} className={cn("rounded-xl border p-4 text-left transition-colors", status === s ? "border-foreground" : "border-border hover:border-neutral-400")}>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">{STATUS_LABEL[s]}</p>
-                <p className="text-2xl font-semibold mt-1 tabular-nums">{counts[s]}</p>
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[220px] max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ticket, subject, name, email or organisation" className="pl-9" />
-            </div>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="in_progress">In progress</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-                <SelectItem value="all">All</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline" size="sm" onClick={load} disabled={loading}><RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} /> Refresh</Button>
-          </div>
-
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ticket</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Received</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading && tickets.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />Loading</TableCell></TableRow>
-                  ) : tickets.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground">No tickets here.</TableCell></TableRow>
-                  ) : tickets.map((t) => (
-                    <TableRow key={t._id} className="cursor-pointer" onClick={() => { setSelected(t); setNote(t.adminNote || ""); setReply("") }}>
-                      <TableCell className="font-mono text-xs">{t.number}</TableCell>
-                      <TableCell className="font-medium max-w-[320px] truncate">{t.subject}</TableCell>
-                      <TableCell>
-                        <div className="text-sm">{t.name || t.email}</div>
-                        <div className="text-xs text-muted-foreground">{t.organization || t.email}</div>
-                      </TableCell>
-                      <TableCell className="capitalize text-sm">{t.plan}</TableCell>
-                      <TableCell>
-                        <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium", STATUS_CLASS[t.status])}>{STATUS_LABEL[t.status]}</span>
-                        {t.lastReplyBy === "customer" && t.status !== "closed" && <span className="ml-1.5 text-[11px] text-blue-700 font-medium">customer replied</span>}
-                        {!t.emailSent && <AlertTriangle className="inline h-3.5 w-3.5 ml-1.5 text-amber-600" aria-label="Email to admin failed" />}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{fmt(t.createdAt)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      <Dialog open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null) }}>
-        <DialogContent className="sm:max-w-2xl">
-          {selected && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2"><span className="font-mono text-sm text-muted-foreground">{selected.number}</span> {selected.subject}</DialogTitle>
-                <DialogDescription>
-                  {selected.name || selected.email} · {selected.organization || "no organisation"} · {selected.plan} plan · {fmt(selected.createdAt)}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                {/* Thread: first message, then every reply */}
-                <div className="max-h-[320px] overflow-y-auto space-y-2.5 pr-1">
-                  <div className="rounded-lg border bg-muted/40 p-3.5 text-sm">
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{selected.name || selected.email} · {fmt(selected.createdAt)}</p>
-                    <p className="whitespace-pre-wrap leading-relaxed">{selected.message}</p>
-                  </div>
-                  {(selected.replies || []).map((r, i) => (
-                    <div key={i} className={cn("rounded-lg border p-3.5 text-sm", r.author === "admin" ? "bg-amber-50/60 border-amber-200" : "bg-muted/40")}>
-                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
-                        {r.author === "admin" ? "You (support)" : selected.name || "Customer"} · {fmt(r.at)}
-                        {r.author === "admin" && r.emailSent === false && <span className="ml-2 text-amber-700 normal-case tracking-normal">email failed</span>}
-                      </p>
-                      <p className="whitespace-pre-wrap leading-relaxed">{r.message}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Reply: emailed to the customer and shown on their Support page */}
-                <div className="space-y-1.5">
-                  <label className="text-xs uppercase tracking-wider text-muted-foreground">Reply to {selected.name || selected.email}</label>
-                  <Textarea rows={4} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write the answer. It goes to the customer by email and appears on their Support page." />
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs text-muted-foreground">Sent from {selected.email ? "CertiStage" : ""} with Reply-To set to the admin inbox.</p>
-                    <Button size="sm" disabled={saving || !reply.trim()} onClick={() => update(selected._id, { reply })}>
-                      <Send className="h-3.5 w-3.5 mr-1.5" /> {saving ? "Sending..." : "Send reply"}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-3 text-sm border-t pt-4">
-                  <p><span className="text-muted-foreground">Email: </span>{selected.email}</p>
-                  <p><span className="text-muted-foreground">Phone: </span>{selected.phone || "-"}</p>
-                  <p><span className="text-muted-foreground">Event: </span>{selected.eventName || "-"}</p>
-                  <p><span className="text-muted-foreground">Admin email: </span>{selected.emailSent ? "sent" : <span className="text-amber-700">failed{selected.emailError ? ` (${selected.emailError})` : ""}</span>}</p>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs uppercase tracking-wider text-muted-foreground">Internal note (not shown to the customer)</label>
-                  <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was done, or what is pending" />
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex gap-2">
-                    {(["open", "in_progress", "closed"] as const).filter((s) => s !== selected.status).map((s) => (
-                      <Button key={s} size="sm" variant={s === "closed" ? "default" : "outline"} disabled={saving} onClick={() => update(selected._id, { status: s, adminNote: note })}>
-                        Mark {STATUS_LABEL[s].toLowerCase()}
-                      </Button>
-                    ))}
-                  </div>
-                  <Button size="sm" variant="outline" disabled={saving} onClick={() => update(selected._id, { adminNote: note })}>Save note</Button>
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
-  )
+  const [tickets, setTickets] = useState<AdminTicket[]>([]); const [counts, setCounts] = useState<Record<string, number>>({ open: 0, in_progress: 0, closed: 0 })
+  const [search, setSearch] = useState(""); const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [status, setStatus] = useState("open"); const [plan, setPlan] = useState("all"); const [response, setResponse] = useState("all"); const [dateRange, setDateRange] = useState("all"); const [sort, setSort] = useState("newest")
+  const [plans, setPlans] = useState<string[]>([]); const [page, setPage] = useState(1); const [limit, setLimit] = useState("20")
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 }); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [refresh, setRefresh] = useState(0); const [selectedId, setSelectedId] = useState<string | null>(null)
+  useEffect(() => { const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 350); return () => clearTimeout(timer) }, [search])
+  const params = new URLSearchParams({ search: debouncedSearch, status, plan, response, dateRange, sort, page: String(page), limit }).toString()
+  useEffect(() => {
+    const controller = new AbortController(); setLoading(true); setError("")
+    fetch(`/api/admin/support?${params}`, { signal: controller.signal }).then(async res => { const data = await res.json(); if (!res.ok) throw Error(data.error || "Unable to load tickets"); return data }).then(data => { setTickets(data.tickets); setCounts(data.counts); setPlans(data.plans); setPagination(data.pagination) }).catch(err => { if (!controller.signal.aborted) setError(err.message) }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [params, refresh])
+  function reset() { setSearch(""); setDebouncedSearch(""); setStatus("all"); setPlan("all"); setResponse("all"); setDateRange("all"); setSort("newest"); setPage(1) }
+  return <><AdminHeader title="Support" compact/><main className="min-w-0 flex-1 overflow-auto bg-slate-50/40 p-4 md:p-6"><div className="mx-auto max-w-[1600px] space-y-6">
+    <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">Support</h1><p className="mt-1 text-sm text-muted-foreground">Manage customer requests, follow conversations and resolve issues.</p></div><Button variant="outline" className="border-gold/35 bg-white text-gold-deep hover:bg-gold-soft" disabled={loading} onClick={() => setRefresh(value => value + 1)}><RefreshCw className={cn("h-4 w-4", loading && "animate-spin")}/>Refresh</Button></div>
+    <div className="flex flex-wrap gap-2" aria-label="Filter tickets by status">{["all", ...TICKET_STATUSES].map(value => <Button variant="outline" size="sm" key={value} aria-pressed={status === value} className={cn("rounded-lg bg-white", status === value && "border-gold/35 bg-gold-soft text-gold-deep")} onClick={() => { setStatus(value); setPage(1) }}>{value === "all" ? "All tickets" : TICKET_LABELS[value as keyof typeof TICKET_LABELS]}<span className="ml-1 text-xs opacity-65">{loading || error ? "—" : (value === "all" ? Object.values(counts).reduce((a,b) => a+b,0) : counts[value] || 0).toLocaleString("en-IN")}</span></Button>)}</div>
+    <div className="flex flex-wrap gap-3"><div className="relative min-w-[200px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground"/><Input aria-label="Search tickets" className="h-10 bg-white pl-9" placeholder="Search ticket, subject, customer or organization..." value={search} onChange={event => setSearch(event.target.value)}/></div>
+      <Select value={response} onValueChange={value => { setResponse(value); setPage(1) }}><SelectTrigger aria-label="Response filter" className="h-10 w-[185px] bg-white"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All conversations</SelectItem><SelectItem value="awaiting">Awaiting response</SelectItem></SelectContent></Select>
+      <Select value={plan} onValueChange={value => { setPlan(value); setPage(1) }}><SelectTrigger aria-label="Customer plan" className="h-10 w-[155px] bg-white"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All plans</SelectItem>{plans.map(value => <SelectItem key={value} value={value}><span className="capitalize">{value}</span></SelectItem>)}</SelectContent></Select>
+      <Select value={dateRange} onValueChange={value => { setDateRange(value); setPage(1) }}><SelectTrigger aria-label="Created date range" className="h-10 w-[155px] bg-white"><SelectValue/></SelectTrigger><SelectContent>{[["all","All time"],["today","Today (IST)"],["week","Last 7 days"],["month","Last 30 days"]].map(([value,label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select><Button variant="outline" className="h-10 bg-white" onClick={reset}><RotateCcw className="h-4 w-4"/>Reset</Button>
+    </div><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-muted-foreground">Status counts follow your search and filters. Awaiting response includes new tickets and customer replies.</p><Select value={sort} onValueChange={value => { setSort(value); setPage(1) }}><SelectTrigger aria-label="Sort tickets" className="h-8 w-[160px] bg-white"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="newest">Newest first</SelectItem><SelectItem value="oldest">Oldest first</SelectItem><SelectItem value="updated">Recently updated</SelectItem></SelectContent></Select></div>
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white"><Table><TableHeader className="bg-slate-50/70"><TableRow><TableHead className="pl-5">Ticket</TableHead><TableHead>Subject</TableHead><TableHead>Customer</TableHead><TableHead>Plan</TableHead><TableHead>Status</TableHead><TableHead>Last activity (IST)</TableHead><TableHead className="pr-5 text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
+      {loading ? <TableRow><TableCell colSpan={7} className="h-48 text-center"><Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-gold-deep"/>Loading tickets...</TableCell></TableRow> : error ? <TableRow><TableCell colSpan={7} className="h-48 text-center"><AlertCircle className="mx-auto mb-3 h-6 w-6 text-rose-500"/><p className="mb-3">{error}</p><Button variant="outline" onClick={() => setRefresh(value => value + 1)}>Try again</Button></TableCell></TableRow> : !tickets.length ? <TableRow><TableCell colSpan={7} className="h-48 text-center"><MessageSquare className="mx-auto mb-3 h-7 w-7 text-gold-deep"/><p className="font-medium">No tickets found</p><p className="mt-1 text-sm text-muted-foreground">Try another status or adjust your filters.</p><Button variant="ghost" className="mt-2 text-gold-deep" onClick={reset}>Clear filters</Button></TableCell></TableRow> : tickets.map(ticket => <TableRow key={ticket._id} className="hover:bg-gold-soft/20"><TableCell className="pl-5"><button className="whitespace-nowrap font-mono text-xs text-gold-deep hover:underline" onClick={() => setSelectedId(ticket._id)}>{ticket.number}</button></TableCell><TableCell className="min-w-[230px] max-w-[320px]"><button className="block max-w-full truncate text-left font-medium hover:text-gold-deep" title={ticket.subject} onClick={() => setSelectedId(ticket._id)}>{ticket.subject}</button>{ticketNeedsReply(ticket) && <p className="mt-1 text-xs text-amber-700">{ticket.lastReplyBy === "customer" ? "Customer replied · Awaiting response" : "Awaiting first response"}</p>}</TableCell><TableCell className="min-w-[200px]"><p className="font-medium">{ticket.name || "Customer"}</p><p className="mt-1 text-xs text-muted-foreground">{ticket.email}</p>{ticket.organization && <p className="mt-1 text-xs text-muted-foreground">{ticket.organization}</p>}</TableCell><TableCell><Badge variant="outline" className={cn("capitalize font-normal", ticket.plan !== "free" && "border-gold/20 bg-gold-soft text-gold-deep")}>{ticket.plan}</Badge></TableCell><TableCell><Badge variant="outline" className={cn("gap-1.5 whitespace-nowrap rounded-full border-0 px-2.5 py-1",colors[ticket.status])}><span className="h-1.5 w-1.5 rounded-full bg-current"/>{TICKET_LABELS[ticket.status]}</Badge></TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground"><p>{emailLogDate(ticket.updatedAt || ticket.createdAt)}</p><p className="mt-1">{ticket.lastReplyBy === "customer" ? "Customer replied" : ticket.lastReplyBy === "admin" ? "Support replied" : "Ticket received"}</p></TableCell><TableCell className="pr-4 text-right"><Button variant="ghost" size="icon" aria-label={`View ticket ${ticket.number}`} onClick={() => setSelectedId(ticket._id)}><Eye className="h-4 w-4"/></Button></TableCell></TableRow>)}
+    </TableBody></Table></div>
+    <div className="flex flex-wrap items-center justify-between gap-4 text-sm"><p className="text-muted-foreground">{loading ? "Loading results…" : error ? "Results unavailable" : `Showing ${pagination.total ? (pagination.page-1)*pagination.limit+1 : 0} to ${Math.min(pagination.page*pagination.limit,pagination.total)} of ${pagination.total} tickets`}</p><div className="flex flex-wrap items-center gap-2"><Select value={limit} onValueChange={value => { setLimit(value); setPage(1) }}><SelectTrigger aria-label="Rows per page" className="h-9 w-[100px] bg-white"><SelectValue/></SelectTrigger><SelectContent>{["10","20","50"].map(value => <SelectItem key={value} value={value}>{value} rows</SelectItem>)}</SelectContent></Select><Button variant="outline" size="sm" aria-label="Previous page" disabled={loading || !!error || pagination.page <= 1} onClick={() => setPage(pagination.page-1)}><ChevronLeft className="h-4 w-4"/></Button><span className="text-xs text-muted-foreground">Page {pagination.page} of {pagination.totalPages}</span><Button variant="outline" size="sm" aria-label="Next page" disabled={loading || !!error || pagination.page >= pagination.totalPages} onClick={() => setPage(pagination.page+1)}><ChevronRight className="h-4 w-4"/></Button></div></div>
+  </div></main><TicketDialog id={selectedId} onClose={() => setSelectedId(null)} onUpdated={() => setRefresh(value => value+1)}/></>
 }

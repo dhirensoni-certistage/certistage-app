@@ -1,226 +1,63 @@
 ﻿"use client"
-
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
+import Link from "next/link"
 import { AdminHeader } from "@/components/admin/admin-header"
-import { MetricCard } from "@/components/admin/dashboard/metric-card"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { Award, Download, Clock, Percent, User, Calendar, Linkedin, MessageCircle, MousePointerClick } from "lucide-react"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts"
-import { Breadcrumbs } from "@/components/admin/breadcrumbs"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts"
+import { RefreshCw, Download, Loader2, AlertCircle, Users, CalendarDays, Award, Linkedin, MessageCircle, MousePointerClick, ArrowUpRight, BarChart3 } from "lucide-react"
+import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+import { analyticsPeriod, type AnalyticsData } from "@/lib/admin-analytics"
+import { emailLogDate } from "@/lib/admin-email-logs"
 
-interface AnalyticsData {
-  certificateTrends: Array<{ date: string; count: number }>
-  topUsers: Array<{ user: { _id: string; name: string; email: string }; eventsCount: number; recipientsCount: number }>
-  topEvents: Array<{ event: { _id: string; name: string }; owner: { name: string; email: string }; recipientsCount: number }>
-  downloadStats: { total: number; downloaded: number; pending: number; downloadRate: number }
-  growthLoop?: { linkedinRecipients: number; whatsappShares: number; ctaClicks: number }
-}
+const periods = [["7days", "Last 7 days"], ["30days", "Last 30 days"], ["90days", "Last 90 days"], ["thisMonth", "This month"], ["lastMonth", "Last month"], ["all", "All time"], ["custom", "Custom dates"]]
+const number = (value: number) => value.toLocaleString("en-IN")
+const goldButton = "border-gold/35 bg-white text-gold-deep hover:bg-gold-soft"
+const tooltipStyle = { borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }
+function chartLabel(value: string) { return new Intl.DateTimeFormat("en-IN", { month: "short", ...(value.length === 7 ? { year: "2-digit" as const } : { day: "numeric" as const }), timeZone: "Asia/Kolkata" }).format(new Date(value + (value.length === 7 ? "-01" : "") + "T00:00:00+05:30")) }
 
 export default function AnalyticsPage() {
-  const [data, setData] = useState<AnalyticsData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
-
-  useEffect(() => { fetchAnalytics() }, [])
-
-  const fetchAnalytics = async () => {
-    setLoading(true)
+  const [range, setRange] = useState("30days"); const [from, setFrom] = useState(""); const [to, setTo] = useState("")
+  const [data, setData] = useState<AnalyticsData | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [refresh, setRefresh] = useState(0)
+  const [customOpen, setCustomOpen] = useState(false); const [draftFrom, setDraftFrom] = useState(""); const [draftTo, setDraftTo] = useState(""); const [customError, setCustomError] = useState("")
+  const [chart, setChart] = useState("recipients")
+  const params = new URLSearchParams({ range, ...(range === "custom" ? { from, to } : {}) }).toString()
+  useEffect(() => {
+    const controller = new AbortController(); setLoading(true); setError("")
+    fetch(`/api/admin/analytics?${params}`, { signal: controller.signal }).then(async res => { const value = await res.json(); if (!res.ok) throw Error(value.error || "Unable to load analytics"); return value }).then(setData).catch(err => { if (!controller.signal.aborted) setError(err.message) }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [params, refresh])
+  function applyCustom() {
+    try { analyticsPeriod(new URLSearchParams({ range: "custom", from: draftFrom, to: draftTo })); setFrom(draftFrom); setTo(draftTo); setRange("custom"); setCustomOpen(false) } catch (err) { setCustomError(err instanceof Error ? err.message : "Invalid dates") }
+  }
+  function exportReport() {
+    if (!data || loading || error) return
     try {
-      const params = new URLSearchParams()
-      if (startDate) params.set("startDate", startDate)
-      if (endDate) params.set("endDate", endDate)
-      const res = await fetch(`/api/admin/analytics?${params}`)
-      if (res.ok) setData(await res.json())
-    } catch (error) {
-      console.error("Failed to fetch analytics:", error)
-    } finally {
-      setLoading(false)
-    }
+      const rows: unknown[][] = [["Analytics report", "CertiStage"], ["Period start (UTC)", data.period.from || "All time"], ["Period end (UTC)", data.period.to], ["Generated (UTC)", data.asOf], [], ["Metric", "Value"], ...Object.entries(data.summary), [], ["Period (IST)", "Recipient registrations", "New users", "Events created"], ...data.series.map(row => [row.date, row.recipients, row.users, row.events]), [], ["Top event", "Owner", "Registrations", "Recipients downloaded"], ...data.topEvents.map(row => [row.event.name, row.owner?.name || "", row.recipientsCount, row.downloaded]), [], ["Top organizer", "Email", "Registrations", "Events with registrations"], ...data.topUsers.map(row => [row.user.name || "", row.user.email || "", row.recipientsCount, row.eventsCount]), [], ["Sharing counter (all time)", "Value"], ...Object.entries(data.growthLoop)]
+      const cell = (value: unknown) => { let text = String(value ?? ""); if (/^\s*[=+@-]/.test(text)) text = "'" + text; return '"' + text.replace(/"/g, '""') + '"' }
+      const url = URL.createObjectURL(new Blob(["\uFEFF" + rows.map(row => row.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = "certistage-analytics.csv"; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch { toast.error("Unable to export report") }
   }
-
-  const handleFilter = () => fetchAnalytics()
-
-  // Custom tooltip for charts
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-popover border border-border rounded-lg shadow-lg p-3">
-          <p className="text-sm font-medium text-foreground">{label}</p>
-          <p className="text-sm text-primary">{payload[0].value} certificates</p>
-        </div>
-      )
-    }
-    return null
-  }
-
-  return (
-    <>
-      <AdminHeader title="Analytics" description="Platform usage analytics and insights" />
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <Breadcrumbs />
-          
-          {/* Date Range Filter */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-wrap items-end gap-4">
-                <div>
-                  <Label>Start Date</Label>
-                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1" />
-                </div>
-                <div>
-                  <Label>End Date</Label>
-                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1" />
-                </div>
-                <Button onClick={handleFilter}>Apply Filter</Button>
-                <Button variant="outline" onClick={() => { setStartDate(""); setEndDate(""); fetchAnalytics() }}>Clear</Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Download Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard title="Total Certificates" value={data?.downloadStats.total ?? 0} icon={Award} loading={loading} />
-            <MetricCard title="Downloaded" value={data?.downloadStats.downloaded ?? 0} icon={Download} loading={loading} />
-            <MetricCard title="Pending" value={data?.downloadStats.pending ?? 0} icon={Clock} loading={loading} />
-            <MetricCard title="Download Rate" value={`${data?.downloadStats.downloadRate ?? 0}%`} icon={Percent} loading={loading} />
-          </div>
-
-          {/* Growth loop: what recipients do on the public download pages (all time) */}
-          <div>
-            <p className="text-sm font-medium text-muted-foreground mb-2">Download page sharing (all time)</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <MetricCard title="Recipients who opened LinkedIn" value={data?.growthLoop?.linkedinRecipients ?? 0} icon={Linkedin} loading={loading} />
-              <MetricCard title="WhatsApp shares" value={data?.growthLoop?.whatsappShares ?? 0} icon={MessageCircle} loading={loading} />
-              <MetricCard title="Clicks to certistage.com" value={data?.growthLoop?.ctaClicks ?? 0} icon={MousePointerClick} loading={loading} />
-            </div>
-          </div>
-
-          {/* Certificate Trends Chart - Fixed with proper colors */}
-          <Card>
-            <CardHeader><CardTitle>Certificate Generation Trends</CardTitle></CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                {!data?.certificateTrends || data.certificateTrends.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-12">No data available</p>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data.certificateTrends.map(d => ({ 
-                      ...d, 
-                      date: new Date(d.date).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) 
-                    }))}>
-                      <defs>
-                        <linearGradient id="colorCert" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#171717" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#171717" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis 
-                        dataKey="date" 
-                        tick={{ fill: "#6b7280", fontSize: 12 }} 
-                        axisLine={{ stroke: "#e5e7eb" }}
-                        tickLine={{ stroke: "#e5e7eb" }}
-                      />
-                      <YAxis 
-                        tick={{ fill: "#6b7280", fontSize: 12 }} 
-                        axisLine={{ stroke: "#e5e7eb" }}
-                        tickLine={{ stroke: "#e5e7eb" }}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Area 
-                        type="monotone" 
-                        dataKey="count" 
-                        stroke="#171717" 
-                        strokeWidth={2}
-                        fill="url(#colorCert)" 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top Users & Events - Fixed with max-height and scroll */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Top 10 Users by Events</CardTitle>
-                  {data?.topUsers && data.topUsers.length > 0 && (
-                    <span className="text-xs text-muted-foreground">{data.topUsers.length} users</span>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {!data?.topUsers || data.topUsers.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No data available</p>
-                ) : (
-                  <div className="max-h-[400px] overflow-y-auto pr-2 space-y-3">
-                    {data.topUsers.map((item, i) => (
-                      <div key={item.user?._id || i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <span className="text-xs font-bold text-primary">{i + 1}</span>
-                        </div>
-                        <User className="h-4 w-4 text-primary shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{item.user?.name || "Unknown"}</p>
-                          <p className="text-xs text-muted-foreground truncate">{item.user?.email || ""}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-bold text-primary">{item.eventsCount}</p>
-                          <p className="text-xs text-muted-foreground">events</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Top 10 Events by Recipients</CardTitle>
-                  {data?.topEvents && data.topEvents.length > 0 && (
-                    <span className="text-xs text-muted-foreground">{data.topEvents.length} events</span>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {!data?.topEvents || data.topEvents.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No data available</p>
-                ) : (
-                  <div className="max-h-[400px] overflow-y-auto pr-2 space-y-3">
-                    {data.topEvents.map((item, i) => (
-                      <div key={item.event?._id || i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
-                        <div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center shrink-0">
-                          <span className="text-xs font-bold text-purple-600">{i + 1}</span>
-                        </div>
-                        <Calendar className="h-4 w-4 text-purple-600 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{item.event?.name || "Unknown"}</p>
-                          <p className="text-xs text-muted-foreground truncate">{item.owner?.name || ""}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-bold text-purple-600">{item.recipientsCount}</p>
-                          <p className="text-xs text-muted-foreground">recipients</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </>
-  )
+  const summary = data?.summary
+  return <><AdminHeader title="Analytics" compact/><main className="min-w-0 flex-1 overflow-auto bg-slate-50/40 p-4 md:p-6"><div className="mx-auto max-w-[1600px] space-y-6">
+    <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">Analytics</h1><p className="mt-1 text-sm text-muted-foreground">Understand platform adoption, event activity and certificate engagement.</p></div><div className="flex flex-wrap gap-2"><Select value={range} onValueChange={value => { if (value === "custom") { setDraftFrom(from); setDraftTo(to); setCustomError(""); setCustomOpen(true) } else setRange(value) }}><SelectTrigger aria-label="Analytics period" className="h-10 w-[175px] bg-white"><SelectValue/></SelectTrigger><SelectContent>{periods.map(([value,label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>{range === "custom" && <Button variant="outline" onClick={() => { setDraftFrom(from); setDraftTo(to); setCustomError(""); setCustomOpen(true) }}>Edit dates</Button>}<Button variant="outline" className="bg-white" disabled={!data || loading || !!error} onClick={exportReport}><Download className="h-4 w-4"/>Export report</Button><Button variant="outline" className={goldButton} disabled={loading} aria-label="Refresh analytics" onClick={() => setRefresh(value => value + 1)}><RefreshCw className={cn("h-4 w-4",loading && "animate-spin")}/></Button></div></div>
+    <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground"><p>{range === "custom" ? `${from} to ${to} · ` : ""}Calendar dates use IST. Engagement reflects recipients registered in the selected period.</p>{data && !loading && !error && <p>Updated {emailLogDate(data.asOf)} IST</p>}</div>
+    {loading ? <div className="space-y-5" aria-busy="true"><div className="h-28 animate-pulse rounded-xl border bg-white"/><div className="grid gap-5 lg:grid-cols-3"><div className="h-[350px] animate-pulse rounded-xl border bg-white lg:col-span-2"/><div className="h-[350px] animate-pulse rounded-xl border bg-white"/></div><p className="flex items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin text-gold-deep"/>Loading analytics...</p></div> : error ? <div className="rounded-xl border bg-white py-16 text-center"><AlertCircle className="mx-auto mb-3 h-7 w-7 text-rose-500"/><p className="mb-4">{error}</p><Button variant="outline" onClick={() => setRefresh(value => value + 1)}>Try again</Button></div> : data && summary ? <>
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-slate-200 md:grid-cols-3 xl:grid-cols-6">{[
+        { label: "New users", value: number(summary.users), note: "Accounts created", icon: Users }, { label: "Events created", value: number(summary.events), note: "In selected period", icon: CalendarDays }, { label: "Registrations", value: number(summary.recipients), note: "Recipient records added", icon: Award }, { label: "Downloaded", value: number(summary.downloaded), note: "Unique recipients", icon: Download }, { label: "Not downloaded", value: number(summary.notDownloaded), note: "No recorded download", icon: Award }, { label: "Download rate", value: `${summary.downloadRate}%`, note: "Registered cohort", icon: BarChart3 },
+      ].map(metric => <div key={metric.label} className="bg-white p-4 md:p-5"><div className="flex items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{metric.label}</p><metric.icon className="h-4 w-4 shrink-0 text-gold-deep"/></div><p className="my-2 text-2xl font-semibold tabular-nums">{metric.value}</p><p className="text-xs text-muted-foreground">{metric.note}</p></div>)}</div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"><Card className="min-w-0 rounded-xl shadow-none"><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className="text-base">Platform activity</CardTitle><CardDescription className="mt-1">{data.period.interval === "day" ? "Daily" : "Monthly"} {chart === "recipients" ? "recipient registrations" : "new accounts and events"} · IST</CardDescription></div><div className="flex gap-1 rounded-lg border bg-slate-50 p-1">{[["recipients","Registrations"],["adoption","Adoption"]].map(([value,label]) => <button key={value} aria-pressed={chart === value} onClick={() => setChart(value)} className={cn("rounded-md px-2.5 py-1.5 text-xs",chart === value ? "bg-gold-soft font-medium text-gold-deep" : "text-muted-foreground")}>{label}</button>)}</div></div></CardHeader><CardContent><div className="h-[300px] min-w-0">{!(chart === "recipients" ? summary.recipients : summary.users + summary.events) ? <div className="flex h-full flex-col items-center justify-center text-sm text-muted-foreground"><BarChart3 className="mb-3 h-8 w-8 text-gold-deep"/>No activity recorded in this period.</div> : <ResponsiveContainer width="100%" height="100%">{chart === "recipients" ? <AreaChart data={data.series} margin={{ top: 10, right: 12, left: -15, bottom: 0 }}><defs><linearGradient id="analytics-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#c99719" stopOpacity={0.25}/><stop offset="100%" stopColor="#c99719" stopOpacity={0.01}/></linearGradient></defs><CartesianGrid strokeDasharray="3 4" vertical={false} stroke="#e9edf2"/><XAxis dataKey="date" tickFormatter={chartLabel} tick={{fontSize:11,fill:"#94a3b8"}} axisLine={false} tickLine={false} minTickGap={30}/><YAxis allowDecimals={false} tick={{fontSize:11,fill:"#94a3b8"}} axisLine={false} tickLine={false}/><Tooltip contentStyle={tooltipStyle} labelFormatter={value => chartLabel(String(value))}/><Area isAnimationActive={false} type="linear" dataKey="recipients" name="Registrations" stroke="#c99719" fill="url(#analytics-gold)" strokeWidth={2}/></AreaChart> : <LineChart data={data.series} margin={{ top: 10, right: 12, left: -15, bottom: 0 }}><CartesianGrid strokeDasharray="3 4" vertical={false} stroke="#e9edf2"/><XAxis dataKey="date" tickFormatter={chartLabel} tick={{fontSize:11,fill:"#94a3b8"}} axisLine={false} tickLine={false} minTickGap={30}/><YAxis allowDecimals={false} tick={{fontSize:11,fill:"#94a3b8"}} axisLine={false} tickLine={false}/><Tooltip contentStyle={tooltipStyle} labelFormatter={value => chartLabel(String(value))}/><Line isAnimationActive={false} type="linear" dataKey="users" name="New users" stroke="#c99719" strokeWidth={2} dot={false}/><Line isAnimationActive={false} type="linear" dataKey="events" name="Events created" stroke="#64748b" strokeWidth={2} dot={false}/></LineChart>}</ResponsiveContainer>}</div>{chart === "adoption" && <div className="mt-3 flex justify-center gap-4 text-xs text-muted-foreground"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-gold"/>New users</span><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-slate-500"/>Events created</span></div>}</CardContent></Card>
+        <Card className="min-w-0 rounded-xl shadow-none"><CardHeader><CardTitle className="text-base">Download engagement</CardTitle><CardDescription>Recorded downloads for this registration cohort</CardDescription></CardHeader><CardContent>{summary.recipients ? <div className="relative h-[200px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie isAnimationActive={false} data={[{name:"Downloaded",value:summary.downloaded},{name:"Not downloaded",value:summary.notDownloaded}]} dataKey="value" innerRadius={64} outerRadius={86} stroke="none"><Cell fill="#c99719"/><Cell fill="#eef1f5"/></Pie><Tooltip contentStyle={tooltipStyle}/></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><p className="text-2xl font-semibold">{summary.downloadRate}%</p><p className="text-xs text-muted-foreground">download rate</p></div></div> : <p className="py-16 text-center text-sm text-muted-foreground">No registrations in this period.</p>}<div className="space-y-3 text-sm"><div className="flex justify-between"><span className="text-muted-foreground">Downloaded</span><span className="font-medium">{number(summary.downloaded)}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Not downloaded</span><span className="font-medium">{number(summary.notDownloaded)}</span></div><div className="flex justify-between border-t pt-3"><span className="text-muted-foreground">Emailed at least once</span><span className="font-medium">{number(summary.emailed)}</span></div></div><p className="mt-3 text-xs text-muted-foreground">Downloads and email counts are cumulative for these recipients, not actions performed during the date range.</p></CardContent></Card></div>
+      <div className="grid gap-5 lg:grid-cols-2"><Card className="min-w-0 rounded-xl shadow-none"><CardHeader><CardTitle className="text-base">Top organizers</CardTitle><CardDescription>Ranked by registrations added in the selected period</CardDescription></CardHeader><CardContent><div className="max-h-[430px] space-y-3 overflow-auto">{!data.topUsers.length ? <p className="py-8 text-center text-sm text-muted-foreground">No organizer activity in this period.</p> : data.topUsers.map((item,index) => <div key={item.user._id || index} className="flex items-center gap-3 rounded-lg border border-slate-100 p-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold-soft text-xs font-medium text-gold-deep">{index+1}</span><div className="min-w-0 flex-1">{item.user._id ? <Link href={`/admin/users/${item.user._id}`} className="block truncate text-sm font-medium hover:text-gold-deep">{item.user.name}<ArrowUpRight className="ml-1 inline h-3 w-3"/></Link> : <p className="text-sm">{item.user.name}</p>}<p className="truncate text-xs text-muted-foreground">{item.user.email}</p><p className="mt-1 text-xs text-muted-foreground">{item.eventsCount} events with registrations</p></div><div className="shrink-0 text-right"><p className="text-sm font-semibold">{number(item.recipientsCount)}</p><p className="text-xs text-muted-foreground">registrations</p></div></div>)}</div></CardContent></Card>
+        <Card className="min-w-0 rounded-xl shadow-none"><CardHeader><CardTitle className="text-base">Top events</CardTitle><CardDescription>Ranked by registrations added in the selected period</CardDescription></CardHeader><CardContent><div className="max-h-[430px] space-y-3 overflow-auto">{!data.topEvents.length ? <p className="py-8 text-center text-sm text-muted-foreground">No event registrations in this period.</p> : data.topEvents.map((item,index) => <div key={item.event._id} className="rounded-lg border border-slate-100 p-3"><div className="flex items-center gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold-soft text-xs font-medium text-gold-deep">{index+1}</span><div className="min-w-0 flex-1"><Link href={`/admin/events/${item.event._id}`} className="block truncate text-sm font-medium hover:text-gold-deep">{item.event.name}<ArrowUpRight className="ml-1 inline h-3 w-3"/></Link><p className="truncate text-xs text-muted-foreground">{item.owner?.name || "Deleted account"}</p></div><div className="shrink-0 text-right"><p className="text-sm font-semibold">{number(item.recipientsCount)}</p><p className="text-xs text-muted-foreground">registrations</p></div></div><div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gold" style={{width:`${item.recipientsCount ? item.downloaded/item.recipientsCount*100 : 0}%`}}/></div><p className="mt-1.5 text-xs text-muted-foreground">{number(item.downloaded)} downloaded · {item.recipientsCount ? Math.round(item.downloaded/item.recipientsCount*100) : 0}% engagement</p></div>)}</div></CardContent></Card></div>
+      <Card className="rounded-xl shadow-none"><CardHeader><div className="flex items-center gap-2"><CardTitle className="text-base">Download-page sharing</CardTitle><Badge variant="outline" className="border-gold/20 bg-gold-soft font-normal text-gold-deep">All time</Badge></div><CardDescription>These counters have no activity dates and do not change with the period filter.</CardDescription></CardHeader><CardContent><div className="grid gap-4 md:grid-cols-3">{[{label:"Recipients who opened LinkedIn",value:data.growthLoop.linkedinRecipients,note:"Button opens, not confirmed profile additions",icon:Linkedin},{label:"WhatsApp share clicks",value:data.growthLoop.whatsappShares,note:"Share button opens, not confirmed messages",icon:MessageCircle},{label:"CertiStage website clicks",value:data.growthLoop.ctaClicks,note:"Clicks from certificate download pages",icon:MousePointerClick}].map(metric => <div key={metric.label} className="flex gap-3 rounded-lg bg-slate-50 p-4"><span className="h-fit rounded-lg bg-gold-soft p-2 text-gold-deep"><metric.icon className="h-4 w-4"/></span><div><p className="text-xs text-muted-foreground">{metric.label}</p><p className="my-1 text-xl font-semibold">{number(metric.value)}</p><p className="text-xs text-muted-foreground">{metric.note}</p></div></div>)}</div></CardContent></Card>
+    </> : null}
+  </div></main><Dialog open={customOpen} onOpenChange={setCustomOpen}><DialogContent><DialogHeader><DialogTitle>Custom date range</DialogTitle><DialogDescription>Choose inclusive calendar dates in IST.</DialogDescription></DialogHeader><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="analytics-from">Start date</Label><Input id="analytics-from" type="date" value={draftFrom} onChange={event => setDraftFrom(event.target.value)}/></div><div className="space-y-2"><Label htmlFor="analytics-to">End date</Label><Input id="analytics-to" type="date" value={draftTo} onChange={event => setDraftTo(event.target.value)}/></div></div>{customError && <p role="alert" className="text-sm text-destructive">{customError}</p>}<DialogFooter><Button variant="outline" onClick={() => setCustomOpen(false)}>Cancel</Button><Button variant="outline" className={goldButton} onClick={applyCustom}>Apply dates</Button></DialogFooter></DialogContent></Dialog></>
 }
 

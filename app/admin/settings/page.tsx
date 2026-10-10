@@ -38,7 +38,7 @@ import {
   Loader2, DatabaseBackup, Download, Mail } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
-import { Breadcrumbs } from "@/components/admin/breadcrumbs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AdminHeader } from "@/components/admin/admin-header"
 import {
   Dialog,
@@ -74,6 +74,11 @@ interface PaymentConfig {
 }
 
 export default function AdminSettingsPage() {
+  const [configLoading, setConfigLoading] = useState(true)
+  const [configError, setConfigError] = useState(false)
+  const [savedConfig, setSavedConfig] = useState("")
+  const [adminsLoading, setAdminsLoading] = useState(true)
+  const [adminsError, setAdminsError] = useState(false)
   const [showRazorpaySecret, setShowRazorpaySecret] = useState(false)
   const [showStripeSecret, setShowStripeSecret] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -102,15 +107,20 @@ export default function AdminSettingsPage() {
   const isSuperAdmin = currentAdmin?.role === "super_admin"
 
   const fetchAdmins = async () => {
+    setAdminsLoading(true)
+    setAdminsError(false)
     try {
       const res = await fetch("/api/admin/admins")
       if (res.ok) {
         const data = await res.json()
         setAdmins(data.admins || [])
         setCurrentAdmin({ id: data.currentAdminId, role: data.currentRole })
-      }
+      } else setAdminsError(true)
     } catch (error) {
       console.error("Failed to fetch admins:", error)
+      setAdminsError(true)
+    } finally {
+      setAdminsLoading(false)
     }
   }
 
@@ -182,25 +192,19 @@ export default function AdminSettingsPage() {
 
   // Load payment config from database
   const loadPaymentConfig = async () => {
+    setConfigLoading(true)
+    setConfigError(false)
     try {
       const res = await fetch("/api/admin/settings?key=payment_config")
-      if (res.ok) {
-        const data = await res.json()
-        if (data.value) {
-          setConfig(data.value)
-        }
-      }
+      if (!res.ok) throw new Error("Unable to load payment settings")
+      const data = await res.json()
+      const value: PaymentConfig = { activeGateway: data.value?.activeGateway || "razorpay", razorpay: { keyId: "", keySecret: "", isLive: false, ...data.value?.razorpay }, stripe: { publishableKey: "", secretKey: "", isLive: false, ...data.value?.stripe } }
+      setConfig(value)
+      setSavedConfig(JSON.stringify(value))
     } catch (error) {
-      console.error("Failed to load payment config:", error)
-      // Fallback to localStorage
-      const saved = localStorage.getItem("payment_config")
-      if (saved) {
-        try {
-          setConfig(JSON.parse(saved))
-        } catch (e) {
-          console.error("Error loading config from localStorage")
-        }
-      }
+      setConfigError(true)
+    } finally {
+      setConfigLoading(false)
     }
   }
 
@@ -228,11 +232,11 @@ export default function AdminSettingsPage() {
       })
       
       if (res.ok) {
-        // Also save to localStorage as backup
-        localStorage.setItem("payment_config", JSON.stringify(config))
+        setSavedConfig(JSON.stringify(config))
         toast.success("Payment settings saved!")
       } else {
-        toast.error("Failed to save settings")
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Failed to save settings")
       }
     } catch (error) {
       console.error("Save error:", error)
@@ -246,23 +250,22 @@ export default function AdminSettingsPage() {
     const gateway = config.activeGateway
     setIsTestingConnection(true)
     setConnectionStatus("idle")
-    await new Promise(resolve => setTimeout(resolve, 1500))
     
     if (gateway === "razorpay") {
-      if (config.razorpay.keyId.startsWith("rzp_")) {
+      if (config.razorpay.keyId.startsWith(config.razorpay.isLive ? "rzp_live_" : "rzp_test_") && config.razorpay.keySecret.trim()) {
         setConnectionStatus("success")
-        toast.success("Razorpay connection verified!")
+        toast.success("Key format matches the selected mode. Gateway connectivity has not been tested.")
       } else {
         setConnectionStatus("error")
-        toast.error("Invalid Razorpay Key ID format")
+        toast.error("Enter both keys and match the Key ID to the selected test/live mode")
       }
     } else {
-      if (config.stripe.publishableKey.startsWith("pk_")) {
+      if (config.stripe.publishableKey.startsWith(config.stripe.isLive ? "pk_live_" : "pk_test_") && config.stripe.secretKey.startsWith(config.stripe.isLive ? "sk_live_" : "sk_test_")) {
         setConnectionStatus("success")
-        toast.success("Stripe connection verified!")
+        toast.success("Key format matches the selected mode. Gateway connectivity has not been tested.")
       } else {
         setConnectionStatus("error")
-        toast.error("Invalid Stripe Publishable Key format")
+        toast.error("Match both Stripe keys to the selected test/live mode")
       }
     }
     setIsTestingConnection(false)
@@ -356,6 +359,7 @@ export default function AdminSettingsPage() {
   }
 
   useEffect(() => {
+    try { localStorage.removeItem("payment_config") } catch {}
     checkSystemHealth()
     fetchAdmins()
     loadPaymentConfig()
@@ -364,15 +368,23 @@ export default function AdminSettingsPage() {
 
   return (
     <>
-      <AdminHeader title="Settings" description="Manage payment gateway and system configuration" />
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          <Breadcrumbs />
+      <AdminHeader title="Settings" compact />
+      <div className="flex-1 overflow-auto bg-slate-50/40 p-4 md:p-6">
+        <div className="max-w-[1400px] mx-auto space-y-6">
+          <div><h1 className="text-3xl font-semibold tracking-tight">Settings</h1><p className="mt-1 text-sm text-muted-foreground">Manage payment configuration, admin access and platform operations.</p></div>
+          <Tabs defaultValue="payments" className="space-y-6">
+            <TabsList className="grid h-auto w-full grid-cols-2 gap-1 border bg-white p-1 md:w-fit md:grid-cols-4">
+              <TabsTrigger value="payments" className="gap-2 px-4 py-2.5 data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep"><CreditCard className="h-4 w-4"/>Payments</TabsTrigger>
+              <TabsTrigger value="admins" className="gap-2 px-4 py-2.5 data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep"><UserCog className="h-4 w-4"/>Admin Access</TabsTrigger>
+              <TabsTrigger value="system" className="gap-2 px-4 py-2.5 data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep"><Server className="h-4 w-4"/>System Health</TabsTrigger>
+              <TabsTrigger value="data" className="gap-2 px-4 py-2.5 data-[state=active]:bg-gold-soft data-[state=active]:text-gold-deep"><DatabaseBackup className="h-4 w-4"/>Backups & Data</TabsTrigger>
+            </TabsList>
 
+      <TabsContent value="system" className="space-y-5">
       {/* System Health */}
-      <Card className="mb-6">
+      <Card className="rounded-xl border-slate-200 shadow-none">
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-neutral-500/10 flex items-center justify-center">
                 <Server className="h-5 w-5 text-neutral-500" />
@@ -390,7 +402,7 @@ export default function AdminSettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid sm:grid-cols-2 gap-4">
-            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-muted/50 rounded-lg border">
               <div className="flex items-center gap-3">
                 <Database className="h-5 w-5 text-muted-foreground" />
                 <div>
@@ -402,7 +414,7 @@ export default function AdminSettingsPage() {
                 {systemHealth.database === "checking" ? "Checking..." : systemHealth.database === "connected" ? "Connected" : "Error"}
               </Badge>
             </div>
-            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-muted/50 rounded-lg border">
               <div className="flex items-center gap-3">
                 <Server className="h-5 w-5 text-muted-foreground" />
                 <div>
@@ -418,13 +430,14 @@ export default function AdminSettingsPage() {
         </CardContent>
       </Card>
 
+      </TabsContent><TabsContent value="admins" className="space-y-5">
       {/* Admin Users */}
-      <Card className="mb-6">
+      <Card className="rounded-xl border-slate-200 shadow-none">
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                <UserCog className="h-5 w-5 text-blue-500" />
+              <div className="h-10 w-10 rounded-lg bg-gold-soft flex items-center justify-center">
+                <UserCog className="h-5 w-5 text-gold-deep" />
               </div>
               <div>
                 <CardTitle>Admin Users</CardTitle>
@@ -432,7 +445,7 @@ export default function AdminSettingsPage() {
               </div>
             </div>
             {isSuperAdmin && (
-              <Button size="sm" onClick={() => setShowAddAdmin(true)}>
+              <Button variant="outline" className="border-gold/35 bg-white text-gold-deep hover:bg-gold-soft" size="sm" onClick={() => setShowAddAdmin(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Admin
               </Button>
@@ -440,7 +453,7 @@ export default function AdminSettingsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {admins.length === 0 ? (
+          {adminsLoading ? <p className="py-8 text-center text-muted-foreground">Loading admin accounts...</p> : adminsError ? <div className="py-8 text-center"><p className="mb-3">Unable to load admin accounts.</p><Button variant="outline" onClick={fetchAdmins}>Retry</Button></div> : admins.length === 0 ? (
             <p className="text-muted-foreground text-center py-4">No admins found</p>
           ) : (
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -453,16 +466,16 @@ export default function AdminSettingsPage() {
                   : "Unknown"
                 
                 return (
-                  <div key={admin._id || index} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-sm font-semibold text-primary">{initials}</span>
+                  <div key={admin._id || index} className="flex flex-wrap items-center justify-between gap-3 p-4 bg-muted/50 rounded-lg border">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="h-10 w-10 shrink-0 rounded-full bg-gold-soft flex items-center justify-center">
+                        <span className="text-sm font-semibold text-gold-deep">{initials}</span>
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium">{displayName}</p>
                           {admin.role === "super_admin" ? (
-                            <Badge variant="default" className="text-[10px] h-5">Super Admin</Badge>
+                            <Badge variant="outline" className="border-gold/20 bg-gold-soft text-gold-deep text-[10px] h-5">Super Admin</Badge>
                           ) : (
                             <Badge variant="secondary" className="text-[10px] h-5">Admin</Badge>
                           )}
@@ -470,7 +483,7 @@ export default function AdminSettingsPage() {
                             <Badge variant="outline" className="text-[10px] h-5">Inactive</Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground">{admin.email} · Added {createdDate}</p>
+                        <p className="break-all text-xs text-muted-foreground">{admin.email} · Added {createdDate}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -520,33 +533,34 @@ export default function AdminSettingsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddAdmin(false)}>Cancel</Button>
-            <Button onClick={handleAddAdmin} disabled={isAddingAdmin}>{isAddingAdmin ? "Adding..." : "Add Admin"}</Button>
+            <Button variant="outline" className="border-gold/35 bg-white text-gold-deep hover:bg-gold-soft" onClick={handleAddAdmin} disabled={isAddingAdmin}>{isAddingAdmin ? "Adding..." : "Add Admin"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
 
+      </TabsContent><TabsContent value="payments" className="space-y-5">
       {/* Payment Gateway Configuration */}
-      <Card className="mb-6">
+      <Card className="rounded-xl border-slate-200 shadow-none">
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <CreditCard className="h-5 w-5 text-primary" />
+              <div className="h-10 w-10 rounded-lg bg-gold-soft flex items-center justify-center">
+                <CreditCard className="h-5 w-5 text-gold-deep" />
               </div>
               <div>
                 <CardTitle>Payment Gateway</CardTitle>
                 <CardDescription>Configure payment processing</CardDescription>
               </div>
             </div>
-            <Badge variant={activeConfig.isLive ? "default" : "secondary"} className="h-7">
+            <Badge variant="outline" className="h-7 border-gold/20 bg-gold-soft text-gold-deep">
               {activeConfig.isLive ? "Live" : "Test"}
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6">{configError && <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm"><p className="mb-2">Unable to load payment configuration.</p><Button variant="outline" onClick={loadPaymentConfig}>Retry</Button></div>}{configLoading && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>Loading payment settings...</p>}<fieldset disabled={configLoading || configError || isSaving} className="min-w-0 space-y-6">
           {/* Gateway Selector */}
-          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-muted/50 rounded-lg border">
             <div className="flex items-center gap-3">
               <CreditCard className="h-5 w-5 text-muted-foreground" />
               <div>
@@ -579,12 +593,12 @@ export default function AdminSettingsPage() {
           {/* Razorpay Configuration */}
           {config.activeGateway === "razorpay" && (
             <div className="space-y-4 p-4 border rounded-lg">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="font-semibold flex items-center gap-2"><IndianRupee className="h-4 w-4" /> Razorpay Configuration</h3>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Production Mode</span>
                   <Switch
-                    checked={config.razorpay.isLive}
+                    className="data-[state=checked]:bg-gold" checked={config.razorpay.isLive}
                     onCheckedChange={(checked) => setConfig(prev => ({ ...prev, razorpay: { ...prev.razorpay, isLive: checked } }))}
                   />
                 </div>
@@ -593,7 +607,7 @@ export default function AdminSettingsPage() {
               {config.razorpay.isLive && (
                 <div className="flex items-center gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                   <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-                  <p className="text-sm text-amber-600 dark:text-amber-400">Live mode enabled. Real payments will be processed.</p>
+                  <p className="text-sm text-amber-600 dark:text-amber-400">Use live gateway keys to process real payments.</p>
                 </div>
               )}
 
@@ -635,12 +649,12 @@ export default function AdminSettingsPage() {
           {/* Stripe Configuration */}
           {config.activeGateway === "stripe" && (
             <div className="space-y-4 p-4 border rounded-lg">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="font-semibold flex items-center gap-2"><Globe className="h-4 w-4" /> Stripe Configuration</h3>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Production Mode</span>
                   <Switch
-                    checked={config.stripe.isLive}
+                    className="data-[state=checked]:bg-gold" checked={config.stripe.isLive}
                     onCheckedChange={(checked) => setConfig(prev => ({ ...prev, stripe: { ...prev.stripe, isLive: checked } }))}
                   />
                 </div>
@@ -649,7 +663,7 @@ export default function AdminSettingsPage() {
               {config.stripe.isLive && (
                 <div className="flex items-center gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                   <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-                  <p className="text-sm text-amber-600 dark:text-amber-400">Live mode enabled. Real payments will be processed.</p>
+                  <p className="text-sm text-amber-600 dark:text-amber-400">Use live gateway keys to process real payments.</p>
                 </div>
               )}
 
@@ -688,46 +702,49 @@ export default function AdminSettingsPage() {
             </div>
           )}
 
+          <p className="text-xs text-muted-foreground">{savedConfig !== JSON.stringify(config) ? "Unsaved changes" : "Configuration saved"}. Save changes to update the gateway settings.</p>
           {/* Connection Status */}
           {connectionStatus !== "idle" && (
             <div className={`flex items-center gap-2 p-3 rounded-lg ${connectionStatus === "success" ? "bg-neutral-500/10 border border-neutral-500/20" : "bg-destructive/10 border border-destructive/20"}`}>
               {connectionStatus === "success" ? <CheckCircle2 className="h-4 w-4 text-neutral-500" /> : <AlertCircle className="h-4 w-4 text-destructive" />}
               <span className={`text-sm font-medium ${connectionStatus === "success" ? "text-neutral-600 dark:text-neutral-400" : "text-destructive"}`}>
-                {connectionStatus === "success" ? "Connection verified successfully" : "Connection failed"}
+                {connectionStatus === "success" ? "Key format matches the selected mode. Connectivity has not been tested." : "Keys are missing or do not match the selected mode."}
               </span>
             </div>
           )}
 
           {/* Actions */}
-          <div className="flex items-center gap-3 pt-2">
-            <Button onClick={handleSave} disabled={isSaving} className="min-w-[120px]">
-              {isSaving ? "Saving..." : <><Save className="h-4 w-4 mr-2" />Save</>}
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Button variant="outline" onClick={handleSave} disabled={isSaving || configLoading || configError || savedConfig === JSON.stringify(config)} className="min-w-[120px] border-gold/35 bg-white text-gold-deep hover:bg-gold-soft">
+              {isSaving ? "Saving..." : <><Save className="h-4 w-4 mr-2" />Save changes</>}
             </Button>
-            <Button variant="outline" onClick={handleTestConnection} disabled={isTestingConnection} className="min-w-[140px]">
-              {isTestingConnection ? "Testing..." : "Test Connection"}
+            <Button variant="outline" onClick={handleTestConnection} disabled={isTestingConnection || configLoading || configError} className="min-w-[140px]">
+              {isTestingConnection ? "Testing..." : "Check key format"}
             </Button>
           </div>
+          </fieldset>
         </CardContent>
       </Card>
 
+      </TabsContent><TabsContent value="data" className="space-y-5">
       {/* Backups */}
-      <Card className="mb-6">
+      <Card className="rounded-xl border-slate-200 shadow-none">
         <CardHeader className="pb-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <DatabaseBackup className="h-5 w-5 text-primary" />
+            <div className="h-10 w-10 rounded-lg bg-gold-soft flex items-center justify-center">
+              <DatabaseBackup className="h-5 w-5 text-gold-deep" />
             </div>
             <div>
               <CardTitle>Backups</CardTitle>
-              <CardDescription>A full copy of the database, as a compressed file you can restore from</CardDescription>
+              <CardDescription>A compressed backup of core platform records for recovery.</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3 text-sm">
             <div className="p-3 rounded-lg border bg-background">
-              <p className="font-medium">Every week</p>
-              <p className="text-xs text-muted-foreground mt-1">Sunday 2:00 AM IST a backup is emailed to the backup address set in the environment (BACKUP_EMAIL, else ADMIN_EMAIL).</p>
+              <p className="font-medium">Weekly schedule</p>
+              <p className="text-xs text-muted-foreground mt-1">Configured for Sunday at 2:00 AM IST on the deployed cron scheduler. Backups use BACKUP_EMAIL, falling back to ADMIN_EMAIL.</p>
             </div>
             <div className="p-3 rounded-lg border bg-background">
               <p className="font-medium">What is inside</p>
@@ -739,7 +756,7 @@ export default function AdminSettingsPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button asChild>
+            <Button variant="outline" className="border-gold/35 bg-white text-gold-deep hover:bg-gold-soft" asChild>
               <a href="/api/admin/backup"><Download className="h-4 w-4 mr-2" />Download backup</a>
             </Button>
             <Button variant="outline" onClick={handleEmailBackup} disabled={isEmailingBackup}>
@@ -751,16 +768,16 @@ export default function AdminSettingsPage() {
       </Card>
 
       {/* Data Management - Danger Zone */}
-      <Card className="mb-6 border-destructive/50">
+      <Card className="rounded-xl border-destructive/25 shadow-none">
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
                 <AlertTriangle className="h-5 w-5 text-destructive" />
               </div>
               <div>
                 <CardTitle className="text-destructive">Danger Zone</CardTitle>
-                <CardDescription>Clear test data from database</CardDescription>
+                <CardDescription>Permanently remove selected platform records</CardDescription>
               </div>
             </div>
           </div>
@@ -773,7 +790,7 @@ export default function AdminSettingsPage() {
                 <p className="text-sm font-medium text-destructive">Warning: This action is irreversible</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Clearing data will permanently delete selected records from the database. 
-                  This is useful for removing test data before going live.
+                  This clears all records in the selected categories, including live customer data.
                 </p>
               </div>
             </div>
@@ -782,27 +799,27 @@ export default function AdminSettingsPage() {
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div className="p-3 bg-background rounded-lg border text-center">
                 <Users className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
-                <p className="text-lg font-bold">{dataCounts.users || 0}</p>
+                <p className="text-lg font-bold">{dataCounts.users ?? "?"}</p>
                 <p className="text-xs text-muted-foreground">Users</p>
               </div>
               <div className="p-3 bg-background rounded-lg border text-center">
                 <Calendar className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
-                <p className="text-lg font-bold">{dataCounts.events || 0}</p>
+                <p className="text-lg font-bold">{dataCounts.events ?? "?"}</p>
                 <p className="text-xs text-muted-foreground">Events</p>
               </div>
               <div className="p-3 bg-background rounded-lg border text-center">
                 <FileText className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
-                <p className="text-lg font-bold">{dataCounts.certificates || 0}</p>
+                <p className="text-lg font-bold">{dataCounts.certificates ?? "?"}</p>
                 <p className="text-xs text-muted-foreground">Cert Types</p>
               </div>
               <div className="p-3 bg-background rounded-lg border text-center">
                 <Users className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
-                <p className="text-lg font-bold">{dataCounts.recipients || 0}</p>
+                <p className="text-lg font-bold">{dataCounts.recipients ?? "?"}</p>
                 <p className="text-xs text-muted-foreground">Recipients</p>
               </div>
               <div className="p-3 bg-background rounded-lg border text-center">
                 <PaymentIcon className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
-                <p className="text-lg font-bold">{dataCounts.payments || 0}</p>
+                <p className="text-lg font-bold">{dataCounts.payments ?? "?"}</p>
                 <p className="text-xs text-muted-foreground">Payments</p>
               </div>
             </div>
@@ -812,7 +829,7 @@ export default function AdminSettingsPage() {
               onClick={() => { setShowClearDataDialog(true); fetchDataCounts() }}
             >
               <Trash2 className="h-4 w-4 mr-2" />
-              Clear Test Data
+              Clear platform data
             </Button>
           </div>
         </CardContent>
@@ -820,11 +837,11 @@ export default function AdminSettingsPage() {
 
       {/* Clear Data Dialog */}
       <Dialog open={showClearDataDialog} onOpenChange={setShowClearDataDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
-              Clear Test Data
+              Clear platform data
             </DialogTitle>
             <DialogDescription>
               Select which data to clear. This action cannot be undone.
@@ -842,7 +859,7 @@ export default function AdminSettingsPage() {
                     onCheckedChange={(checked) => setClearDataOptions(prev => ({ ...prev, users: !!checked }))}
                   />
                   <label htmlFor="clear-users" className="text-sm font-medium cursor-pointer">
-                    Users ({dataCounts.users || 0})
+                    Users ({dataCounts.users ?? "?"})
                   </label>
                 </div>
                 <Users className="h-4 w-4 text-muted-foreground" />
@@ -856,7 +873,7 @@ export default function AdminSettingsPage() {
                     onCheckedChange={(checked) => setClearDataOptions(prev => ({ ...prev, events: !!checked }))}
                   />
                   <label htmlFor="clear-events" className="text-sm font-medium cursor-pointer">
-                    Events ({dataCounts.events || 0})
+                    Events ({dataCounts.events ?? "?"})
                   </label>
                 </div>
                 <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -870,7 +887,7 @@ export default function AdminSettingsPage() {
                     onCheckedChange={(checked) => setClearDataOptions(prev => ({ ...prev, certificates: !!checked }))}
                   />
                   <label htmlFor="clear-certificates" className="text-sm font-medium cursor-pointer">
-                    Certificate Types ({dataCounts.certificates || 0})
+                    Certificate Types ({dataCounts.certificates ?? "?"})
                   </label>
                 </div>
                 <FileText className="h-4 w-4 text-muted-foreground" />
@@ -884,7 +901,7 @@ export default function AdminSettingsPage() {
                     onCheckedChange={(checked) => setClearDataOptions(prev => ({ ...prev, recipients: !!checked }))}
                   />
                   <label htmlFor="clear-recipients" className="text-sm font-medium cursor-pointer">
-                    Recipients ({dataCounts.recipients || 0})
+                    Recipients ({dataCounts.recipients ?? "?"})
                   </label>
                 </div>
                 <Users className="h-4 w-4 text-muted-foreground" />
@@ -898,7 +915,7 @@ export default function AdminSettingsPage() {
                     onCheckedChange={(checked) => setClearDataOptions(prev => ({ ...prev, payments: !!checked }))}
                   />
                   <label htmlFor="clear-payments" className="text-sm font-medium cursor-pointer">
-                    Payments ({dataCounts.payments || 0})
+                    Payments ({dataCounts.payments ?? "?"})
                   </label>
                 </div>
                 <PaymentIcon className="h-4 w-4 text-muted-foreground" />
@@ -924,7 +941,7 @@ export default function AdminSettingsPage() {
             <Button 
               variant="destructive" 
               onClick={handleClearData}
-              disabled={isClearing || confirmText !== "DELETE"}
+              disabled={isClearing || confirmText !== "DELETE" || !Object.values(clearDataOptions).some(Boolean)}
             >
               {isClearing ? (
                 <>
@@ -941,6 +958,7 @@ export default function AdminSettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+          </TabsContent></Tabs>
         </div>
       </div>
     </>

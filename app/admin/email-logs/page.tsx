@@ -1,478 +1,78 @@
 ﻿"use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useRef, useState } from "react"
+import { AdminHeader } from "@/components/admin/admin-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Mail,
-  Search,
-  Eye,
-  Trash2,
-  RefreshCw,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Send,
-  Loader2,
-  ChevronLeft,
-  ChevronRight
-} from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Mail, Search, Eye, Trash2, RefreshCw, Download, Loader2, ChevronLeft, ChevronRight, AlertCircle, RotateCcw } from "lucide-react"
 import { toast } from "sonner"
-import { format } from "date-fns"
+import { cn } from "@/lib/utils"
+import { EMAIL_STATUSES, emailLogDate, emailTemplateLabel, emailPreviewDocument, type AdminEmailLog } from "@/lib/admin-email-logs"
 
-interface EmailLog {
-  id: string
-  to: string
-  subject: string
-  template: string
-  status: "initiated" | "sent" | "failed" | "read"
-  errorMessage?: string
-  metadata?: any
-  sentAt?: string
-  createdAt: string
-  htmlContent?: string
-}
-
-interface Stats {
-  total: number
-  initiated: number
-  sent: number
-  failed: number
-  read: number
-}
+const labels: Record<string, string> = { initiated: "Initiated", sent: "Sent", failed: "Failed", read: "Read" }
+const colors: Record<string, string> = { initiated: "bg-amber-50 text-amber-700", sent: "bg-emerald-50 text-emerald-700", failed: "bg-rose-50 text-rose-700", read: "bg-blue-50 text-blue-700" }
+function StatusBadge({ status }: { status: string }) { return <Badge variant="outline" className={cn("gap-1.5 rounded-full border-0 px-2.5 py-1 font-medium", colors[status])}><span className="h-1.5 w-1.5 rounded-full bg-current" />{labels[status] || status}</Badge> }
 
 export default function EmailLogsPage() {
-  const [logs, setLogs] = useState<EmailLog[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState("")
-  const [status, setStatus] = useState("all")
-  const [template, setTemplate] = useState("all")
-  const [dateRange, setDateRange] = useState("all")
-  const [templates, setTemplates] = useState<string[]>([])
-  const [stats, setStats] = useState<Stats>({ total: 0, initiated: 0, sent: 0, failed: 0, read: 0 })
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 })
-  
-  // Preview dialog
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewLog, setPreviewLog] = useState<EmailLog | null>(null)
-  const [loadingPreview, setLoadingPreview] = useState(false)
-
-  const fetchLogs = async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: pagination.limit.toString(),
-        search,
-        status,
-        template,
-        dateRange
-      })
-
-      const res = await fetch(`/api/admin/email-logs?${params}`)
-      const data = await res.json()
-
-      if (res.ok) {
-        setLogs(data.logs)
-        setStats(data.stats)
-        setTemplates(data.templates)
-        setPagination(prev => ({ ...prev, ...data.pagination }))
-      }
-    } catch (error) {
-      toast.error("Failed to fetch email logs")
-    }
-    setLoading(false)
-  }
-
+  const [logs, setLogs] = useState<AdminEmailLog[]>([])
+  const [search, setSearch] = useState(""); const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [status, setStatus] = useState("all"); const [template, setTemplate] = useState("all"); const [dateRange, setDateRange] = useState("all"); const [sort, setSort] = useState("newest")
+  const [page, setPage] = useState(1); const [limit, setLimit] = useState("20"); const [refresh, setRefresh] = useState(0)
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 })
+  const [stats, setStats] = useState<Record<string, number>>({ total: 0, initiated: 0, sent: 0, failed: 0, read: 0 })
+  const [templates, setTemplates] = useState<string[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState("")
+  const [exporting, setExporting] = useState(false)
+  const [previewId, setPreviewId] = useState<string | null>(null); const [preview, setPreview] = useState<AdminEmailLog | null>(null); const [previewError, setPreviewError] = useState(""); const [previewLoading, setPreviewLoading] = useState(false)
+  const [deleteLog, setDeleteLog] = useState<AdminEmailLog | null>(null); const [deleting, setDeleting] = useState(false)
+  const searchSequence = useRef(0)
+  useEffect(() => { const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 350); return () => clearTimeout(timer) }, [search])
+  const params = new URLSearchParams({ search: debouncedSearch, status, template, dateRange, sort, page: String(page), limit }).toString()
   useEffect(() => {
-    fetchLogs()
-  }, [pagination.page, status, template, dateRange])
-
-  const handleSearch = () => {
-    setPagination(prev => ({ ...prev, page: 1 }))
-    fetchLogs()
+    const controller = new AbortController(); setLoading(true); setError("")
+    fetch(`/api/admin/email-logs?${params}`, { signal: controller.signal }).then(async res => { const data = await res.json(); if (!res.ok) throw Error(data.error || "Unable to load logs"); return data }).then(data => { setLogs(data.logs); setPagination(data.pagination); setStats(data.stats); setTemplates(data.templates) }).catch(err => { if (!controller.signal.aborted) setError(err.message) }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [params, refresh])
+  useEffect(() => {
+    if (!previewId) return
+    const controller = new AbortController(); const sequence = ++searchSequence.current
+    setPreview(null); setPreviewError(""); setPreviewLoading(true)
+    fetch(`/api/admin/email-logs/${previewId}`, { signal: controller.signal }).then(async res => { const data = await res.json(); if (!res.ok) throw Error(data.error || "Unable to load email"); return data }).then(data => { if (sequence === searchSequence.current) setPreview(data) }).catch(err => { if (!controller.signal.aborted) setPreviewError(err.message) }).finally(() => { if (!controller.signal.aborted) setPreviewLoading(false) })
+    return () => controller.abort()
+  }, [previewId])
+  function reset() { setSearch(""); setDebouncedSearch(""); setStatus("all"); setTemplate("all"); setDateRange("all"); setSort("newest"); setPage(1) }
+  async function exportCsv() {
+    setExporting(true)
+    try { const res = await fetch(`/api/admin/export/email-logs?${params}`); if (!res.ok) throw Error((await res.json()).error || "Export failed"); const url = URL.createObjectURL(await res.blob()); const anchor = document.createElement("a"); anchor.href = url; anchor.download = "email-logs.csv"; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000) } catch (err) { toast.error(err instanceof Error ? err.message : "Export failed") } finally { setExporting(false) }
   }
-
-  const handlePreview = async (logId: string) => {
-    setLoadingPreview(true)
-    setPreviewOpen(true)
-    try {
-      const res = await fetch(`/api/admin/email-logs/${logId}`)
-      const data = await res.json()
-      if (res.ok) {
-        setPreviewLog(data)
-      }
-    } catch (error) {
-      toast.error("Failed to load email preview")
-    }
-    setLoadingPreview(false)
+  async function removeLog() {
+    if (!deleteLog) return; setDeleting(true)
+    try { const res = await fetch(`/api/admin/email-logs/${deleteLog.id}`, { method: "DELETE" }); if (!res.ok) throw Error((await res.json()).error || "Delete failed"); setDeleteLog(null); setRefresh(value => value + 1); toast.success("Email log deleted") } catch (err) { toast.error(err instanceof Error ? err.message : "Delete failed") } finally { setDeleting(false) }
   }
-
-  const handleDelete = async (logId: string) => {
-    if (!confirm("Delete this email log?")) return
-    
-    try {
-      const res = await fetch(`/api/admin/email-logs/${logId}`, { method: "DELETE" })
-      if (res.ok) {
-        toast.success("Email log deleted")
-        fetchLogs()
-      }
-    } catch (error) {
-      toast.error("Failed to delete")
-    }
-  }
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "sent":
-        return <Badge className="bg-neutral-100 text-neutral-700"><CheckCircle className="h-3 w-3 mr-1" />Sent</Badge>
-      case "failed":
-        return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Failed</Badge>
-      case "initiated":
-        return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Initiated</Badge>
-      case "read":
-        return <Badge className="bg-blue-100 text-blue-700"><Eye className="h-3 w-3 mr-1" />Read</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
-  }
-
-  const getTemplateLabel = (template: string) => {
-    const labels: Record<string, string> = {
-      welcome: "Welcome Email",
-      emailVerification: "Email Verification",
-      passwordReset: "Password Reset",
-      paymentSuccess: "Payment Success",
-      invoice: "Invoice",
-      adminNotification: "Admin Notification",
-      custom: "Custom"
-    }
-    return labels[template] || template
-  }
-
-  return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Mail className="h-6 w-6" />
-            Email Logs
-          </h1>
-          <p className="text-muted-foreground">Track all sent emails with preview</p>
+  return <>
+    <AdminHeader title="Email Logs" compact />
+    <main className="min-w-0 flex-1 overflow-auto bg-slate-50/40 p-4 md:p-6">
+      <div className="mx-auto max-w-[1600px] space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">Email Logs</h1><p className="mt-1 text-sm text-muted-foreground">Monitor outgoing emails, investigate failures and review message content.</p></div><div className="flex gap-2"><Button variant="outline" className="bg-white" onClick={exportCsv} disabled={loading || !!error || exporting || pagination.total === 0}>{exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}Export CSV</Button><Button variant="outline" className="border-gold/35 bg-white text-gold-deep hover:bg-gold-soft" onClick={() => setRefresh(value => value + 1)} disabled={loading}><RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />Refresh</Button></div></div>
+        <div className="flex flex-wrap gap-2" aria-label="Filter by email status">{["all", ...EMAIL_STATUSES].map(value => <Button key={value} variant="outline" size="sm" aria-pressed={status === value} className={cn("rounded-lg bg-white", status === value && "border-gold/35 bg-gold-soft text-gold-deep")} onClick={() => { setStatus(value); setPage(1) }}>{value === "all" ? "All emails" : labels[value]}<span className="ml-1 text-xs opacity-65">{loading || error ? "—" : (stats[value === "all" ? "total" : value] || 0).toLocaleString("en-IN")}</span></Button>)}</div>
+        <div className="flex flex-wrap gap-3"><div className="relative min-w-[200px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground"/><Input aria-label="Search emails" placeholder="Search recipient or subject..." className="h-10 bg-white pl-9" value={search} onChange={e => setSearch(e.target.value)} /></div>
+          <Select value={template} onValueChange={value => { setTemplate(value); setPage(1) }}><SelectTrigger className="h-10 w-[190px] bg-white" aria-label="Email template"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All templates</SelectItem>{templates.map(value => <SelectItem value={value} key={value}>{emailTemplateLabel(value)}</SelectItem>)}</SelectContent></Select>
+          <Select value={dateRange} onValueChange={value => { setDateRange(value); setPage(1) }}><SelectTrigger className="h-10 w-[155px] bg-white" aria-label="Date range"><SelectValue /></SelectTrigger><SelectContent>{[["all", "All time"], ["today", "Today (IST)"], ["week", "Last 7 days"], ["month", "Last 30 days"]].map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>
+          <Button variant="outline" className="h-10 bg-white" onClick={reset}><RotateCcw className="h-4 w-4"/>Reset</Button>
         </div>
-        <Button onClick={fetchLogs} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><p>Status counts follow your search, template and date filters. Times shown in IST.</p><Select value={sort} onValueChange={value => { setSort(value); setPage(1) }}><SelectTrigger className="h-8 w-[145px] bg-white" aria-label="Sort emails"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="newest">Newest first</SelectItem><SelectItem value="oldest">Oldest first</SelectItem></SelectContent></Select></div>
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white"><Table><TableHeader className="bg-slate-50/70"><TableRow><TableHead className="w-14 pl-5">#</TableHead><TableHead>Recipient</TableHead><TableHead>Message</TableHead><TableHead>Template</TableHead><TableHead>Status</TableHead><TableHead>Created (IST)</TableHead><TableHead className="pr-5 text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
+          {loading ? <TableRow><TableCell colSpan={7} className="h-48 text-center"><Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-gold-deep"/>Loading email logs...</TableCell></TableRow> : error ? <TableRow><TableCell colSpan={7} className="h-48 text-center"><AlertCircle className="mx-auto mb-2 h-6 w-6 text-rose-500"/><p className="mb-3">{error}</p><Button variant="outline" onClick={() => setRefresh(value => value + 1)}>Try again</Button></TableCell></TableRow> : logs.length === 0 ? <TableRow><TableCell colSpan={7} className="h-48 text-center"><Mail className="mx-auto mb-3 h-7 w-7 text-gold-deep"/><p className="font-medium">No email logs found</p><p className="mt-1 text-sm text-muted-foreground">Try changing your filters or searching another recipient.</p><Button variant="ghost" className="mt-2 text-gold-deep" onClick={reset}>Clear filters</Button></TableCell></TableRow> : logs.map((log, index) => <TableRow key={log.id} className="hover:bg-gold-soft/20"><TableCell className="pl-5 text-muted-foreground">{(pagination.page - 1) * pagination.limit + index + 1}</TableCell><TableCell className="min-w-[230px]"><p className="font-medium">{log.to}</p>{log.metadata?.userName && <p className="mt-1 text-xs text-muted-foreground">{log.metadata.userName}</p>}</TableCell><TableCell className="min-w-[250px] max-w-[350px]"><button className="block max-w-full truncate text-left hover:text-gold-deep" title={log.subject} onClick={() => setPreviewId(log.id)}>{log.subject}</button>{log.errorMessage && <p className="mt-1 max-w-[300px] truncate text-xs text-rose-600" title={log.errorMessage}>{log.errorMessage}</p>}</TableCell><TableCell><Badge variant="outline" className="whitespace-nowrap font-normal text-muted-foreground">{emailTemplateLabel(log.template)}</Badge></TableCell><TableCell><StatusBadge status={log.status}/></TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground">{emailLogDate(log.createdAt)}</TableCell><TableCell className="pr-4"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" aria-label={`View email to ${log.to}`} onClick={() => setPreviewId(log.id)}><Eye className="h-4 w-4"/></Button><Button variant="ghost" size="icon" aria-label={`Delete log for ${log.to}`} onClick={() => setDeleteLog(log)} className="text-muted-foreground hover:text-rose-600"><Trash2 className="h-4 w-4"/></Button></div></TableCell></TableRow>)}
+        </TableBody></Table></div>
+        <div className="flex flex-wrap items-center justify-between gap-4 text-sm"><p className="text-muted-foreground">{loading ? "Loading results…" : error ? "Results unavailable" : `Showing ${pagination.total ? (pagination.page - 1) * pagination.limit + 1 : 0} to ${Math.min(pagination.page * pagination.limit, pagination.total)} of ${pagination.total.toLocaleString("en-IN")} results`}</p><div className="flex flex-wrap items-center gap-2"><Select value={limit} onValueChange={value => { setLimit(value); setPage(1) }}><SelectTrigger className="h-9 w-[100px] bg-white" aria-label="Rows per page"><SelectValue /></SelectTrigger><SelectContent>{["10", "20", "50"].map(value => <SelectItem value={value} key={value}>{value} rows</SelectItem>)}</SelectContent></Select><Button variant="outline" size="sm" disabled={loading || !!error || pagination.page <= 1} onClick={() => setPage(pagination.page - 1)} aria-label="Previous page"><ChevronLeft className="h-4 w-4"/></Button><span className="px-1 text-xs text-muted-foreground">Page {pagination.page} of {pagination.totalPages}</span><Button variant="outline" size="sm" disabled={loading || !!error || pagination.page >= pagination.totalPages} onClick={() => setPage(pagination.page + 1)} aria-label="Next page"><ChevronRight className="h-4 w-4"/></Button></div></div>
+        <p className="text-xs text-muted-foreground">“Sent” records a successful send operation, not confirmed inbox delivery. “Read” appears only when recorded by the system.</p>
       </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Send className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Total</span>
-            </div>
-            <p className="text-2xl font-bold mt-1">{stats.total}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-500" />
-              <span className="text-sm text-muted-foreground">Initiated</span>
-            </div>
-            <p className="text-2xl font-bold mt-1 text-amber-600">{stats.initiated}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-neutral-500" />
-              <span className="text-sm text-muted-foreground">Sent</span>
-            </div>
-            <p className="text-2xl font-bold mt-1 text-neutral-600">{stats.sent}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <XCircle className="h-4 w-4 text-red-500" />
-              <span className="text-sm text-muted-foreground">Failed</span>
-            </div>
-            <p className="text-2xl font-bold mt-1 text-red-600">{stats.failed}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-blue-500" />
-              <span className="text-sm text-muted-foreground">Read</span>
-            </div>
-            <p className="text-2xl font-bold mt-1 text-blue-600">{stats.read}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by email or subject..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="initiated">Initiated</SelectItem>
-                <SelectItem value="sent">Sent</SelectItem>
-                <SelectItem value="failed">Failed</SelectItem>
-                <SelectItem value="read">Read</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={template} onValueChange={setTemplate}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Templates" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Templates</SelectItem>
-                {templates.map(t => (
-                  <SelectItem key={t} value={t}>{getTemplateLabel(t)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Date Range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">Last 7 Days</SelectItem>
-                <SelectItem value="month">Last 30 Days</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={handleSearch}>
-              <Search className="h-4 w-4 mr-2" />
-              Search
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Email Logs Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">#</TableHead>
-                  <TableHead className="min-w-[200px]">To</TableHead>
-                  <TableHead className="min-w-[150px]">Template</TableHead>
-                  <TableHead className="hidden md:table-cell min-w-[250px]">Subject</TableHead>
-                  <TableHead className="min-w-[100px]">Status</TableHead>
-                  <TableHead className="min-w-[150px]">Date</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-10">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                    </TableCell>
-                  </TableRow>
-                ) : logs.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                      No email logs found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  logs.map((log, index) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="text-muted-foreground">
-                        {(pagination.page - 1) * pagination.limit + index + 1}
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{log.to}</div>
-                        {log.metadata?.userName && (
-                          <div className="text-xs text-muted-foreground">{log.metadata.userName}</div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-normal whitespace-nowrap">
-                          {getTemplateLabel(log.template)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell max-w-[300px] truncate">
-                        {log.subject}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(log.status)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                        {format(new Date(log.createdAt), "dd MMM, yy HH:mm")}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handlePreview(log.id)}
-                            title="Preview"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(log.id)}
-                            className="text-red-500 hover:text-red-600"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Pagination */}
-          {pagination.totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
-                {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
-                  disabled={pagination.page === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm">
-                  Page {pagination.page} of {pagination.totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
-                  disabled={pagination.page === pagination.totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Email Preview Dialog */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              Email Preview
-            </DialogTitle>
-          </DialogHeader>
-          {loadingPreview ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          ) : previewLog ? (
-            <div className="flex-1 overflow-auto">
-              <div className="space-y-4 mb-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">To:</span>
-                    <span className="ml-2 font-medium">{previewLog.to}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Status:</span>
-                    <span className="ml-2">{getStatusBadge(previewLog.status)}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground">Subject:</span>
-                    <span className="ml-2 font-medium">{previewLog.subject}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Template:</span>
-                    <span className="ml-2">{getTemplateLabel(previewLog.template)}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Sent At:</span>
-                    <span className="ml-2">
-                      {previewLog.sentAt 
-                        ? format(new Date(previewLog.sentAt), "dd MMM yyyy, HH:mm:ss")
-                        : "Not sent"
-                      }
-                    </span>
-                  </div>
-                </div>
-                {previewLog.errorMessage && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                    <strong>Error:</strong> {previewLog.errorMessage}
-                  </div>
-                )}
-              </div>
-              <div className="border rounded-lg overflow-hidden bg-white">
-                <iframe
-                  srcDoc={previewLog.htmlContent}
-                  className="w-full h-[500px] border-0"
-                  title="Email Preview"
-                />
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-      </div>
-    </div>
-  )
+    </main>
+    <Dialog open={!!previewId} onOpenChange={open => { if (!open) setPreviewId(null) }}><DialogContent className="w-[96vw] sm:max-w-5xl max-h-[92vh] overflow-y-auto"><DialogHeader><DialogTitle>Email details</DialogTitle><DialogDescription>Review the recorded message and send status.</DialogDescription></DialogHeader>{previewLoading ? <Loader2 className="mx-auto my-16 h-6 w-6 animate-spin text-gold-deep"/> : previewError ? <p className="py-8 text-center text-destructive">{previewError}</p> : preview ? <div className="min-w-0 space-y-4"><div className="grid gap-4 rounded-lg border bg-slate-50/60 p-4 text-sm sm:grid-cols-2">{[["Recipient", preview.to], ["Template", emailTemplateLabel(preview.template)], ["Created (IST)", emailLogDate(preview.createdAt)], ["Sent (IST)", emailLogDate(preview.sentAt)], ["Read (IST)", emailLogDate(preview.readAt)]].map(([label, value]) => <div key={label}><p className="mb-1 text-xs text-muted-foreground">{label}</p><p className="break-words">{value}</p></div>)}<div><p className="mb-1 text-xs text-muted-foreground">Status</p><StatusBadge status={preview.status}/></div><div className="sm:col-span-2"><p className="mb-1 text-xs text-muted-foreground">Subject</p><p className="break-words font-medium">{preview.subject}</p></div></div>{preview.errorMessage && <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><p className="mb-1 font-medium">Send failure</p><p className="break-words">{preview.errorMessage}</p></div>}{preview.htmlContent ? <iframe sandbox="" referrerPolicy="no-referrer" srcDoc={emailPreviewDocument(preview.htmlContent)} title="Email content preview" className="h-[480px] w-full rounded-lg border bg-white"/> : <p className="py-8 text-center text-muted-foreground">No email content stored for this log.</p>}</div> : null}</DialogContent></Dialog>
+    <Dialog open={!!deleteLog} onOpenChange={open => { if (!open && !deleting) setDeleteLog(null) }}><DialogContent><DialogHeader><DialogTitle>Delete email log?</DialogTitle><DialogDescription>This permanently removes the stored log and preview for {deleteLog?.to}. It does not recall the email.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" disabled={deleting} onClick={() => setDeleteLog(null)}>Cancel</Button><Button variant="destructive" disabled={deleting} onClick={removeLog}>{deleting ? "Deleting…" : "Delete log"}</Button></DialogFooter></DialogContent></Dialog>
+  </>
 }
 

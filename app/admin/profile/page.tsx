@@ -1,265 +1,58 @@
 "use client"
-
-import { useState, useEffect } from "react"
+import { useEffect, useState, type FormEvent } from "react"
+import Link from "next/link"
 import { AdminHeader } from "@/components/admin/admin-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { User, Mail, Shield, Calendar, Lock, Eye, EyeOff } from "lucide-react"
+import { User, Mail, Shield, CalendarDays, LockKeyhole, Eye, EyeOff, Clock, Save, Loader2, AlertCircle, Check, ArrowUpRight, RotateCcw } from "lucide-react"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+import { emailLogDate } from "@/lib/admin-email-logs"
 
-interface AdminProfile {
-  _id: string
-  name: string
-  email: string
-  role: string
-  lastLogin?: string
-  createdAt: string
+interface AdminProfile { _id: string; name: string; email: string; role: string; lastLogin?: string; createdAt: string }
+const actionStyle = "border-gold/35 bg-white text-gold-deep hover:bg-gold-soft"
+function PasswordField({ id, label, value, onChange, disabled, autoComplete }: { id: string; label: string; value: string; onChange: (value: string) => void; disabled: boolean; autoComplete: string }) {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => { if (!value) setVisible(false) }, [value])
+  return <div className="space-y-2"><Label htmlFor={id}>{label}</Label><div className="relative"><Input id={id} type={visible ? "text" : "password"} autoComplete={autoComplete} value={value} disabled={disabled} onChange={event => onChange(event.target.value)} className="h-11 pr-11" required placeholder={label === "Current password" ? "Enter your current password" : label === "New password" ? "Create a new password" : "Enter the new password again"}/><Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 h-9 w-9 text-muted-foreground" aria-label={`${visible ? "Hide" : "Show"} ${label.toLowerCase()}`} aria-pressed={visible} onClick={() => setVisible(value => !value)}>{visible ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}</Button></div></div>
 }
-
 export default function AdminProfilePage() {
-  const [profile, setProfile] = useState<AdminProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [name, setName] = useState("")
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showPasswords, setShowPasswords] = useState(false)
-
+  const [profile, setProfile] = useState<AdminProfile | null>(null); const [name, setName] = useState("")
+  const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [retry, setRetry] = useState(0)
+  const [saving, setSaving] = useState<"profile" | "password" | null>(null); const [profileError, setProfileError] = useState(""); const [passwordError, setPasswordError] = useState("")
+  const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState(""); const [confirmPassword, setConfirmPassword] = useState("")
   useEffect(() => {
-    fetchProfile()
-  }, [])
-
-  const fetchProfile = async () => {
-    try {
-      const res = await fetch("/api/admin/profile")
-      if (res.ok) {
-        const data = await res.json()
-        setProfile(data)
-        setName(data.name)
-      }
-    } catch (error) {
-      console.error("Failed to fetch profile:", error)
-    } finally {
-      setLoading(false)
-    }
+    const controller = new AbortController(); setLoading(true); setError("")
+    fetch("/api/admin/profile", { signal: controller.signal, cache: "no-store" }).then(async res => { const data = await res.json(); if (!res.ok) throw Error(data.error || "Unable to load profile"); return data }).then(data => { setProfile(data); setName(data.name) }).catch(err => { if (!controller.signal.aborted) setError(err.message) }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [retry])
+  const dirty = !!profile && name.trim() !== profile.name
+  async function saveProfile(event: FormEvent) {
+    event.preventDefault(); if (saving || !dirty) return
+    if (!name.trim() || name.trim().length > 100) { setProfileError("Enter a name with 1–100 characters."); return }
+    setSaving("profile"); setProfileError("")
+    try { const res = await fetch("/api/admin/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim() }) }); const data = await res.json(); if (!res.ok) throw Error(data.error || "Unable to save profile"); setProfile(data.profile); setName(data.profile.name); toast.success("Profile updated successfully") } catch (err) { setProfileError(err instanceof Error ? err.message : "Unable to save profile") } finally { setSaving(null) }
   }
-
-  const handleUpdateProfile = async () => {
-    if (!name.trim()) {
-      toast.error("Name is required")
-      return
-    }
-    setSaving(true)
-    try {
-      const res = await fetch("/api/admin/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name })
-      })
-      if (res.ok) {
-        toast.success("Profile updated successfully")
-        fetchProfile()
-      } else {
-        toast.error("Failed to update profile")
-      }
-    } catch (error) {
-      toast.error("Failed to update profile")
-    } finally {
-      setSaving(false)
-    }
+  async function changePassword(event: FormEvent) {
+    event.preventDefault(); if (saving) return; setPasswordError("")
+    if (!currentPassword || !newPassword || !confirmPassword) { setPasswordError("Complete all password fields."); return }
+    if (newPassword.length < 8) { setPasswordError("Use at least 8 characters for your new password."); return }
+    if (new TextEncoder().encode(newPassword).length > 72) { setPasswordError("Your new password must be at most 72 bytes."); return }
+    if (newPassword !== confirmPassword) { setPasswordError("New passwords do not match."); return }
+    if (newPassword === currentPassword) { setPasswordError("Choose a password different from your current password."); return }
+    setSaving("password")
+    try { const res = await fetch("/api/admin/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currentPassword, newPassword }) }); const data = await res.json(); if (!res.ok) throw Error(data.error || "Unable to change password"); setProfile(data.profile); setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); toast.success("Password changed successfully") } catch (err) { setPasswordError(err instanceof Error ? err.message : "Unable to change password") } finally { setSaving(null) }
   }
-
-  const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error("All password fields are required")
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error("New passwords do not match")
-      return
-    }
-    if (newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters")
-      return
-    }
-    setSaving(true)
-    try {
-      const res = await fetch("/api/admin/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword })
-      })
-      if (res.ok) {
-        toast.success("Password changed successfully")
-        setCurrentPassword("")
-        setNewPassword("")
-        setConfirmPassword("")
-      } else {
-        const data = await res.json()
-        toast.error(data.error || "Failed to change password")
-      }
-    } catch (error) {
-      toast.error("Failed to change password")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <>
-        <AdminHeader title="Profile" description="Manage your admin profile" />
-        <div className="flex-1 overflow-auto p-6">
-          <div className="max-w-2xl mx-auto space-y-6">
-            <Skeleton className="h-48 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        </div>
-      </>
-    )
-  }
-
-  return (
-    <>
-      <AdminHeader title="Profile" description="Manage your admin profile" />
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-2xl mx-auto space-y-6">
-          {/* Profile Info Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Profile Information
-              </CardTitle>
-              <CardDescription>Update your account details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-2xl font-bold text-primary">
-                    {profile?.name?.substring(0, 2).toUpperCase() || "AD"}
-                  </span>
-                </div>
-                <div>
-                  <p className="font-semibold text-lg">{profile?.name}</p>
-                  <p className="text-sm text-muted-foreground">{profile?.email}</p>
-                  <Badge variant="secondary" className="mt-1 capitalize">
-                    <Shield className="h-3 w-3 mr-1" />
-                    {profile?.role?.replace("_", " ")}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-muted-foreground">Member since</p>
-                    <p className="font-medium">
-                      {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString("en-IN", {
-                        day: "numeric", month: "short", year: "numeric"
-                      }) : "-"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-muted-foreground">Last login</p>
-                    <p className="font-medium">
-                      {profile?.lastLogin ? new Date(profile.lastLogin).toLocaleDateString("en-IN", {
-                        day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
-                      }) : "Never"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your name"
-                />
-              </div>
-
-              <Button onClick={handleUpdateProfile} disabled={saving}>
-                {saving ? "Saving..." : "Update Profile"}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Change Password Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Lock className="h-5 w-5" />
-                Change Password
-              </CardTitle>
-              <CardDescription>Update your password to keep your account secure</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <div className="relative">
-                  <Input
-                    id="currentPassword"
-                    type={showPasswords ? "text" : "password"}
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="Enter current password"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
-                <Input
-                  id="newPassword"
-                  type={showPasswords ? "text" : "password"}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type={showPasswords ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowPasswords(!showPasswords)}
-                >
-                  {showPasswords ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-                  {showPasswords ? "Hide" : "Show"} passwords
-                </Button>
-              </div>
-
-              <Button onClick={handleChangePassword} disabled={saving}>
-                {saving ? "Changing..." : "Change Password"}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+  return <><AdminHeader title="Profile" compact/><main className="min-w-0 flex-1 overflow-auto bg-slate-50/40 p-4 md:p-6"><div className="mx-auto max-w-[1400px] space-y-6">
+    <div><h1 className="text-3xl font-semibold tracking-tight">My Profile</h1><p className="mt-1 text-sm text-muted-foreground">Manage your admin account details and sign-in password.</p></div>
+    {loading ? <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]"><div className="h-[380px] animate-pulse rounded-xl border bg-white"/><div className="h-[600px] animate-pulse rounded-xl border bg-white"/><p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin text-gold-deep"/>Loading your profile...</p></div> : error ? <Card className="rounded-xl shadow-none"><CardContent className="py-16 text-center"><AlertCircle className="mx-auto mb-3 h-7 w-7 text-rose-500"/><p className="mb-4">{error}</p><Button variant="outline" onClick={() => setRetry(value => value + 1)}>Try again</Button></CardContent></Card> : profile ? <div className="grid items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <aside className="min-w-0 space-y-5"><Card className="overflow-hidden rounded-xl py-0 shadow-none"><div className="h-2 bg-gold/70"/><CardContent className="space-y-6 p-5"><div className="text-center"><div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full border border-gold/20 bg-gold-soft text-2xl font-semibold text-gold-deep">{profile.name.trim().split(/\s+/).slice(0,2).map(part => part[0]).join("").toUpperCase() || "AD"}</div><p className="break-words text-xl font-semibold">{profile.name}</p><p className="mt-1 break-all text-sm text-muted-foreground">{profile.email}</p><Badge variant="outline" className="mt-3 gap-1.5 border-gold/20 bg-gold-soft text-gold-deep"><Shield className="h-3 w-3"/>{profile.role === "super_admin" ? "Super Admin" : "Admin"}</Badge></div><dl className="space-y-4 border-t pt-5">{[{label:"Member since",value:emailLogDate(profile.createdAt),icon:CalendarDays},{label:"Last sign-in",value:emailLogDate(profile.lastLogin),icon:Clock}].map(item => <div key={item.label} className="flex gap-3"><item.icon className="mt-0.5 h-4 w-4 shrink-0 text-gold-deep"/><div><dt className="text-xs text-muted-foreground">{item.label}</dt><dd className="mt-1 text-sm">{item.value}{item.value !== "—" ? " IST" : ""}</dd></div></div>)}</dl><Link href="/admin/activity" className="inline-flex items-center gap-1 text-sm text-gold-deep hover:underline">View platform activity<ArrowUpRight className="h-4 w-4"/></Link></CardContent></Card><div className="rounded-xl border bg-white p-5"><h2 className="flex items-center gap-2 text-sm font-semibold"><Shield className="h-4 w-4 text-gold-deep"/>Account access</h2><p className="mt-2 text-xs leading-relaxed text-muted-foreground">{profile.role === "super_admin" ? "Your Super Admin role can manage administrator accounts from Settings." : "Your administrator role provides access to the admin panel. Administrator account management is reserved for Super Admins."}</p><Link href="/admin/settings" className="mt-3 inline-flex items-center gap-1 text-sm text-gold-deep hover:underline">Open settings<ArrowUpRight className="h-4 w-4"/></Link></div></aside>
+      <div className="min-w-0 space-y-5"><Card className="rounded-xl shadow-none"><CardHeader><CardTitle className="flex items-center gap-2 text-base"><User className="h-4 w-4 text-gold-deep"/>Profile information</CardTitle><CardDescription>Your display name appears on your admin account.</CardDescription></CardHeader><CardContent><form className="space-y-5" onSubmit={saveProfile}><div className="grid gap-5 md:grid-cols-2"><div className="space-y-2"><Label htmlFor="profile-name">Full name</Label><Input id="profile-name" autoComplete="name" className="h-11" value={name} maxLength={100} required disabled={!!saving} onChange={event => { setName(event.target.value); setProfileError("") }} placeholder="Enter your full name"/></div><div className="space-y-2"><Label htmlFor="profile-email">Email address</Label><div className="relative"><Mail className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"/><Input id="profile-email" type="email" readOnly className="h-11 bg-slate-50 pl-9 text-muted-foreground" value={profile.email}/></div><p className="text-xs text-muted-foreground">Your sign-in email is read-only on this page.</p></div></div>{profileError && <p role="alert" className="text-sm text-destructive">{profileError}</p>}<div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4"><p className="text-xs text-muted-foreground">{dirty ? "You have unsaved changes." : "Your profile is up to date."}</p><div className="flex gap-2"><Button type="button" variant="outline" disabled={!!saving || !dirty} onClick={() => { setName(profile.name); setProfileError("") }}><RotateCcw className="h-4 w-4"/>Reset</Button><Button type="submit" variant="outline" className={actionStyle} disabled={!!saving || !dirty}>{saving === "profile" ? <Loader2 className="h-4 w-4 animate-spin"/> : <Save className="h-4 w-4"/>}{saving === "profile" ? "Saving…" : "Save changes"}</Button></div></div></form></CardContent></Card>
+        <Card className="rounded-xl shadow-none"><CardHeader><CardTitle className="flex items-center gap-2 text-base"><LockKeyhole className="h-4 w-4 text-gold-deep"/>Change password</CardTitle><CardDescription>Verify your current password to set a new one.</CardDescription></CardHeader><CardContent><form className="space-y-5" onSubmit={changePassword}><div className="max-w-md"><PasswordField id="current-password" label="Current password" value={currentPassword} onChange={setCurrentPassword} disabled={!!saving} autoComplete="current-password"/></div><div className="grid gap-5 md:grid-cols-2"><PasswordField id="new-password" label="New password" value={newPassword} onChange={setNewPassword} disabled={!!saving} autoComplete="new-password"/><PasswordField id="confirm-password" label="Confirm new password" value={confirmPassword} onChange={setConfirmPassword} disabled={!!saving} autoComplete="new-password"/></div><div className="flex flex-wrap gap-4 text-xs"><span className={cn("flex items-center gap-1.5",newPassword.length >= 8 ? "text-emerald-700" : "text-muted-foreground")}><Check className="h-3.5 w-3.5"/>At least 8 characters</span><span className={cn("flex items-center gap-1.5",newPassword && newPassword === confirmPassword ? "text-emerald-700" : "text-muted-foreground")}><Check className="h-3.5 w-3.5"/>New passwords match</span></div>{passwordError && <p role="alert" className="text-sm text-destructive">{passwordError}</p>}<div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4"><p className="text-xs text-muted-foreground">Passwords are hidden by default.</p><Button type="submit" variant="outline" className={actionStyle} disabled={!!saving || !currentPassword || !newPassword || !confirmPassword}>{saving === "password" ? <Loader2 className="h-4 w-4 animate-spin"/> : <LockKeyhole className="h-4 w-4"/>}{saving === "password" ? "Updating…" : "Update password"}</Button></div></form></CardContent></Card>
       </div>
-    </>
-  )
+    </div> : null}
+  </div></main></>
 }

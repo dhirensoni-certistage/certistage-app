@@ -18,8 +18,7 @@ import {
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
+import { LogoutConfirmation } from "@/components/admin/logout-confirmation"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface SidebarCounts {
@@ -43,7 +42,7 @@ const navigationItems = [
 
 export function AdminSidebar() {
   const pathname = usePathname()
-  const router = useRouter()
+  const [logoutOpen, setLogoutOpen] = useState(false)
   const [collapsedPreference, setCollapsedState] = useState(false)
   const [compactViewport, setCompactViewport] = useState(false)
   const collapsed = collapsedPreference || compactViewport
@@ -87,20 +86,6 @@ export function AdminSidebar() {
       return pathname === '/admin' || pathname === '/admin/dashboard'
     }
     return pathname.startsWith(href)
-  }
-
-  const handleLogout = async () => {
-    try {
-      const res = await fetch("/api/admin/logout", { method: "POST" })
-      if (res.ok) {
-        toast.success("Logged out successfully")
-        router.push("/admin/login")
-      } else {
-        toast.error("Logout failed")
-      }
-    } catch (error) {
-      toast.error("Logout failed")
-    }
   }
 
   return (
@@ -208,7 +193,7 @@ export function AdminSidebar() {
             <TooltipTrigger asChild>
               <button
                 type="button"
-                onClick={handleLogout}
+                aria-label="Logout" onClick={() => setLogoutOpen(true)}
                 className={cn(
                   "flex items-center rounded-md text-[13.5px] text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 transition-colors",
                   collapsed ? "h-10 w-10 justify-center" : "h-10 w-full gap-3 px-3"
@@ -222,6 +207,7 @@ export function AdminSidebar() {
           </Tooltip>
         </div>
       </aside>
+      <LogoutConfirmation open={logoutOpen} onOpenChange={setLogoutOpen} />
     </TooltipProvider>
   )
 }
